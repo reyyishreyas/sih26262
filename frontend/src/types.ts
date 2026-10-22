@@ -158,3 +158,69 @@ export interface SessionUser {
   permissions: string[];
   scope: Record<string, unknown>;
 }
+
+export interface Institution {
+  id: string;
+  aicte_id: string;
+  name: string;
+  region_id: string;
+  region_code: string | null;
+}
+
+export interface WorkflowRoute {
+  key: string;
+  label: string;
+  states: string[];
+}
+
+export interface ExtractedField {
+  id: string;
+  document_id: string;
+  field_name: string;
+  value: unknown;
+  source_page: number | null;
+  source_span: string | null;
+  method: string;
+  confidence: number;
+  verification_status: "verified" | "rejected" | "unverified";
+}
+
+export interface DocumentRow {
+  id: string;
+  doc_type: string;
+  file_name: string;
+  file_sha256: string;
+  version: number;
+  status: string;
+  uploaded_at: string;
+  fields: ExtractedField[];
+}
+
+export interface UploadResult {
+  document: DocumentRow;
+  extraction: {
+    simulated: boolean;
+    warnings: string[];
+    fields_extracted: number;
+    note: string;
+  };
+  duplicate_of_another_institution: {
+    found: boolean;
+    document_id: string | null;
+    institution_id: string | null;
+    note: string | null;
+  };
+}
+
+export interface Undertaking {
+  id: string;
+  obligation_key: string;
+  title: string;
+  condition_text: string;
+  evidence_required: string;
+  due_at: string;
+  status: string;
+  submitted_at: string | null;
+  verified_at: string | null;
+  reminder_policy: Record<string, unknown>;
+}

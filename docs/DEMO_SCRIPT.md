@@ -6,13 +6,26 @@ statistics.
 
 ## Before you start
 
+The fastest path is the full stack, which is the version the screenshots and the
+isolation claims come from:
+
+```bash
+make up          # PostgreSQL 16 + API + worker + frontend
+make smoke       # optional: proves the API works end to end
+```
+
+Then open <http://localhost:5173>. The API docs are at
+<http://localhost:8000/docs> and `/health` reports the database role in use.
+
+To run without Docker instead (SQLite, no database-enforced isolation):
+
 ```bash
 cd backend
 ../.venv/bin/python -m app.services.seed
 ../.venv/bin/python -m uvicorn app.main:app --port 8000
 ```
 
-In another terminal:
+and in another terminal:
 
 ```bash
 cd frontend
@@ -25,7 +38,8 @@ Use a fixed clock so the walkthrough is identical every time:
 SIH_CLOCK_MODE=fixed SIH_CLOCK_FIXED_AT=2026-10-22T09:00:00+00:00
 ```
 
-The seeded password is `DemoPassw0rd!` for every account.
+The Compose stack already uses that fixed clock. The seeded password is
+`DemoPassw0rd!` for every account.
 
 **Say this in the first 20 seconds:** "This is a prototype. OCR and notification
 delivery are mock adapters, the data is synthetic, and the Load Factor is deliberately
@@ -67,7 +81,27 @@ Read the findings table, not the colours:
 Mention: each row carries the field paths and source pages. Unverified evidence would
 be `NEEDS_REVIEW`, never a pass.
 
-## 3. The crash-test (3 min) — the centrepiece
+## 3. Uploading and verifying evidence (75 s)
+
+Switch to **`institution@demo.local`**, open `app-main-0001`, and use the **Evidence
+& extraction** panel:
+
+- **Upload new version**, document type `Affidavit`, pick any small PDF.
+- The panel says *mock OCR*: the extractor does not read the file, it returns canned
+  fields for the chosen type and marks the result `simulated: true`.
+- Each extracted row shows value, source page, method, confidence and
+  `unverified`.
+
+Switch back to **`scrutiny@demo.local`** and click **Verify** on a field.
+
+- The verification is written with the actor and the before/after value.
+- The case's **baseline version** increments.
+- The findings table refreshes; the compliance batch is recomputed, not reused.
+
+Say: "A stored finding is a snapshot. If the evidence changed, the API recomputes
+instead of showing stale findings as if they were current."
+
+## 4. The crash-test (3 min) — the centrepiece
 
 Choose **Run rehearsal** with the synthetic demo changes:
 
@@ -94,7 +128,12 @@ Prove the guard rails: run a rehearsal with
 `{"application.current_state": "approved"}` → 422, "not evidence". Run
 `{"documents.lease_deed": "x"}` → 422, "too broad".
 
-## 4. A real action, refused honestly (90 s)
+If you are on the Compose stack, add one line: "the baseline is read through a
+read-only database role and the results are written to a separate schema by a role
+that has no access to the operational tables — `make verify-isolation` proves it
+against the live database."
+
+## 5. A real action, refused honestly (90 s)
 
 As scrutiny, request **schedule EVC** on the unmodified case.
 
@@ -106,7 +145,7 @@ As scrutiny, request **schedule EVC** on the unmodified case.
 Say: "Rejected actions are audited too. The refusal is committed after the business
 transaction rolls back, so it cannot be lost."
 
-## 5. A real action, accepted (60 s)
+## 6. A real action, accepted (60 s)
 
 Open **`app-existing-0003`** (existing institution, complete evidence). As scrutiny,
 request **approve**.
@@ -119,7 +158,7 @@ request **approve**.
 Optionally show the EVC route on `app-main-0001` requires scheduling, committee visit,
 then approval — the prototype does not fake the visit.
 
-## 6. Monitoring and alerts (90 s)
+## 7. Monitoring and alerts (90 s)
 
 Switch to **`regional@demo.local`** → **Monitoring**.
 
@@ -140,7 +179,12 @@ Show the alert list: delivery attempts are recorded, the response says
 As **`supervisor@demo.local`**, show the same monitoring data without transition or
 rehearsal controls. Explain that the endpoints refuse regardless of the UI.
 
-## 7. Audit integrity (45 s)
+Optional 30 s: open the case as the institution and show the **Post-approval
+undertakings** panel — the overdue `faculty_recruitment_undertaking` is flagged,
+the institution can mark it submitted with an evidence note, and the officer
+verifies it. Both actions are audited.
+
+## 8. Audit integrity (45 s)
 
 Back as scrutiny or admin, open the case audit timeline. Then call
 `GET /api/v1/audit/verify` → `ok: true`.
@@ -149,7 +193,7 @@ Say what it is and is not: "This is a hash chain. Editing or deleting a row brea
 verification at that sequence number. It is tamper-evident, not tamper-proof against
 someone with full database access."
 
-## 8. Close (30 s)
+## 9. Close (30 s)
 
 Three sentences:
 
@@ -178,6 +222,19 @@ ADMIN=$(login admin@demo.local)
 # findings
 curl -s -X POST "$BASE/applications/app-main-0001/compliance/evaluate" \
   -H "authorization: Bearer $INSTITUTION" | jq '.findings[] | {rule_key,outcome}'
+
+# institutions in the caller's scope, and the route catalogue
+curl -s "$BASE/institutions" -H "authorization: Bearer $INSTITUTION" | jq '.[] | {id,name}'
+curl -s "$BASE/workflow/routes" -H "authorization: Bearer $INSTITUTION" | jq '.[] | {key,label}'
+
+# evidence: upload a version, then verify one extracted field
+curl -s -X POST "$BASE/applications/app-main-0001/documents" \
+  -H "authorization: Bearer $INSTITUTION" \
+  -F 'doc_type=affidavit' -F 'file=@some-small.pdf;type=application/pdf' | jq '{simulated:.extraction.simulated, fields:.extraction.fields_extracted}'
+
+# undertakings: submit as the institution, verify as the officer
+curl -s "$BASE/applications/app-main-0001/undertakings" \
+  -H "authorization: Bearer $INSTITUTION" | jq '.[] | {id,title,status,due_at}'
 
 # crash-test
 curl -s -X POST "$BASE/applications/app-main-0001/rehearsals" \
@@ -208,5 +265,11 @@ curl -s "$BASE/audit/verify" -H "authorization: Bearer $ADMIN" | jq
 ## Recovery
 
 If the demo state drifts (for example you approved something you wanted to show
-later), delete `backend/sih26262.db` and re-seed. The seed is deterministic for the
-fixed clock.
+later), reset the stack and re-seed:
+
+```bash
+make reset     # docker compose down -v && docker compose up -d --build
+```
+
+The seed is deterministic for the fixed clock. Without Docker, delete
+`backend/sih26262.db` and re-seed with `python -m app.services.seed`.

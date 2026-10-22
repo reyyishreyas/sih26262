@@ -11,7 +11,13 @@ const DEMO_ACCOUNTS = [
   ["admin@demo.local", "Administrator"],
 ] as const;
 
-export function Login({ onSignedIn }: { onSignedIn: (user: SessionUser) => void }) {
+export function Login({
+  onSignedIn,
+  notice,
+}: {
+  onSignedIn: (user: SessionUser) => void;
+  notice?: string | null;
+}) {
   const [email, setEmail] = useState("scrutiny@demo.local");
   const [password, setPassword] = useState("DemoPassw0rd!");
   const [error, setError] = useState<string | null>(null);
@@ -39,6 +45,7 @@ export function Login({ onSignedIn }: { onSignedIn: (user: SessionUser) => void 
           Synthetic data only. Mock OCR and mock notification delivery. Sign in with a
           seeded demo account to see the role-scoped view the server actually enforces.
         </p>
+        {notice && <p className="message">{notice}</p>}
         <form onSubmit={submit}>
           <label className="field">
             <span>Email</span>

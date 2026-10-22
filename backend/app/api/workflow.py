@@ -8,9 +8,33 @@ from ..core.permissions import APPLICATION_READ, CASE_READ
 from ..schemas.api import TransitionRequest
 from ..services import workflow_service
 from ..services.authorization_service import EffectiveAccess, require_application
-from .deps import require_any
+from ..services.policy import workflow_routes
+from .deps import get_access, require_any
 
 router = APIRouter(tags=["workflow"])
+
+
+@router.get("/workflow/routes")
+def list_routes(access: EffectiveAccess = Depends(get_access)) -> list[dict]:
+    """Route catalogue used by the application-creation form and the review UI."""
+    catalogue = workflow_routes().get("routes", {})
+    return [
+        {
+            "key": key,
+            "label": route.get("label", key),
+            "states": sorted(
+                {
+                    transition["from_state"]
+                    for transition in route.get("transitions", [])
+                }
+                | {
+                    transition["to_state"]
+                    for transition in route.get("transitions", [])
+                }
+            ),
+        }
+        for key, route in catalogue.items()
+    ]
 
 
 @router.post("/applications/{application_id}/transitions")

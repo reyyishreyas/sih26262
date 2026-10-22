@@ -157,6 +157,47 @@ def scope_filter(access: EffectiveAccess):
     return or_(*clauses)
 
 
+def institution_scope_filter(access: EffectiveAccess):
+    """SQL predicate for institution lookups, derived from the same scope sets."""
+    if access.global_scope:
+        return None
+
+    clauses = []
+    if access.regions:
+        clauses.append(Institution.region_id.in_(access.regions))
+    if access.institutions:
+        clauses.append(Institution.id.in_(access.institutions))
+    if access.committees:
+        clauses.append(
+            Institution.id.in_(
+                select(Application.institution_id).where(
+                    Application.id.in_(
+                        select(CaseAssignment.application_id).where(
+                            CaseAssignment.committee_id.in_(access.committees),
+                            CaseAssignment.revoked_at.is_(None),
+                        )
+                    )
+                )
+            )
+        )
+    if access.assigned_cases_only:
+        clauses.append(
+            Institution.id.in_(
+                select(Application.institution_id).where(
+                    Application.id.in_(
+                        select(CaseAssignment.application_id).where(
+                            CaseAssignment.user_id == access.user_id,
+                            CaseAssignment.revoked_at.is_(None),
+                        )
+                    )
+                )
+            )
+        )
+    if not clauses:
+        return false()
+    return or_(*clauses)
+
+
 def can_access_application(db: Session, access: EffectiveAccess, application: Application) -> bool:
     if access.global_scope:
         return True

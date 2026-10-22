@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -17,6 +18,7 @@ from .api import (
     auth,
     compliance,
     documents,
+    institutions,
     officer_dashboard,
     rehearsals,
     undertakings,
@@ -32,9 +34,32 @@ logger = logging.getLogger("sih26262")
 
 def create_app() -> FastAPI:
     settings = get_settings()
+
+    @asynccontextmanager
+    async def lifespan(_app: FastAPI):
+        # SQLite is a development convenience. PostgreSQL deployments run Alembic
+        # before the API starts and never perform DDL as the application role.
+        create_all()
+        if settings.seed_on_startup:
+            from .services.seed import seed
+
+            db = SessionLocal()
+            try:
+                seed(db)
+            finally:
+                db.close()
+        logger.info(
+            "startup complete (env=%s, clock=%s, schema=%s)",
+            settings.env,
+            settings.clock_mode,
+            settings.simulation_schema or "sqlite/default",
+        )
+        yield
+
     app = FastAPI(
         title=settings.app_name,
         version="0.1.0",
+        lifespan=lifespan,
         description=(
             "AICTE approval workflow, compliance monitoring and alert management. "
             "The Approval Rehearsal Engine is isolated from operational writes. "
@@ -54,6 +79,7 @@ def create_app() -> FastAPI:
     for module in (
         auth,
         applications,
+        institutions,
         documents,
         compliance,
         rehearsals,
@@ -80,7 +106,7 @@ def create_app() -> FastAPI:
     @app.exception_handler(OverrideRejected)
     async def override_rejected(_request: Request, exc: OverrideRejected):
         return JSONResponse(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=422,
             content={"detail": str(exc), "code": "override_rejected"},
         )
 
@@ -91,31 +117,26 @@ def create_app() -> FastAPI:
             content={"detail": str(exc), "code": "invalid_rule_definition"},
         )
 
-    @app.on_event("startup")
-    def startup() -> None:
-        create_all()
-        if settings.seed_on_startup:
-            from .services.seed import seed
-
-            db = SessionLocal()
-            try:
-                seed(db)
-            finally:
-                db.close()
-
     @app.get("/health")
     def health() -> dict:
         db = SessionLocal()
         try:
             db.execute(text("SELECT 1"))
             database = "ok"
+            if db.bind is not None and db.bind.dialect.name == "sqlite":
+                role = "sqlite"
+            else:
+                role = db.execute(text("SELECT current_user")).scalar() or "unknown"
         except Exception as exc:  # pragma: no cover - operational path
             database = f"error: {exc}"
+            role = "unknown"
         finally:
             db.close()
         return {
             "status": "ok" if database == "ok" else "degraded",
             "database": database,
+            "database_role": role,
+            "simulation_schema": settings.simulation_schema or None,
             "clock": iso(get_clock().now()),
             "environment": settings.env,
         }

@@ -28,7 +28,8 @@ guard.
    `open_readonly_session()` and set read-only (`PRAGMA query_only=ON` for SQLite,
    `SET TRANSACTION READ ONLY` for PostgreSQL). The snapshot, the approved rule
    versions, the baseline version, route, state and relevant transition definitions
-   are read there.
+   are read there. In PostgreSQL this connection authenticates as `sim_prod_ro`,
+   a role that has `SELECT` only and `default_transaction_read_only = on`.
 3. **Validate overrides.** Only evidence paths are accepted (below). Each path is
    recorded as an assumption.
 4. **Evaluate the hypothetical.** The baseline dict is deep-copied; overrides are
@@ -40,6 +41,8 @@ guard.
 6. **Persist to simulation storage only.** `sim_runs`, `sim_input_snapshots`,
    `sim_rule_results`, `sim_metrics` rows are written through `SimResultsWriter`,
    which raises `SimulationWriteViolation` if asked to add any non-simulation model.
+   In PostgreSQL this connection authenticates as `sim_results_rw`, a role with
+   `USAGE` on the `sim` schema only — it cannot resolve operational table names.
 7. **Check the baseline is still current.** If the application's `baseline_version`
    changed while the rehearsal ran, the run is stored and returned as
    `superseded: true`. It is not silently mixed with a newer baseline.
@@ -114,21 +117,41 @@ write. It is a claim the tests check, not a promise in prose.
 | `SimResultsWriter` type guard | `core/db.py` | Writing any operational model to simulation storage |
 | Separate simulation URLs | `settings.simulation_readonly_url`, `simulation_results_url` | Sharing a connection pool with operational writes |
 | PostgreSQL roles | `backend/sql/roles.sql` | `sim_prod_ro` cannot write; `sim_results_rw` cannot read operational tables |
+| Dedicated `sim` schema | `SIH_SIMULATION_SCHEMA=sim`, migration `0002_sim_schema` | The results role has no `USAGE` on `public`, so it cannot even name an operational table |
 | No production models in rehearsal return path | service design | Accidental persistence via the request session |
 | Tests | `tests/test_rehearsal.py` | Regressions in all of the above |
+| Live database proof | `backend/scripts/verify_isolation.py` | The role contract is asserted against a running PostgreSQL, not just described |
+
+### The PostgreSQL role contract
+
+| Role | Operational (`public`) | Simulation (`sim`) | Transaction default |
+|---|---|---|---|
+| `app_rw` | SELECT/INSERT/UPDATE/DELETE | no access | read/write |
+| `sim_prod_ro` | SELECT only | no access | **read-only** |
+| `sim_results_rw` | **no access** | SELECT/INSERT/UPDATE/DELETE | read/write |
+| `sih_migrator` | owns the schema (Alembic) | owns the schema | read/write |
+
+`backend/scripts/verify_isolation.py` asserts this against a live database:
+
+```
+  [PASS] sim_prod_ro: baseline reader cannot INSERT operational data (cannot execute INSERT in a read-only transaction)
+  [PASS] sim_prod_ro: baseline reader cannot reach the simulation schema (permission denied for schema sim)
+  [PASS] sim_results_rw: results writer cannot SELECT operational data (permission denied for schema public)
+  [PASS] app_rw: application role cannot reach the simulation schema (permission denied for schema sim)
+```
 
 ### Honest limits
 
-- The prototype's default configuration points all three URLs at the same SQLite
-  file. Isolation then rests on the read-only pragma and the writer guard, not on
-  database permissions. The PostgreSQL role file is the deployment path and has not
-  been exercised in this environment.
+- In PostgreSQL the baseline and the results live in the **same database instance**,
+  separated by schema and by role. A separate instance would be stronger; that is a
+  deployment choice, not something the code can decide.
+- In the default **SQLite** development configuration all three URLs point at the
+  same file. Isolation then rests on the read-only pragma and the writer guard, not
+  on database permissions. Use the Compose stack (or any PostgreSQL deployment with
+  the role script applied) to get database-enforced isolation.
 - The baseline is read in its own transaction, but operational writes are **not
   blocked** for the duration of the run. If evidence changes mid-run, the run is
   flagged `superseded`; it is not a serialisable snapshot.
-- `sim_results_rw` has table-level grants on the `sim_*` tables because this
-  prototype keeps them in `public`. Moving them to a dedicated `sim` schema is a
-  deployment change listed in [DEFERRALS.md](DEFERRALS.md).
 - Anyone who can read the simulation tables can read hypotheticals. They inherit
   case scope in the API, but there is no per-run sharing model.
 

@@ -3,15 +3,15 @@
 ```bash
 cd backend
 ../.venv/bin/python -m pytest -q
-# 75 passed
+# 82 passed
 ```
 
 Pytest fixtures (`tests/conftest.py`) use a fixed clock
 (`2026-10-22T09:00:00+00:00`), a per-test SQLite database reset and the synthetic
 seed, so every assertion is reproducible. HTTP tests use FastAPI's `TestClient`.
 
-Four warnings are emitted: FastAPI's `on_event` deprecation and Starlette's
-`HTTP_422_UNPROCESSABLE_ENTITY` naming deprecation. Behaviour is unaffected.
+One warning is emitted: Starlette's notice that `httpx` with
+`starlette.testclient` is deprecated. Behaviour is unaffected.
 
 ## Claim → evidence map
 
@@ -88,6 +88,18 @@ Four warnings are emitted: FastAPI's `on_event` deprecation and Starlette's
 | Same rule versions as operational | `test_rehearsal.py::test_rehearsal_uses_the_same_rule_versions_as_operational` |
 | A run can be read back from simulation storage | `test_rehearsal.py::test_run_can_be_read_back_from_simulation_storage` |
 
+### Evidence, undertakings and case creation
+
+| Claim | Test |
+|---|---|
+| The institution list is scope-filtered | `test_evidence_flow.py::test_institution_scope_is_enforced_on_the_institution_endpoint` |
+| The route catalogue is available to any signed-in user | `test_evidence_flow.py::test_route_catalogue_is_available_to_authenticated_users` |
+| An institution can open a draft and upload evidence | `test_evidence_flow.py::test_institution_can_create_a_draft_and_upload_evidence` |
+| Verifying a field changes its status and bumps the baseline version | `test_evidence_flow.py::test_verifying_a_field_changes_verification_and_baseline` |
+| New evidence invalidates a stored compliance batch | `test_evidence_flow.py::test_uploaded_evidence_invalidates_a_stored_compliance_batch` |
+| An undertaking is submitted by the institution and verified by an officer | `test_evidence_flow.py::test_institution_submits_and_officer_verifies_an_undertaking` |
+| Upload without the permission is refused | `test_evidence_flow.py::test_an_officer_cannot_upload_evidence_without_the_permission` |
+
 ### Alerts and deadlines
 
 | Claim | Test |
@@ -132,21 +144,55 @@ cd ../frontend
 npm run build   # tsc --noEmit && vite build
 ```
 
-`alembic check` passes on SQLite. It has not been run against PostgreSQL here.
+`alembic check` passes on SQLite and, with `SIH_SIMULATION_SCHEMA=sim`, on
+PostgreSQL as well — the Compose `migrate` job runs `alembic upgrade head` on every
+start of the stack.
+
+## Live stack checks (run here, not in CI)
+
+```bash
+make up                 # PostgreSQL 16 + API + worker + frontend
+make smoke              # end-to-end API exercise against the running stack
+make verify-isolation   # prove the PostgreSQL role contract
+```
+
+`scripts/smoke.sh` signs in, lists institutions, creates a draft, uploads evidence,
+reads the compliance batch, runs a rehearsal (asserting `production_modified:
+false` and `load_factor: null`) and lists alerts.
+
+`backend/scripts/verify_isolation.py` asserts the role contract against the live
+database:
+
+```
+  [PASS] sim_prod_ro: baseline reader can SELECT operational data
+  [PASS] sim_prod_ro: baseline reader cannot INSERT operational data (cannot execute INSERT in a read-only transaction)
+  [PASS] sim_prod_ro: baseline reader cannot reach the simulation schema (permission denied for schema sim)
+  [PASS] sim_results_rw: results writer can INSERT simulation rows
+  [PASS] sim_results_rw: results writer cannot SELECT operational data (permission denied for schema public)
+  [PASS] sim_results_rw: results writer cannot INSERT operational data (permission denied for schema public)
+  [PASS] app_rw: application role can read/write operational data
+  [PASS] app_rw: application role cannot reach the simulation schema (permission denied for schema sim)
+```
+
+CI runs the same script against a PostgreSQL service container
+(`.github/workflows/ci.yml`, job `postgres-isolation`).
 
 ## What is not covered by automated tests
 
 Be explicit in a review; do not imply coverage that does not exist.
 
 - **Frontend behaviour.** The React app type-checks and builds; there are no
-  component or end-to-end browser tests.
-- **PostgreSQL.** No test runs against Postgres, and `backend/sql/roles.sql` has not
-  been executed in this environment.
-- **Docker Compose.** The file is provided but the stack has not been started here.
-- **CI.** The GitHub Actions workflow has not run on GitHub yet.
+  component or end-to-end browser tests. The UI was driven manually in a browser
+  against the running stack (login → findings → evidence → transitions →
+  undertakings → rehearsal → audit timeline).
+- **PostgreSQL in the pytest suite.** The suite runs on SQLite. PostgreSQL is
+  covered by the Alembic run, the Compose migration job, `scripts/smoke.sh` and
+  `scripts/verify_isolation.py` — not by pytest assertions.
+- **CI.** The GitHub Actions workflow has not run on GitHub yet (the repository is
+  private and no run has been triggered).
 - **Real OCR / LLM / notifications.** Only mock adapters exist, and only the mock
   paths are tested.
-- **Load / concurrency.** SQLite tests are single-process. Audit chain locking and
-  alert dedupe are tested for correctness, not throughput.
+- **Load / concurrency.** Tests are single-process. Audit chain locking and alert
+  dedupe are tested for correctness, not throughput.
 - **Security.** No penetration test, dependency audit or secret scan is part of the
   suite.

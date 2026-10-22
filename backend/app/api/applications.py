@@ -130,7 +130,12 @@ def get_compliance(
         .where(RuleEvaluation.application_id == application.id)
         .order_by(RuleEvaluation.evaluated_at.desc())
     ).first()
-    if latest is None:
+    # A stored batch is a snapshot. If evidence or workflow state changed since it
+    # was produced, showing it would present stale findings as current.
+    if (
+        latest is None
+        or latest.application_baseline_version != application.baseline_version
+    ):
         report = compliance_service.evaluate_application(db, application, persist=True)
         db.commit()
         return report.as_dict()
@@ -157,6 +162,10 @@ def get_compliance(
                 "explanation": row.explanation,
                 "evidence_refs": row.evidence_refs,
                 "missing_inputs": row.missing_inputs,
+                "unverified_inputs": row.unverified_inputs,
+                "title": row.title,
+                "severity": row.severity,
+                "regulatory_reference": row.regulatory_reference,
                 "blocking": row.blocking,
             }
             for row in rows

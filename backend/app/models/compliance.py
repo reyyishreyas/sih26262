@@ -61,6 +61,12 @@ class RuleEvaluation(Base):
     explanation: Mapped[str] = mapped_column(String(1024), default="")
     evidence_refs: Mapped[list] = mapped_column(JSON, default=list)
     missing_inputs: Mapped[list] = mapped_column(JSON, default=list)
+    unverified_inputs: Mapped[list] = mapped_column(JSON, default=list)
+    # Denormalised labels so a stored finding is still explainable after the rule
+    # catalogue changes. The version number remains the authoritative link.
+    title: Mapped[str] = mapped_column(String(255), default="")
+    severity: Mapped[str] = mapped_column(String(16), default="major")
+    regulatory_reference: Mapped[str] = mapped_column(String(255), default="")
     blocking: Mapped[bool] = mapped_column(Boolean, default=False)
     application_baseline_version: Mapped[int] = mapped_column(Integer, default=1)
     context: Mapped[str] = mapped_column(String(32), default="operational")

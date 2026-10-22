@@ -7,8 +7,10 @@ import type {
   SessionUser,
 } from "../types";
 import { AuditTimeline } from "./AuditTimeline";
+import { EvidencePanel } from "./EvidencePanel";
 import { FindingsTable } from "./FindingsTable";
 import { RehearsalPanel } from "./RehearsalPanel";
+import { UndertakingList } from "./UndertakingList";
 
 export function CaseView({
   applicationId,
@@ -30,13 +32,16 @@ export function CaseView({
   const canEvaluate = user.permissions.includes("compliance.evaluate");
   const canRehearse = user.permissions.includes("rehearsal.run");
   const canAudit = user.permissions.includes("audit.read");
+  const canUpload = user.permissions.includes("document.upload");
+  const canVerify = user.permissions.includes("document.verify");
+  const canSubmitUndertaking = user.permissions.includes("undertaking.submit");
 
   const load = useCallback(async () => {
     setError(null);
     try {
       const loadedDetail = await api.application(applicationId);
       setDetail(loadedDetail);
-      if (canEvaluate) setBatch(await api.compliance(applicationId));
+      setBatch(await api.compliance(applicationId));
       if (canAudit) {
         const timeline = await api.audit(applicationId);
         setEvents(timeline.events);
@@ -120,6 +125,13 @@ export function CaseView({
 
       {batch && <FindingsTable batch={batch} />}
 
+      <EvidencePanel
+        applicationId={applicationId}
+        canUpload={canUpload}
+        canVerify={canVerify}
+        onEvidenceChanged={() => void load()}
+      />
+
       <section className="panel">
         <h2>Available transitions</h2>
         <p className="muted">
@@ -161,6 +173,13 @@ export function CaseView({
             ))}
         </ul>
       </section>
+
+      <UndertakingList
+        applicationId={applicationId}
+        canSubmit={canSubmitUndertaking}
+        canVerify={canVerify}
+        onChanged={() => void load()}
+      />
 
       {canRehearse && <RehearsalPanel applicationId={applicationId} />}
       {canAudit && (

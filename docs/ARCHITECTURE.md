@@ -43,11 +43,45 @@ This is the structural part of the rehearsal promise. See
 | Baseline reader | `open_readonly_session()` | Rehearsal reads production | **None** — `PRAGMA query_only=ON` (SQLite) or `SET TRANSACTION READ ONLY` (PostgreSQL) at the start of the session |
 | Simulation writer | `open_sim_results_session()` → `SimResultsWriter` | Persists `sim_*` rows | **Only** `SimRun`, `SimInputSnapshot`, `SimRuleResult`, `SimMetric`; anything else raises `SimulationWriteViolation` |
 
-In PostgreSQL deployments, `backend/sql/roles.sql` adds least-privilege roles:
-`app_rw` (operational CRUD), `sim_prod_ro` (SELECT + `default_transaction_read_only`),
-`sim_results_rw` (CRUD on `sim_*` tables only, no `public` schema usage). The
-prototype runs on one SQLite file, where the connection-level read-only pragma and
-the writer type guard carry the same guarantee.
+### The PostgreSQL role contract
+
+In PostgreSQL the three paths are three different database roles, and the database
+— not the application — refuses the forbidden operation:
+
+| Role | `public` (operational) | `sim` (simulation) | Transaction default |
+|---|---|---|---|
+| `app_rw` | SELECT/INSERT/UPDATE/DELETE | no access | read/write |
+| `sim_prod_ro` | SELECT only | no access | **read-only** (`default_transaction_read_only=on`) |
+| `sim_results_rw` | **no access** | SELECT/INSERT/UPDATE/DELETE | read/write |
+| `sih_migrator` | owns the schema (Alembic) | owns the schema | read/write |
+
+- `backend/sql/bootstrap_roles.sql` creates the four roles (dev credentials; runs
+  from `/docker-entrypoint-initdb.d/` on a fresh volume).
+- `backend/sql/roles.sql` applies the grants after migrations, including
+  `ALTER DEFAULT PRIVILEGES` so tables created by later migrations inherit them.
+- `backend/scripts/verify_isolation.py` asserts the contract against a running
+  database. It is part of `make verify-isolation` and of CI.
+
+Simulation tables live in the dedicated `sim` schema (`SIH_SIMULATION_SCHEMA=sim`,
+migration `0002_sim_schema`). `sim_results_rw` has `USAGE` on `sim` and **no**
+`USAGE` on `public`, so it cannot resolve an operational table name even if the
+application code asks for one.
+
+In the default **SQLite** development configuration all three paths point at one
+file and isolation rests on the read-only pragma plus the writer type guard. Use
+the Compose stack for database-enforced isolation.
+
+### Who connects as what
+
+| Process | Database identity |
+|---|---|
+| `migrate` job | `sih_migrator` for Alembic, then the superuser for the grants (a role cannot grant what it does not own) |
+| `api` | `app_rw`, plus `sim_prod_ro` and `sim_results_rw` for the rehearsal paths |
+| `worker` | `app_rw` |
+
+The API never performs DDL. `create_all()` is SQLite-only by design: starting a
+production-shaped deployment must not mutate the schema as a side effect of a web
+process starting.
 
 ## Request lifecycle
 
@@ -113,10 +147,18 @@ storage or a signed external log) is a deployment hardening step, not implemente
 
 - case list filtered by the server;
 - findings table with typed outcome badges, blocking state, missing/unverified
-  inputs;
+  inputs, and the rule title/severity/regulatory reference captured when the
+  finding was stored;
+- evidence panel: upload a new version, review extracted candidates with page,
+  method and confidence, verify or reject each field; every verification bumps the
+  baseline version and triggers a recomputation;
+- undertakings panel: submit an undertaking with an evidence note (institution),
+  verify it (officer), overdue items flagged;
+- draft-application form for roles that may open a case;
 - crash-test panel: JSON evidence overrides, finding-level diff, workflow
   implications, explicit `production_modified: false`;
-- transition controls that submit the reason and display guard refusals;
+- transition controls that submit the reason and display guard refusals; actions
+  the caller lacks the permission for are shown as unavailable with the reason;
 - audit timeline and chain verification badge;
 - officer monitoring dashboard and alert list.
 
@@ -131,9 +173,12 @@ limits, CORS origins, seed-on-startup. `.env.example` documents them.
 
 ## Known architectural limits
 
-- SQLite in dev means no row-level locks equivalent to PostgreSQL; the writer guard
-  is a code-level type check, not a database permission. The Postgres role script is
-  the deployment path.
+- SQLite in dev means no row-level locks equivalent to PostgreSQL; there the writer
+  guard is a code-level type check, not a database permission. The PostgreSQL role
+  script is the deployment path and is exercised by `make verify-isolation`.
+- The baseline and the simulation results share one PostgreSQL **instance**; they
+  are separated by schema and by role. A separate instance would be a stronger
+  boundary.
 - The simulation baseline is read in a separate session, but operational writes are
   not blocked for the duration of a rehearsal. The baseline version is recorded, and
   a run can be flagged superseded if evidence changes; it is not a serialisable

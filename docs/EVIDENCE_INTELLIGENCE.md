@@ -72,6 +72,23 @@ Findings carry `evidence_refs` (e.g. `document:<id>#page=7`) and, when relevant,
 `missing_inputs` and `unverified_inputs` as explicit field paths. The frontend shows
 them. "Why did this fail?" always has an answer that points at evidence.
 
+## The UI surface
+
+The **Evidence & extraction** panel on a case is the whole pipeline in one place:
+
+- upload a new version (document type + file), with the panel labelled *mock OCR* and
+  the mock's own note shown after the upload;
+- per document version: file name, SHA-256 prefix, version, upload time;
+- per extracted field: value, source page, extraction method, confidence percentage,
+  verification badge;
+- **Verify** / **Reject** for a caller with `document.verify`; a caller without
+  `document.upload` sees no upload form, and the endpoint refuses the upload anyway.
+
+Verifying a field bumps the application's baseline version. A stored compliance
+batch records the baseline version it was computed from, so a batch that no longer
+matches the current baseline is recomputed rather than returned — stale findings are
+never presented as current.
+
 ## Discrepancies are not accusations
 
 The seeded case has two verified lease-expiry values that disagree, and a lease file

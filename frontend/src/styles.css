@@ -82,7 +82,8 @@ button.link {
 }
 
 input,
-textarea {
+textarea,
+select {
   width: 100%;
   font: inherit;
   background: var(--bg);
@@ -90,6 +91,16 @@ textarea {
   border: 1px solid var(--line);
   border-radius: 8px;
   padding: 0.55rem 0.7rem;
+}
+
+input[type="file"] {
+  padding: 0.4rem;
+}
+
+button.small {
+  padding: 0.25rem 0.5rem;
+  font-size: 0.72rem;
+  font-weight: 500;
 }
 
 textarea {
@@ -368,6 +379,57 @@ table.grid.compact th {
 .case-chip.selected {
   border-color: var(--accent);
   box-shadow: 0 0 0 1px var(--accent) inset;
+}
+
+/* evidence + undertakings */
+.upload-form {
+  background: var(--panel-2);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.2rem 0.9rem 0.9rem;
+  margin: 0.8rem 0;
+  max-width: 620px;
+}
+.document-list {
+  display: grid;
+  gap: 0.7rem;
+  margin-top: 0.8rem;
+}
+.document {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.8rem 0.9rem;
+  background: rgba(29, 42, 55, 0.45);
+}
+.document.overdue {
+  border-color: rgba(217, 83, 79, 0.55);
+}
+.document .panel-head {
+  margin-bottom: 0.4rem;
+}
+.undertaking-action {
+  margin-top: 0.6rem;
+}
+.undertaking-action input {
+  flex: 1;
+  min-width: 220px;
+}
+.new-application {
+  margin: 0.8rem 0;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  background: var(--panel-2);
+}
+.new-application summary {
+  cursor: pointer;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 0.85rem;
+}
+.new-application-form {
+  max-width: 620px;
+  margin-top: 0.6rem;
 }
 
 /* misc */

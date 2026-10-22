@@ -20,6 +20,8 @@ os.environ.setdefault("SIH_NOTIFICATION_LOG", str(TMP / "notifications.log"))
 os.environ.setdefault("SIH_JWT_SECRET", "test-secret")
 os.environ.setdefault("SIH_PASSWORD_HASH_ITERATIONS", "1000")
 os.environ.setdefault("SIH_ENV", "test")
+# SQLite has no schemas; never inherit a PostgreSQL simulation schema here.
+os.environ.pop("SIH_SIMULATION_SCHEMA", None)
 
 import pytest  # noqa: E402
 from fastapi.testclient import TestClient  # noqa: E402

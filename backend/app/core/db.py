@@ -134,7 +134,14 @@ class SimResultsWriter:
 
 
 def create_all() -> None:
-    """Dev/test convenience. Deployments use Alembic."""
+    """Dev/test convenience for SQLite. PostgreSQL deployments use Alembic.
+
+    The API deliberately does not run DDL in PostgreSQL: the ``app_rw`` role has no
+    CREATE privilege, and starting a production-shaped deployment must not mutate
+    the schema as a side effect of a web process starting.
+    """
     from .. import models  # noqa: F401  (register metadata)
 
+    if engine.dialect.name != "sqlite":
+        return
     Base.metadata.create_all(bind=engine)

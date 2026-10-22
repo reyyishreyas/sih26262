@@ -4,9 +4,14 @@ import type {
   AuditEvent,
   CaseDetail,
   ComplianceBatch,
+  DocumentRow,
+  Institution,
   OfficerDashboard,
   RehearsalReport,
   SessionUser,
+  Undertaking,
+  UploadResult,
+  WorkflowRoute,
 } from "./types";
 
 const BASE =
@@ -45,6 +50,9 @@ export function clearSession(): void {
   localStorage.removeItem(USER_KEY);
 }
 
+/** Fired when the API rejects the stored token (expired, revoked, reseeded database). */
+export const SESSION_EXPIRED_EVENT = "sih26262:session-expired";
+
 async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const headers = new Headers(init.headers);
   const token = storedToken();
@@ -66,6 +74,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       body && typeof body === "object" && "code" in body
         ? String((body as { code: unknown }).code)
         : undefined;
+    // A rejected token means the session cannot be used any more. Drop it and let
+    // the app fall back to the sign-in screen instead of showing an empty case list.
+    if (response.status === 401) {
+      clearSession();
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    }
     throw new ApiError(detail, response.status, code);
   }
   return body as T;
@@ -88,6 +102,58 @@ export async function login(email: string, password: string): Promise<SessionUse
 export const api = {
   applications: () => request<ApplicationSummary[]>("/applications"),
   application: (id: string) => request<CaseDetail>(`/applications/${id}`),
+  institutions: () => request<Institution[]>("/institutions"),
+  routes: () => request<WorkflowRoute[]>("/workflow/routes"),
+  createApplication: (payload: {
+    institution_id: string;
+    category: string;
+    route_key: string;
+    cycle: string;
+    cycle_end: string | null;
+  }) =>
+    request<ApplicationSummary>("/applications", {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  documents: (id: string) =>
+    request<DocumentRow[]>(`/applications/${id}/documents`),
+  uploadDocument: (id: string, docType: string, file: File) => {
+    const form = new FormData();
+    form.set("doc_type", docType);
+    form.set("file", file);
+    return request<UploadResult>(`/applications/${id}/documents`, {
+      method: "POST",
+      body: form,
+    });
+  },
+  verifyField: (
+    id: string,
+    documentId: string,
+    fieldId: string,
+    verificationStatus: "verified" | "rejected" | "unverified",
+  ) =>
+    request<{ field_id: string; verification_status: string }>(
+      `/applications/${id}/documents/${documentId}/fields/${fieldId}/verify`,
+      {
+        method: "POST",
+        body: JSON.stringify({ verification_status: verificationStatus }),
+      },
+    ),
+  undertakings: (id: string) =>
+    request<Undertaking[]>(`/applications/${id}/undertakings`),
+  submitUndertaking: (id: string, undertakingId: string, evidenceNote: string) =>
+    request<Undertaking>(
+      `/applications/${id}/undertakings/${undertakingId}/submit`,
+      {
+        method: "POST",
+        body: JSON.stringify({ evidence_note: evidenceNote }),
+      },
+    ),
+  verifyUndertaking: (id: string, undertakingId: string) =>
+    request<Undertaking>(
+      `/applications/${id}/undertakings/${undertakingId}/verify`,
+      { method: "POST" },
+    ),
   compliance: (id: string) => request<ComplianceBatch>(`/applications/${id}/compliance`),
   evaluate: (id: string) =>
     request<ComplianceBatch>(`/applications/${id}/compliance/evaluate`, { method: "POST" }),

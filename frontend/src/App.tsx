@@ -1,14 +1,24 @@
 import { useEffect, useState } from "react";
-import { api, ApiError, clearSession, storedToken, storedUser } from "./api";
+import {
+  api,
+  ApiError,
+  clearSession,
+  SESSION_EXPIRED_EVENT,
+  storedToken,
+  storedUser,
+} from "./api";
 import { AlertList } from "./components/AlertList";
 import { CaseView } from "./components/CaseView";
 import { DashboardView } from "./components/DashboardView";
 import { Login } from "./components/Login";
+import { NewApplicationForm } from "./components/NewApplicationForm";
 import type {
   AlertRow,
   ApplicationSummary,
+  Institution,
   OfficerDashboard,
   SessionUser,
+  WorkflowRoute,
 } from "./types";
 
 type View = "cases" | "monitoring";
@@ -22,9 +32,12 @@ export default function App() {
   const [selected, setSelected] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<OfficerDashboard | null>(null);
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
+  const [institutions, setInstitutions] = useState<Institution[]>([]);
+  const [routes, setRoutes] = useState<WorkflowRoute[]>([]);
   const [error, setError] = useState<string | null>(null);
 
   const canMonitor = user?.permissions.includes("monitoring.read") ?? false;
+  const canCreate = user?.permissions.includes("application.create") ?? false;
 
   useEffect(() => {
     if (!user) return;
@@ -38,6 +51,18 @@ export default function App() {
         setError(cause instanceof ApiError ? cause.message : "Could not load cases"),
       );
   }, [user]);
+
+  useEffect(() => {
+    if (!user || !canCreate) return;
+    void Promise.all([api.institutions(), api.routes()])
+      .then(([institutionRows, routeRows]) => {
+        setInstitutions(institutionRows);
+        setRoutes(routeRows);
+      })
+      .catch((cause) =>
+        setError(cause instanceof ApiError ? cause.message : "Could not load form options"),
+      );
+  }, [canCreate, user]);
 
   useEffect(() => {
     if (!user || view !== "monitoring" || !canMonitor) return;
@@ -59,7 +84,24 @@ export default function App() {
     setDashboard(null);
   }
 
-  if (!user) return <Login onSignedIn={setUser} />;
+  // The API rejected the stored token (expired, revoked, or the database was
+  // reseeded). Drop the session instead of leaving an empty case list on screen.
+  useEffect(() => {
+    function onExpired() {
+      setUser(null);
+      setApplications([]);
+      setSelected(null);
+      setDashboard(null);
+      setAlerts([]);
+      setInstitutions([]);
+      setRoutes([]);
+      setError("Your session was rejected by the server. Please sign in again.");
+    }
+    window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
+    return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
+  }, []);
+
+  if (!user) return <Login onSignedIn={setUser} notice={error} />;
 
   return (
     <div className="shell">
@@ -109,6 +151,16 @@ export default function App() {
                 The list is filtered by the server. Hiding a case in this UI would not
                 be access control.
               </p>
+              {canCreate && institutions.length > 0 && routes.length > 0 && (
+                <NewApplicationForm
+                  institutions={institutions}
+                  routes={routes}
+                  onCreated={(created) => {
+                    setApplications((current) => [...current, created]);
+                    setSelected(created.id);
+                  }}
+                />
+              )}
               <div className="case-list">
                 {applications.length === 0 && <p className="muted">No cases.</p>}
                 {applications.map((application) => (

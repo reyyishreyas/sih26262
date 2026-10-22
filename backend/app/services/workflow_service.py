@@ -314,6 +314,8 @@ def available_transitions(
     out = []
     for definition in definitions:
         unmet: list[str] = []
+        if not access.has(definition.required_permission):
+            unmet.append(f"missing permission: {definition.required_permission}")
         if definition.allowed_roles and not (
             set(access.roles) & set(definition.allowed_roles)
         ):

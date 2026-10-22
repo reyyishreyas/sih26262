@@ -56,6 +56,20 @@ revocation takes effect on the next request. An API test covers that.
 Case reads accept either `application.read` or `case.read`. The scope check, not the
 permission name, decides which records are reachable.
 
+### Application roles are not database roles
+
+Two different things are called "role" in this repository, and they are independent:
+
+| | Application role | Database role |
+|---|---|---|
+| Examples | scrutiny officer, EVC member, administrator | `app_rw`, `sim_prod_ro`, `sim_results_rw`, `sih_migrator` |
+| Decides | what a person may do and which records they may touch | which database objects a *process* may read or write |
+| Enforced by | `app/core/permissions.py` + the scope predicate | PostgreSQL grants (`backend/sql/roles.sql`) |
+| Configured by | seeded demo data, `admin.assignments` | deployment scripts |
+
+A database role is never granted to a person and an application role never grants a
+database privilege. The rehearsal isolation depends only on the second column.
+
 ## Scope resolution
 
 Scope comes from assignment records, never from a query parameter:

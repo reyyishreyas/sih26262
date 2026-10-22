@@ -1,0 +1,59 @@
+SHELL := /bin/bash
+PYTHON ?= .venv/bin/python
+COMPOSE ?= docker compose
+
+.PHONY: help up down reset logs ps test build migrate seed smoke verify-isolation migrate-sqlite
+
+help:
+	@echo "SIH26262 developer commands"
+	@echo "  make up                build and start the full PostgreSQL stack"
+	@echo "  make down              stop the stack, keep volumes"
+	@echo "  make reset             stop and DELETE volumes, then start fresh"
+	@echo "  make logs              follow API/worker/db logs"
+	@echo "  make ps                show container health"
+	@echo "  make test              run the backend test suite"
+	@echo "  make build             type-check/build the frontend"
+	@echo "  make smoke             exercise the running stack end to end"
+	@echo "  make verify-isolation  prove PostgreSQL role isolation"
+	@echo "  make migrate-sqlite    run Alembic against a throwaway SQLite file"
+
+up:
+	$(COMPOSE) up -d --build
+	@echo "API  http://localhost:8000/docs"
+	@echo "UI   http://localhost:5173"
+
+down:
+	$(COMPOSE) down
+
+reset:
+	$(COMPOSE) down -v
+	$(COMPOSE) up -d --build
+
+logs:
+	$(COMPOSE) logs -f api worker db
+
+ps:
+	$(COMPOSE) ps
+
+test:
+	cd backend && ../$(PYTHON) -m pytest -q
+
+build:
+	cd frontend && npm run build
+
+migrate:
+	$(COMPOSE) run --rm migrate
+
+seed:
+	cd backend && ../$(PYTHON) -m app.services.seed
+
+smoke:
+	./scripts/smoke.sh
+
+verify-isolation:
+	cd backend && ../$(PYTHON) -m scripts.verify_isolation
+
+migrate-sqlite:
+	cd backend && rm -f /tmp/sih26262-migrate.db \
+		&& SIH_DATABASE_URL=sqlite:////tmp/sih26262-migrate.db ../$(PYTHON) -m alembic upgrade head \
+		&& SIH_DATABASE_URL=sqlite:////tmp/sih26262-migrate.db ../$(PYTHON) -m alembic check

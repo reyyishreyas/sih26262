@@ -1,5 +1,8 @@
 # Local/demo stack. Not a production deployment: OCR, notifications and the data
 # are mock/synthetic, and this file uses development credentials on purpose.
+#
+# The API, worker and migrations do NOT connect as the Postgres superuser. See
+# backend/sql/bootstrap_roles.sql and backend/sql/roles.sql for the role contract.
 services:
   db:
     image: postgres:16-alpine
@@ -11,6 +14,8 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+      # Runs only when the data directory is first initialised.
+      - ./backend/sql/bootstrap_roles.sql:/docker-entrypoint-initdb.d/01-bootstrap-roles.sql:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U postgres -d sih26262"]
       interval: 5s
@@ -19,10 +24,22 @@ services:
 
   migrate:
     build: ./backend
-    command: ["alembic", "upgrade", "head"]
+    # Alembic runs as sih_migrator (the owner of the schema objects). The grants
+    # then run as the Postgres superuser because a role cannot grant what it does
+    # not own. Both steps must succeed before the API starts.
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        alembic upgrade head
+        PGPASSWORD="$$POSTGRES_PASSWORD" psql -h db -U postgres -d sih26262 \
+          -v ON_ERROR_STOP=1 -f sql/roles.sql
     environment:
       SIH_ENV: docker
-      SIH_DATABASE_URL: postgresql+psycopg://postgres:postgres_dev_only@db:5432/sih26262
+      SIH_DATABASE_URL: postgresql+psycopg://sih_migrator:sih_migrator_dev@db:5432/sih26262
+      SIH_SIMULATION_SCHEMA: sim
+      POSTGRES_PASSWORD: postgres_dev_only
     depends_on:
       db:
         condition: service_healthy
@@ -41,36 +58,50 @@ services:
       ]
     environment:
       SIH_ENV: docker
-      SIH_DATABASE_URL: postgresql+psycopg://postgres:postgres_dev_only@db:5432/sih26262
-      # Separate least-privilege URLs; see backend/sql/roles.sql.
-      SIH_SIMULATION_READONLY_URL: postgresql+psycopg://postgres:postgres_dev_only@db:5432/sih26262
-      SIH_SIMULATION_RESULTS_URL: postgresql+psycopg://postgres:postgres_dev_only@db:5432/sih26262
+      # Least-privilege roles; see backend/sql/roles.sql.
+      SIH_DATABASE_URL: postgresql+psycopg://app_rw:app_rw_dev@db:5432/sih26262
+      SIH_SIMULATION_READONLY_URL: postgresql+psycopg://sim_prod_ro:sim_prod_ro_dev@db:5432/sih26262
+      SIH_SIMULATION_RESULTS_URL: postgresql+psycopg://sim_results_rw:sim_results_rw_dev@db:5432/sih26262
+      SIH_SIMULATION_SCHEMA: sim
       SIH_SEED_ON_STARTUP: "true"
       SIH_CLOCK_MODE: fixed
       SIH_CLOCK_FIXED_AT: "2026-10-22T09:00:00+00:00"
       SIH_JWT_SECRET: docker-dev-only-change-me
+      SIH_PASSWORD_HASH_ITERATIONS: "10000"
       SIH_STORAGE_DIR: /app/storage
       SIH_CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
     ports:
       - "8000:8000"
     volumes:
       - storage:/app/storage
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 10s
     depends_on:
       migrate:
         condition: service_completed_successfully
+    restart: unless-stopped
 
   worker:
     build: ./backend
     command: ["python", "-m", "app.workers.scheduler", "--interval", "60"]
     environment:
       SIH_ENV: docker
-      SIH_DATABASE_URL: postgresql+psycopg://postgres:postgres_dev_only@db:5432/sih26262
+      SIH_DATABASE_URL: postgresql+psycopg://app_rw:app_rw_dev@db:5432/sih26262
+      SIH_SIMULATION_SCHEMA: sim
       SIH_JWT_SECRET: docker-dev-only-change-me
       SIH_CLOCK_MODE: fixed
       SIH_CLOCK_FIXED_AT: "2026-10-22T09:00:00+00:00"
+      SIH_STORAGE_DIR: /app/storage
+    volumes:
+      - storage:/app/storage
     depends_on:
       migrate:
         condition: service_completed_successfully
+    restart: unless-stopped
 
   frontend:
     build: ./frontend
@@ -79,7 +110,9 @@ services:
     ports:
       - "5173:5173"
     depends_on:
-      - api
+      api:
+        condition: service_healthy
+    restart: unless-stopped
 
 volumes:
   pgdata:

@@ -26,6 +26,9 @@ class Settings(BaseSettings):
     # documented in docs/REHEARSAL_ENGINE.md (`sim_prod_ro` / `sim_results_rw`).
     simulation_readonly_url: str | None = None
     simulation_results_url: str | None = None
+    # PostgreSQL only: keep simulation rows in their own schema so the results
+    # role never has USAGE on the operational schema. Leave unset for SQLite.
+    simulation_schema: str | None = None
 
     jwt_secret: str = "dev-only-change-me"
     jwt_algorithm: str = "HS256"

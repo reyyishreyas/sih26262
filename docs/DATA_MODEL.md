@@ -1,11 +1,29 @@
 # Data Model
 
-SQLAlchemy 2.x models, SQLite in development, PostgreSQL-ready. The initial Alembic
-revision is `backend/migrations/versions/075aed043fd2_initial_schema.py`; `alembic
-check` reports no drift against the models.
+SQLAlchemy 2.x models, SQLite in development, PostgreSQL-ready. The Alembic
+revisions are `backend/migrations/versions/075aed043fd2_initial_schema.py` and
+`0002_sim_schema_and_finding_labels.py`; `alembic check` reports no drift against
+the models.
 
 Identifiers are strings (UUID-shaped), timestamps are stored in UTC (`DateTime
 (timezone=True)`; SQLite returns naive values, normalised by `to_utc`).
+
+## Schemas
+
+| Schema | Contents | PostgreSQL role that may write |
+|---|---|---|
+| `public` | Every operational table | `app_rw` |
+| `sim` | `sim_*` tables only | `sim_results_rw` |
+
+`sim` is created by migration `0002_sim_schema` when `SIH_SIMULATION_SCHEMA=sim`
+(the Compose stack sets it). SQLite has no schemas, so in development and tests the
+simulation tables sit in `public` and isolation is enforced by the read-only
+baseline connection plus the `SimResultsWriter` type guard instead of by database
+permissions.
+
+Operational tables reference each other only. No foreign key points from an
+operational table to a simulation table, so a rehearsal failure cannot strand an
+application, and the simulation role never has to resolve an operational table.
 
 ## Identity and access
 
@@ -70,14 +88,21 @@ configuration: changing a stage SLA or guard is a data change.
 
 | Table | Purpose |
 |---|---|
-| `rule_evaluations` | Persisted operational finding: rule key/version, batch id, outcome, explanation, evidence refs, missing inputs, baseline version, timestamp |
+| `rule_evaluations` | Persisted operational finding: rule key/version, batch id, outcome, explanation, evidence refs, missing inputs, unverified inputs, denormalised rule title/severity/regulatory reference, baseline version, timestamp |
 | `undertakings` | Post-approval obligations with due date, status, reminder policy |
 | `alerts` | One logical alert, **unique `dedupe_key`** |
 | `alert_deliveries` | Attempt per channel, status, error, provider reference; unique `(alert_id, channel, attempt)` |
 
 `rule_evaluations` deliberately stores the rule key and version rather than a foreign
 key to a mutable rule row, so historical findings remain interpretable after a rule
-is retired.
+is retired. It also stores a copy of the rule's **title, severity and regulatory
+reference** as they were at evaluation time, so the review UI can explain a stored
+finding without re-reading a rule version that may since have been superseded. The
+version number remains the authoritative link.
+
+A stored batch is a snapshot: it records the application baseline version it was
+computed from. If evidence or workflow state changed since then, the compliance
+endpoint recomputes instead of returning stale findings.
 
 ## Audit
 
@@ -92,16 +117,16 @@ tamper-proof against someone with full database and code access.
 
 ## Simulation storage
 
-| Table | Purpose |
-|---|---|
-| `sim_runs` | Run id, application, actor, status, baseline version, rule set version, superseded |
-| `sim_input_snapshots` | Baseline snapshot, overrides and assumptions actually used |
-| `sim_rule_results` | Before/after outcome per rule with change classification |
-| `sim_metrics` | Metric name, nullable value, formula version, inputs. `load_factor` is stored as `NULL` with `formula_version=NULL` |
+| Table | Schema | Purpose |
+|---|---|---|
+| `sim_runs` | `sim` | Run id, application, actor, status, baseline version, rule set version, superseded |
+| `sim_input_snapshots` | `sim` | Baseline snapshot, overrides and assumptions actually used |
+| `sim_rule_results` | `sim` | Before/after outcome per rule with change classification |
+| `sim_metrics` | `sim` | Metric name, nullable value, formula version, inputs. `load_factor` is stored as `NULL` with `formula_version=NULL` |
 
-These tables are written only through `SimResultsWriter`. No foreign key points from
-operational tables to simulation tables, so a rehearsal failure cannot strand an
-application.
+These tables are written only through `SimResultsWriter`, which connects as
+`sim_results_rw` in PostgreSQL. That role has `USAGE` on `sim` and no `USAGE` on
+`public`.
 
 ## Relationship sketch
 
