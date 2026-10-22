@@ -39,7 +39,7 @@ application being written to.
 | API hardening | **Implemented** | JSON logs, request ids, security headers, bounded pagination, upload signature checks, typed error envelope |
 | Sign-in protection | **Implemented** | PBKDF2-SHA256, JWT issuer/audience, persisted account/address throttling, password change revokes old tokens |
 | Health and readiness | **Implemented** | `/health/live`, `/health/ready`, database probes for all three roles |
-| CI | **Implemented and green** | GitHub Actions: Ruff, SQLite Alembic check, 99 tests, PostgreSQL role isolation, frontend production build ([latest run](https://github.com/reyyishreyas/sih26262/actions/runs/39810253186)) |
+| CI | **Implemented and green** | GitHub Actions: Ruff, SQLite Alembic check, 99 tests, PostgreSQL role isolation, frontend production build ([verified run](https://github.com/reyyishreyas/sih26262/actions/runs/39810253186)) |
 | Historical state replay | **Not implemented** | The UI says "audit timeline", not "replay" |
 
 All demo people, institutions, documents and outcomes are **synthetic**.

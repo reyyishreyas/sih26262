@@ -208,7 +208,7 @@ database:
 CI runs the same script against a PostgreSQL service container
 (`.github/workflows/ci.yml`, job `postgres-isolation`), and also runs
 `alembic check` as `sih_migrator` there. The workflow runs on every push to
-`master`. The latest verified run is
+`master`. A verified run is
 [39810253186](https://github.com/reyyishreyas/sih26262/actions/runs/39810253186),
 green on 2026-10-22 (backend, PostgreSQL isolation and frontend build).
 
