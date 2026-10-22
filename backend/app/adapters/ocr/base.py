@@ -1,0 +1,34 @@
+"""OCR / text-extraction adapter contract.
+
+The platform never depends on a specific OCR vendor. The prototype ships a mock that
+returns plausible, clearly-labelled fields so the rule engine can be exercised
+end-to-end. Replacing it is a configuration change, not a rewrite.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass, field
+from typing import Protocol
+
+
+@dataclass
+class ExtractedFieldCandidate:
+    field_name: str
+    value: object
+    source_page: int | None = None
+    source_span: str | None = None
+    method: str = "mock_ocr"
+    confidence: float = 0.0
+
+
+@dataclass
+class ExtractionResult:
+    doc_type: str
+    fields: list[ExtractedFieldCandidate] = field(default_factory=list)
+    simulated: bool = True
+    warnings: list[str] = field(default_factory=list)
+
+
+class OCRExtractor(Protocol):
+    def extract(self, *, doc_type: str, content: bytes, file_name: str) -> ExtractionResult:
+        ...

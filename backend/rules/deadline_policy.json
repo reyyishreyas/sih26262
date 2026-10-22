@@ -1,0 +1,20 @@
+{
+  "note": "Illustrative deadline policy. Offsets are days relative to the obligation due date; an alert is eligible once now >= due_at + offset_days. Negative offsets are advance warnings.",
+  "undertaking": [
+    { "level": "reminder_30", "offset_days": -30, "severity": "info" },
+    { "level": "reminder_7", "offset_days": -7, "severity": "warning" },
+    { "level": "overdue", "offset_days": 1, "severity": "critical" },
+    { "level": "escalated", "offset_days": 7, "severity": "escalated" }
+  ],
+  "document_expiry": [
+    { "level": "reminder_60", "offset_days": -60, "severity": "info" },
+    { "level": "reminder_30", "offset_days": -30, "severity": "warning" },
+    { "level": "expired", "offset_days": 1, "severity": "critical" },
+    { "level": "escalated", "offset_days": 15, "severity": "escalated" }
+  ],
+  "stage_ageing": [
+    { "level": "due_soon", "offset_days": -2, "severity": "info" },
+    { "level": "overdue", "offset_days": 0, "severity": "critical" },
+    { "level": "escalated", "offset_days": 5, "severity": "escalated" }
+  ]
+}

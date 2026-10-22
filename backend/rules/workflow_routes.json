@@ -1,0 +1,165 @@
+{
+  "note": "Prototype route table. The stage combinations mirror the four approval paths named in the problem statement; the transitions, guards and SLAs are illustrative configuration and must be verified against the APH before production use.",
+  "routes": {
+    "new_technical": {
+      "label": "New technical institution — Scrutiny + EVC",
+      "stage_sla_days": {
+        "submitted": 5,
+        "scrutiny": 15,
+        "evc_scheduled": 30,
+        "evc_completed": 10
+      },
+      "transitions": [
+        {
+          "action": "submit",
+          "from_state": "draft",
+          "to_state": "submitted",
+          "required_permission": "application.submit",
+          "allowed_roles": ["institution_representative"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Institution submits the application for scrutiny"
+        },
+        {
+          "action": "start_scrutiny",
+          "from_state": "submitted",
+          "to_state": "scrutiny",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Scrutiny officer opens the case"
+        },
+        {
+          "action": "return_for_clarification",
+          "from_state": "scrutiny",
+          "to_state": "returned",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Return to the institution with a recorded reason"
+        },
+        {
+          "action": "resubmit",
+          "from_state": "returned",
+          "to_state": "submitted",
+          "required_permission": "application.submit",
+          "allowed_roles": ["institution_representative"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Institution resubmits after correction"
+        },
+        {
+          "action": "schedule_evc",
+          "from_state": "scrutiny",
+          "to_state": "evc_scheduled",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer"],
+          "required_rules": [
+            "LEASE_VALID_COVERS_PERIOD",
+            "LEASE_ISSUING_AUTHORITY",
+            "REQUIRED_DOC_AFFIDAVIT",
+            "INSTITUTION_IDENTITY_MATCH"
+          ],
+          "required_documents": ["affidavit"],
+          "requires_reason": false,
+          "description": "Scrutiny complete; expert committee visit required"
+        },
+        {
+          "action": "complete_evc",
+          "from_state": "evc_scheduled",
+          "to_state": "evc_completed",
+          "required_permission": "case.decide",
+          "allowed_roles": ["evc_member"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Committee records the visit outcome"
+        },
+        {
+          "action": "approve",
+          "from_state": "evc_completed",
+          "to_state": "approved",
+          "required_permission": "case.decide",
+          "allowed_roles": ["evc_member", "regional_officer"],
+          "required_rules": [
+            "LEASE_VALID_COVERS_PERIOD",
+            "REQUIRED_DOC_AFFIDAVIT"
+          ],
+          "required_documents": ["affidavit"],
+          "requires_reason": false,
+          "description": "Approval recorded by the competent authority"
+        },
+        {
+          "action": "reject",
+          "from_state": "scrutiny",
+          "to_state": "rejected",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Reject with a recorded reason"
+        }
+      ]
+    },
+    "existing_technical": {
+      "label": "Existing technical institution — Scrutiny only",
+      "stage_sla_days": {
+        "submitted": 5,
+        "scrutiny": 10
+      },
+      "transitions": [
+        {
+          "action": "submit",
+          "from_state": "draft",
+          "to_state": "submitted",
+          "required_permission": "application.submit",
+          "allowed_roles": ["institution_representative"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Institution submits the application for scrutiny"
+        },
+        {
+          "action": "start_scrutiny",
+          "from_state": "submitted",
+          "to_state": "scrutiny",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Scrutiny officer opens the case"
+        },
+        {
+          "action": "approve",
+          "from_state": "scrutiny",
+          "to_state": "approved",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer", "regional_officer"],
+          "required_rules": ["LEASE_VALID_COVERS_PERIOD", "REQUIRED_DOC_AFFIDAVIT"],
+          "required_documents": ["affidavit"],
+          "requires_reason": false,
+          "description": "Scrutiny-only route approval"
+        },
+        {
+          "action": "reject",
+          "from_state": "scrutiny",
+          "to_state": "rejected",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Reject with a recorded reason"
+        }
+      ]
+    }
+  }
+}

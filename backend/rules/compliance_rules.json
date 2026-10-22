@@ -1,0 +1,110 @@
+{
+  "version": "2026.1",
+  "note": "Prototype rule set. Each rule is derived from the AICTE Approval Process Handbook 2024-2027 and MUST be mapped to an exact clause, applicability and effective date by a rule owner before any production use. These entries are illustrative and are not a legal interpretation.",
+  "rules": [
+    {
+      "key": "LEASE_VALID_COVERS_PERIOD",
+      "title": "Lease validity covers the approved academic period",
+      "description": "The verified lease expiry must not precede the end of the application cycle.",
+      "regulatory_reference": "APH 2024-2027 land/lease requirement (clause mapping pending verification)",
+      "applicability": { "op": "always" },
+      "condition": {
+        "op": "gte",
+        "left": { "field": "documents.lease_deed.valid_to" },
+        "right": { "field": "application.cycle_end" }
+      },
+      "missing_outcome": "NOT_EVALUATED",
+      "unverified_outcome": "NEEDS_REVIEW",
+      "failure_outcome": "FAIL",
+      "blocking": true,
+      "severity": "major"
+    },
+    {
+      "key": "LEASE_ISSUING_AUTHORITY",
+      "title": "Lease document records an issuing authority",
+      "description": "A lease without a recorded authority is incomplete evidence.",
+      "regulatory_reference": "APH 2024-2027 document completeness (clause mapping pending verification)",
+      "applicability": { "op": "always" },
+      "condition": {
+        "op": "exists",
+        "field": "documents.lease_deed.issuing_authority"
+      },
+      "missing_outcome": "FAIL",
+      "unverified_outcome": "NEEDS_REVIEW",
+      "failure_outcome": "FAIL",
+      "blocking": true,
+      "severity": "minor"
+    },
+    {
+      "key": "REQUIRED_DOC_AFFIDAVIT",
+      "title": "Required supporting affidavit is provided",
+      "description": "Absence of a required document is itself the finding, so this rule declares missing_outcome=FAIL explicitly rather than relying on inference.",
+      "regulatory_reference": "APH 2024-2027 supporting-document list (clause mapping pending verification)",
+      "applicability": { "op": "always" },
+      "condition": {
+        "op": "exists",
+        "field": "documents.affidavit.document_id"
+      },
+      "missing_outcome": "FAIL",
+      "unverified_outcome": "NEEDS_REVIEW",
+      "failure_outcome": "FAIL",
+      "blocking": true,
+      "severity": "major"
+    },
+    {
+      "key": "LEASE_DATE_CONSISTENCY",
+      "title": "Lease expiry agrees across submitted records",
+      "description": "Two submitted records state different lease expiry dates. This is a discrepancy to verify, not an accusation.",
+      "regulatory_reference": "Internal consistency requirement (prototype policy)",
+      "applicability": { "op": "always" },
+      "condition": {
+        "op": "eq",
+        "left": { "field": "documents.lease_deed.valid_to" },
+        "right": { "field": "documents.ownership_record.lease_expiry" }
+      },
+      "missing_outcome": "NOT_EVALUATED",
+      "unverified_outcome": "NEEDS_REVIEW",
+      "failure_outcome": "NEEDS_REVIEW",
+      "blocking": false,
+      "severity": "major"
+    },
+    {
+      "key": "INSTITUTION_IDENTITY_MATCH",
+      "title": "Lessee name matches the applicant institution",
+      "description": "The lease must name the applicant institution, not a related or third party.",
+      "regulatory_reference": "APH 2024-2027 institutional identity requirement (clause mapping pending verification)",
+      "applicability": { "op": "always" },
+      "condition": {
+        "op": "eq",
+        "left": { "field": "documents.lease_deed.lessee_name" },
+        "right": { "field": "institution.name" }
+      },
+      "missing_outcome": "NEEDS_REVIEW",
+      "unverified_outcome": "NEEDS_REVIEW",
+      "failure_outcome": "FAIL",
+      "blocking": true,
+      "severity": "major"
+    },
+    {
+      "key": "EXISTING_INSTITUTION_FACULTY_RATIO",
+      "title": "Faculty ratio for existing institutions",
+      "description": "Applicable only to existing institutions; demonstrates NOT_APPLICABLE for new applicants.",
+      "regulatory_reference": "APH 2024-2027 faculty requirement (clause mapping pending verification)",
+      "applicability": {
+        "op": "eq",
+        "left": { "field": "application.category" },
+        "right": { "literal": "existing_technical" }
+      },
+      "condition": {
+        "op": "gte",
+        "left": { "field": "documents.faculty_list.faculty_count" },
+        "right": { "literal": 60 }
+      },
+      "missing_outcome": "NOT_EVALUATED",
+      "unverified_outcome": "NEEDS_REVIEW",
+      "failure_outcome": "FAIL",
+      "blocking": false,
+      "severity": "minor"
+    }
+  ]
+}

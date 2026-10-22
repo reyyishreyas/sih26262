@@ -1,0 +1,86 @@
+# Local/demo stack. Not a production deployment: OCR, notifications and the data
+# are mock/synthetic, and this file uses development credentials on purpose.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: sih26262
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres_dev_only
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d sih26262"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+
+  migrate:
+    build: ./backend
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      SIH_ENV: docker
+      SIH_DATABASE_URL: postgresql+psycopg://postgres:postgres_dev_only@db:5432/sih26262
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+
+  api:
+    build: ./backend
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8000",
+      ]
+    environment:
+      SIH_ENV: docker
+      SIH_DATABASE_URL: postgresql+psycopg://postgres:postgres_dev_only@db:5432/sih26262
+      # Separate least-privilege URLs; see backend/sql/roles.sql.
+      SIH_SIMULATION_READONLY_URL: postgresql+psycopg://postgres:postgres_dev_only@db:5432/sih26262
+      SIH_SIMULATION_RESULTS_URL: postgresql+psycopg://postgres:postgres_dev_only@db:5432/sih26262
+      SIH_SEED_ON_STARTUP: "true"
+      SIH_CLOCK_MODE: fixed
+      SIH_CLOCK_FIXED_AT: "2026-10-22T09:00:00+00:00"
+      SIH_JWT_SECRET: docker-dev-only-change-me
+      SIH_STORAGE_DIR: /app/storage
+      SIH_CORS_ORIGINS: '["http://localhost:5173","http://127.0.0.1:5173"]'
+    ports:
+      - "8000:8000"
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  worker:
+    build: ./backend
+    command: ["python", "-m", "app.workers.scheduler", "--interval", "60"]
+    environment:
+      SIH_ENV: docker
+      SIH_DATABASE_URL: postgresql+psycopg://postgres:postgres_dev_only@db:5432/sih26262
+      SIH_JWT_SECRET: docker-dev-only-change-me
+      SIH_CLOCK_MODE: fixed
+      SIH_CLOCK_FIXED_AT: "2026-10-22T09:00:00+00:00"
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+
+  frontend:
+    build: ./frontend
+    environment:
+      VITE_API_BASE: http://localhost:8000/api/v1
+    ports:
+      - "5173:5173"
+    depends_on:
+      - api
+
+volumes:
+  pgdata:
+  storage:
