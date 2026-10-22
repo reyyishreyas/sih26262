@@ -115,9 +115,13 @@ service; the API returns the permission error directly.
 
 ## Honest gaps
 
-- **No multi-factor authentication, password reset, account lockout or rate
-  limiting.** Passwords are PBKDF2-SHA256 (stdlib) with a configurable iteration
-  count; tokens are HS256 JWTs with an eight-hour default lifetime.
+- **No multi-factor authentication, password reset or account recovery.** Passwords
+  are PBKDF2-SHA256 (stdlib) with a configurable iteration count; tokens are HS256
+  JWTs with issuer/audience, an eight-hour default lifetime, and a password marker
+  that invalidates old tokens after `POST /auth/change-password`. Account/address
+  and address-only failed sign-ins are throttled persistently in the database
+  (default five failures, fifteen-minute window, `429` with `Retry-After`); the
+  limit is not an MFA substitute.
 - **No segregation-of-duties rule** that stops one person from both verifying a field
   and approving the case. The role model makes it possible to configure, but the
   prototype does not enforce a four-eyes principle.

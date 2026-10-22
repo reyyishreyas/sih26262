@@ -145,7 +145,7 @@ class RuleSpec:
     confidence: float = 1.0
 
     @classmethod
-    def from_orm(cls, version: Any) -> "RuleSpec":
+    def from_orm(cls, version: Any) -> RuleSpec:
         return cls(
             key=version.rule.key,
             version=version.version,
@@ -200,7 +200,7 @@ class _Trace:
     notes: list[str] = field(default_factory=list)
 
     @staticmethod
-    def merge(parts: list["_Trace"]) -> "_Trace":
+    def merge(parts: list[_Trace]) -> _Trace:
         missing: set[str] = set()
         unverified: set[str] = set()
         refs: set[str] = set()

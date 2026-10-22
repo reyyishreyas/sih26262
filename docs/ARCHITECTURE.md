@@ -87,7 +87,8 @@ process starting.
 
 A guarded workflow transition (`POST /api/v1/applications/{id}/transitions`):
 
-1. **Authenticate** — bearer JWT, HS256, subject is the user id.
+1. **Authenticate** — bearer JWT, HS256, issuer/audience/nbf checked, subject is
+   the user id, and a `pwd` marker binds the token to the current password hash.
 2. **Authorise** — the required permission (e.g. `case.transition`) is checked
    server-side; the UI hiding a button is irrelevant.
 3. **Scope** — `require_application` evaluates a SQL scope filter (global, region,
@@ -103,6 +104,27 @@ A guarded workflow transition (`POST /api/v1/applications/{id}/transitions`):
 7. **Return** HTTP 200 with `accepted: false` for a guard refusal. 404 is reserved
    for out-of-scope cases; 422 for rejected rehearsal overrides; 400 for an invalid
    rule definition.
+
+### HTTP hardening layer
+
+Before routing, middleware assigns or validates `X-Request-ID` (client value must
+match a safe pattern, otherwise a generated id replaces it) and binds it to the
+request context. It emits `X-Content-Type-Options`, `X-Frame-Options`,
+`Referrer-Policy`, HSTS in production, and `Cache-Control: no-store` for API and
+health paths. The access log is one JSON object per request with the request id,
+method, path, status, duration and client address; application logs inherit the
+same id. Unhandled exceptions return a typed error envelope without a traceback;
+validation errors return `code: validation_error` with the request id.
+
+`TrustedHostMiddleware` and an explicit CORS allowlist are configured from
+settings. Production validation rejects wildcards. List endpoints accept
+`limit`/`offset` (maximum 500) and return `X-Total-Count`. `/health/live` is a
+process check; `/health/ready` executes probe queries on the operational,
+rehearsal-reader and rehearsal-writer roles and returns `503` if any fail.
+
+Sign-in throttling is persisted in `login_attempts`, keyed by a hash of
+account+address and separately by address. It therefore survives restarts and is
+shared across API replicas; it is not an in-process counter.
 
 ## Deterministic time
 
@@ -167,9 +189,13 @@ re-checks permission and scope.
 
 ## Configuration
 
-All settings use the `SIH_` prefix (`app/core/config.py`): database URLs, simulation
-URLs, JWT secret, password-hash iterations, clock mode, storage directory, upload
-limits, CORS origins, seed-on-startup. `.env.example` documents them.
+All settings use the `SIH_` prefix (`app/core/config.py`): database and simulation
+URLs, pool/timeouts, JWT secret/issuer/audience, password policy and iteration
+count, sign-in throttling, clock mode, storage directory, upload limits, CORS
+origins, allowed hosts, HSTS, docs toggle, log level/format, seed-on-startup.
+`.env.example` documents them. `Settings` runs production-only validation at
+startup: weak JWT secrets, SQLite, wildcard CORS/hosts, seeding, fixed clock,
+debug, short HSTS and low PBKDF2 iterations are fatal when `SIH_ENV=production`.
 
 ## Known architectural limits
 

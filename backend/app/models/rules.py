@@ -5,17 +5,19 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
-    text,
-    inspect as sa_inspect,
     Date,
     DateTime,
     ForeignKey,
     Integer,
-    JSON,
     String,
     UniqueConstraint,
     event,
+    text,
+)
+from sqlalchemy import (
+    inspect as sa_inspect,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -34,7 +36,7 @@ class Rule(Base):
     regulatory_reference: Mapped[str] = mapped_column(String(255), default="")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
-    versions: Mapped[list["RuleVersion"]] = relationship(back_populates="rule")
+    versions: Mapped[list[RuleVersion]] = relationship(back_populates="rule")
 
 
 class RuleVersion(Base):

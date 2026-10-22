@@ -5,12 +5,11 @@ from __future__ import annotations
 from datetime import datetime
 
 from sqlalchemy import (
+    JSON,
     Boolean,
     DateTime,
-    Float,
     ForeignKey,
     Integer,
-    JSON,
     String,
     UniqueConstraint,
 )
@@ -94,7 +93,7 @@ class Alert(Base):
     recipients: Mapped[list] = mapped_column(JSON, default=list)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
 
-    deliveries: Mapped[list["AlertDelivery"]] = relationship(
+    deliveries: Mapped[list[AlertDelivery]] = relationship(
         back_populates="alert", cascade="all, delete-orphan"
     )
 

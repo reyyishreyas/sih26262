@@ -1,0 +1,13 @@
+line-length = 100
+target-version = "py313"
+
+[lint]
+select = ["E", "F", "I", "B", "UP", "SIM"]
+ignore = [
+    "E501",  # formatting is handled separately; long URLs and messages are fine
+    "B008",  # FastAPI dependencies are intentionally called in argument defaults
+    "SIM117",  # nested context managers are often clearer here
+]
+
+[lint.per-file-ignores]
+"tests/*" = ["S101"]

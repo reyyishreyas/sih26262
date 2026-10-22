@@ -7,7 +7,7 @@ evaluation can run against production or against a hypothetical in-memory scenar
 
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -64,7 +64,7 @@ def build_snapshot(db: Session, application: Application) -> Snapshot:
     now = get_clock().now()
     state_since = application.current_state_since
     if state_since.tzinfo is None:
-        state_since = state_since.replace(tzinfo=timezone.utc)
+        state_since = state_since.replace(tzinfo=UTC)
     days_in_state = max(0, (now - state_since).days)
 
     values: dict[str, object] = {

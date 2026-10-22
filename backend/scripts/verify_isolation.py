@@ -173,6 +173,24 @@ def main() -> int:
     checks.append(
         expect(
             "app_rw",
+            "application role can write sign-in throttle rows",
+            "INSERT INTO public.login_attempts "
+            "(id, key_hash, attempted_at, successful) VALUES "
+            f"('{uuid.uuid4()}', 'isolation-check', now(), false)",
+            allowed=True,
+        )
+    )
+    checks.append(
+        expect(
+            "app_rw",
+            "application role cannot perform DDL",
+            "CREATE TABLE public.should_not_exist (id integer)",
+            allowed=False,
+        )
+    )
+    checks.append(
+        expect(
+            "app_rw",
             "application role cannot reach the simulation schema",
             "SELECT count(*) FROM sim.sim_runs",
             allowed=False,

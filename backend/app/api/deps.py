@@ -4,13 +4,13 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from fastapi import Depends, HTTPException, Request, status
+from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from ..core.db import get_db
 from ..core.permissions import PermissionDenied
-from ..core.security import decode_access_token
+from ..core.security import decode_access_token, password_marker
 from ..models import Application, User
 from ..services.authorization_service import (
     EffectiveAccess,
@@ -28,12 +28,20 @@ def get_current_user(
 ) -> User:
     if credentials is None:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "missing bearer token")
-    user_id = decode_access_token(credentials.credentials)
+    payload = decode_access_token(credentials.credentials)
+    if not payload:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token")
+    user_id = payload.get("sub")
     if not user_id:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "invalid token")
     user = db.get(User, user_id)
     if user is None or not user.is_active:
         raise HTTPException(status.HTTP_401_UNAUTHORIZED, "inactive or unknown user")
+    expected_marker = password_marker(user.password_hash)
+    if payload.get("pwd") != expected_marker:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "token is no longer valid; sign in again"
+        )
     return user
 
 
@@ -66,10 +74,6 @@ def require_any(*permissions: str) -> Callable[..., EffectiveAccess]:
         return access
 
     return dependency
-
-
-def request_context(request: Request) -> str | None:
-    return request.headers.get("x-request-id")
 
 
 def scoped_application(

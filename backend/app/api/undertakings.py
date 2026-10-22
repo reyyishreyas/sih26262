@@ -6,12 +6,16 @@ from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock, iso
 from ..core.db import get_db
-from ..core.permissions import CASE_READ, DOCUMENT_VERIFY, UNDERTAKING_READ, UNDERTAKING_SUBMIT
+from ..core.permissions import DOCUMENT_VERIFY, UNDERTAKING_READ, UNDERTAKING_SUBMIT
 from ..models import Undertaking
 from ..schemas.api import UndertakingSubmitRequest
 from ..services.audit_service import AuditService
-from ..services.authorization_service import EffectiveAccess, require_application, require_permission
-from .deps import get_access, require
+from ..services.authorization_service import (
+    EffectiveAccess,
+    require_application,
+    require_permission,
+)
+from .deps import require
 
 router = APIRouter(prefix="/applications/{application_id}/undertakings", tags=["undertakings"])
 

@@ -24,7 +24,7 @@ from typing import Any
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..core.clock import get_clock, iso
+from ..core.clock import get_clock
 from ..core.permissions import PermissionDenied
 from ..models import (
     Application,

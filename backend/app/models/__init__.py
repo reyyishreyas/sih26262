@@ -5,6 +5,7 @@ from .compliance import Alert, AlertDelivery, RuleEvaluation, Undertaking
 from .identity import (
     CaseAssignment,
     JurisdictionAssignment,
+    LoginAttempt,
     Permission,
     Role,
     RolePermission,
@@ -28,6 +29,7 @@ __all__ = [
     "ExtractedField",
     "Institution",
     "JurisdictionAssignment",
+    "LoginAttempt",
     "Permission",
     "Region",
     "Role",

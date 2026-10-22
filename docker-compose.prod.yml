@@ -1,0 +1,207 @@
+# Production-shaped stack.
+#
+#   cp .env.production.example .env.production
+#   # fill in every value, then:
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+#
+# Differences from docker-compose.yml (the local demo):
+#   * no fixed clock, no startup seeding, no committed credentials
+#   * the API cannot run DDL; the migrate job runs as sih_migrator
+#   * PostgreSQL is not published to the host
+#   * backend and frontend run as non-root users
+#   * docs are disabled by default (SIH_DOCS_ENABLED=false)
+# Application settings shared by the API and worker. Deliberately excludes the
+# superuser and migrator passwords: those must never be present in a runtime
+# container. Compose still reads .env.production for interpolation.
+x-app-environment: &app-environment
+  SIH_ENV: production
+  SIH_DATABASE_URL: postgresql+psycopg://app_rw:${SIH_APP_RW_PASSWORD:?set SIH_APP_RW_PASSWORD}@db:5432/${POSTGRES_DB:-sih26262}
+  SIH_SIMULATION_READONLY_URL: postgresql+psycopg://sim_prod_ro:${SIH_SIM_RO_PASSWORD:?set SIH_SIM_RO_PASSWORD}@db:5432/${POSTGRES_DB:-sih26262}
+  SIH_SIMULATION_RESULTS_URL: postgresql+psycopg://sim_results_rw:${SIH_SIM_RW_PASSWORD:?set SIH_SIM_RW_PASSWORD}@db:5432/${POSTGRES_DB:-sih26262}
+  SIH_SIMULATION_SCHEMA: ${SIH_SIMULATION_SCHEMA:-sim}
+  SIH_STORAGE_DIR: /app/storage
+  SIH_SEED_ON_STARTUP: "false"
+  SIH_CLOCK_MODE: system
+  SIH_JWT_SECRET: ${SIH_JWT_SECRET:?set SIH_JWT_SECRET}
+  SIH_PASSWORD_HASH_ITERATIONS: ${SIH_PASSWORD_HASH_ITERATIONS:-260000}
+  SIH_ACCESS_TOKEN_MINUTES: ${SIH_ACCESS_TOKEN_MINUTES:-480}
+  SIH_CORS_ORIGINS: ${SIH_CORS_ORIGINS:?set SIH_CORS_ORIGINS}
+  SIH_ALLOWED_HOSTS: ${SIH_ALLOWED_HOSTS:?set SIH_ALLOWED_HOSTS}
+  SIH_HSTS_SECONDS: ${SIH_HSTS_SECONDS:-31536000}
+  SIH_DOCS_ENABLED: ${SIH_DOCS_ENABLED:-false}
+  SIH_DEBUG: "false"
+  SIH_LOG_LEVEL: ${SIH_LOG_LEVEL:-INFO}
+  SIH_LOG_JSON: ${SIH_LOG_JSON:-true}
+  SIH_TRUST_PROXY_HEADERS: ${SIH_TRUST_PROXY_HEADERS:-false}
+  SIH_DB_POOL_SIZE: ${SIH_DB_POOL_SIZE:-10}
+  SIH_DB_MAX_OVERFLOW: ${SIH_DB_MAX_OVERFLOW:-20}
+  SIH_DB_STATEMENT_TIMEOUT_MS: ${SIH_DB_STATEMENT_TIMEOUT_MS:-30000}
+  SIH_LOGIN_MAX_ATTEMPTS: ${SIH_LOGIN_MAX_ATTEMPTS:-5}
+  SIH_LOGIN_MAX_ATTEMPTS_PER_IP: ${SIH_LOGIN_MAX_ATTEMPTS_PER_IP:-25}
+  SIH_LOGIN_WINDOW_SECONDS: ${SIH_LOGIN_WINDOW_SECONDS:-900}
+  SIH_LOGIN_LOCKOUT_SECONDS: ${SIH_LOGIN_LOCKOUT_SECONDS:-900}
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sih26262}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-sih26262}",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  bootstrap:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-sih26262}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      PGPASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      SIH_MIGRATOR_PASSWORD: ${SIH_MIGRATOR_PASSWORD:?set SIH_MIGRATOR_PASSWORD}
+      SIH_APP_RW_PASSWORD: ${SIH_APP_RW_PASSWORD:?set SIH_APP_RW_PASSWORD}
+      SIH_SIM_RO_PASSWORD: ${SIH_SIM_RO_PASSWORD:?set SIH_SIM_RO_PASSWORD}
+      SIH_SIM_RW_PASSWORD: ${SIH_SIM_RW_PASSWORD:?set SIH_SIM_RW_PASSWORD}
+    volumes:
+      - ./backend/sql:/sql:ro
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        psql -h db -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -v ON_ERROR_STOP=1 \
+          -v migrator_password="$$SIH_MIGRATOR_PASSWORD" \
+          -v app_rw_password="$$SIH_APP_RW_PASSWORD" \
+          -v sim_prod_ro_password="$$SIH_SIM_RO_PASSWORD" \
+          -v sim_results_rw_password="$$SIH_SIM_RW_PASSWORD" \
+          -f /sql/bootstrap_roles.sql
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: "no"
+    security_opt:
+      - no-new-privileges:true
+
+  migrate:
+    build:
+      context: ./backend
+      target: runtime
+    command:
+      - sh
+      - -c
+      - |
+        set -eu
+        alembic upgrade head
+        PGPASSWORD="$$POSTGRES_PASSWORD" psql -h db -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" \
+          -v ON_ERROR_STOP=1 -f sql/roles.sql
+    environment:
+      # Alembic only needs the schema owner; it is not the API, so the production
+      # runtime validator (which requires the isolated rehearsal URLs) does not apply.
+      SIH_ENV: migration
+      SIH_DATABASE_URL: postgresql+psycopg://sih_migrator:${SIH_MIGRATOR_PASSWORD:?}@db:5432/${POSTGRES_DB:-sih26262}
+      SIH_SIMULATION_SCHEMA: ${SIH_SIMULATION_SCHEMA:-sim}
+      POSTGRES_DB: ${POSTGRES_DB:-sih26262}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?}
+    depends_on:
+      bootstrap:
+        condition: service_completed_successfully
+    restart: "no"
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    healthcheck:
+      disable: true
+
+  api:
+    build:
+      context: ./backend
+      target: runtime
+    command:
+      - uvicorn
+      - app.main:app
+      - --host
+      - 0.0.0.0
+      - --port
+      - "8000"
+      - --no-access-log
+    environment: *app-environment
+    ports:
+      - "${API_BIND:-127.0.0.1:8000}:8000"
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+  worker:
+    build:
+      context: ./backend
+      target: runtime
+    command: ["python", "-m", "app.workers.scheduler", "--interval", "60"]
+    environment: *app-environment
+    volumes:
+      - storage:/app/storage
+    depends_on:
+      migrate:
+        condition: service_completed_successfully
+    restart: unless-stopped
+    read_only: true
+    tmpfs:
+      - /tmp
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "pgrep -f 'app.workers.scheduler' >/dev/null || exit 1",
+        ]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.prod
+      args:
+        VITE_API_BASE: ${SIH_PUBLIC_API_BASE:-/api/v1}
+    ports:
+      - "${WEB_BIND:-127.0.0.1:8080}:8080"
+    depends_on:
+      api:
+        condition: service_healthy
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    cap_drop:
+      - ALL
+
+volumes:
+  pgdata:
+  storage:

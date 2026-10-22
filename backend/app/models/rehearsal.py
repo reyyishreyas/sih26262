@@ -12,23 +12,36 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import JSON, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column
 
 from ..core.config import get_settings
 from .base import Base, new_id, utcnow
 
 SIM_SCHEMA = get_settings().simulation_schema or None
-_TABLE_ARGS = {"schema": SIM_SCHEMA} if SIM_SCHEMA else {}
 _RUN_FK = f"{SIM_SCHEMA}.sim_runs.id" if SIM_SCHEMA else "sim_runs.id"
+
+
+def _table_args(index_name: str, column: str) -> tuple:
+    """Keep index names stable across dialects.
+
+    SQLAlchemy normally derives index names from ``table + column``. With a table
+    schema it would generate ``ix_sim_sim_runs_application_id`` on PostgreSQL while
+    the migration-created index is ``ix_sim_runs_application_id``. Pinning the name
+    makes autogenerate agree with the migrated schema and keeps SQLite identical.
+    """
+    args: list = [Index(index_name, column)]
+    if SIM_SCHEMA:
+        args.append({"schema": SIM_SCHEMA})
+    return tuple(args)
 
 
 class SimRun(Base):
     __tablename__ = "sim_runs"
-    __table_args__ = _TABLE_ARGS
+    __table_args__ = _table_args("ix_sim_runs_application_id", "application_id")
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    application_id: Mapped[str] = mapped_column(String(36), index=True)
+    application_id: Mapped[str] = mapped_column(String(36))
     run_by: Mapped[str] = mapped_column(String(36))
     status: Mapped[str] = mapped_column(String(32), default="completed")
     baseline_version: Mapped[int] = mapped_column(Integer, default=1)
@@ -43,12 +56,10 @@ class SimRun(Base):
 
 class SimInputSnapshot(Base):
     __tablename__ = "sim_input_snapshots"
-    __table_args__ = _TABLE_ARGS
+    __table_args__ = _table_args("ix_sim_input_snapshots_run_id", "run_id")
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    run_id: Mapped[str] = mapped_column(
-        ForeignKey(_RUN_FK, ondelete="CASCADE"), index=True
-    )
+    run_id: Mapped[str] = mapped_column(ForeignKey(_RUN_FK, ondelete="CASCADE"))
     baseline: Mapped[dict] = mapped_column(JSON, default=dict)
     overrides: Mapped[dict] = mapped_column(JSON, default=dict)
     assumptions: Mapped[list] = mapped_column(JSON, default=list)
@@ -56,12 +67,10 @@ class SimInputSnapshot(Base):
 
 class SimRuleResult(Base):
     __tablename__ = "sim_rule_results"
-    __table_args__ = _TABLE_ARGS
+    __table_args__ = _table_args("ix_sim_rule_results_run_id", "run_id")
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    run_id: Mapped[str] = mapped_column(
-        ForeignKey(_RUN_FK, ondelete="CASCADE"), index=True
-    )
+    run_id: Mapped[str] = mapped_column(ForeignKey(_RUN_FK, ondelete="CASCADE"))
     rule_key: Mapped[str] = mapped_column(String(64))
     rule_version: Mapped[int] = mapped_column(Integer)
     before_outcome: Mapped[str] = mapped_column(String(24))
@@ -74,12 +83,10 @@ class SimRuleResult(Base):
 
 class SimMetric(Base):
     __tablename__ = "sim_metrics"
-    __table_args__ = _TABLE_ARGS
+    __table_args__ = _table_args("ix_sim_metrics_run_id", "run_id")
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
-    run_id: Mapped[str] = mapped_column(
-        ForeignKey(_RUN_FK, ondelete="CASCADE"), index=True
-    )
+    run_id: Mapped[str] = mapped_column(ForeignKey(_RUN_FK, ondelete="CASCADE"))
     name: Mapped[str] = mapped_column(String(64))
     value: Mapped[float | None] = mapped_column(Float, nullable=True)
     formula_version: Mapped[str | None] = mapped_column(String(64), nullable=True)

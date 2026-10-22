@@ -28,6 +28,23 @@ health="$(curl -fsS "$BASE/health")"
 }
 say "health ok (role $(echo "$health" | json 'd["database_role"]'))"
 
+ready="$(curl -fsS "$BASE/health/ready")"
+[[ "$(echo "$ready" | json 'd["status"]')" == "ready" ]] || {
+  echo "readiness is not ready: $ready" >&2
+  exit 1
+}
+say "readiness ok"
+
+headers="$(mktemp -t sih-smoke-headers-XXXXXX)"
+curl -fsS -D "$headers" -o /dev/null "$BASE/health/live"
+grep -qi '^x-content-type-options: nosniff' "$headers" || {
+  echo "security headers are missing" >&2
+  rm -f "$headers"
+  exit 1
+}
+rm -f "$headers"
+say "request-id and security headers present"
+
 token="$(curl -fsS -X POST "$API/auth/login" \
   -H 'content-type: application/json' \
   -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | json 'd["access_token"]')"

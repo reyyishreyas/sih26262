@@ -105,9 +105,10 @@ def test_rehearsal_persists_only_simulation_rows(db, access_for):
 
 def test_rehearsal_baseline_is_never_a_write_path(db, access_for):
     """The baseline connection is read-only at the database level."""
-    from app.core.db import open_readonly_session
     from sqlalchemy import text
     from sqlalchemy.exc import OperationalError
+
+    from app.core.db import open_readonly_session
 
     with open_readonly_session() as session:
         with pytest.raises(OperationalError):

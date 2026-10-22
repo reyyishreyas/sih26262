@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock, iso
 from ..core.db import get_db
+from ..core.pagination import PageParams, apply_page, pagination, set_total
 from ..core.permissions import APPLICATION_CREATE, APPLICATION_READ, CASE_READ
 from ..models import Application, Institution
 from ..schemas.api import ApplicationCreate, ApplicationOut
@@ -17,21 +18,27 @@ from ..services.authorization_service import (
     scope_filter,
 )
 from ..services.evidence_service import build_snapshot
-from .deps import get_access, require, require_any
+from .deps import require, require_any
 
 router = APIRouter(prefix="/applications", tags=["applications"])
 
 
 @router.get("", response_model=list[ApplicationOut])
 def list_applications(
+    response: Response,
+    page: PageParams = Depends(pagination),
     access: EffectiveAccess = Depends(require_any(APPLICATION_READ, CASE_READ)),
     db: Session = Depends(get_db),
 ) -> list[Application]:
     query = select(Application).order_by(Application.created_at)
+    count_query = select(func.count()).select_from(Application)
     clause = scope_filter(access)
     if clause is not None:
         query = query.where(clause)
-    return list(db.scalars(query).all())
+        count_query = count_query.where(clause)
+    total = int(db.scalar(count_query) or 0)
+    set_total(response, total)
+    return list(db.scalars(apply_page(query, page)).all())
 
 
 @router.post("", response_model=ApplicationOut, status_code=status.HTTP_201_CREATED)

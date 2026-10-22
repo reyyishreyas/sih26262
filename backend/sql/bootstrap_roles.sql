@@ -1,17 +1,40 @@
 -- Development bootstrap for PostgreSQL roles.
 --
--- Mounted into /docker-entrypoint-initdb.d/ by docker-compose.yml. It runs only when
--- the database volume is first created, as the POSTGRES_USER superuser.
+-- Mounted into /docker-entrypoint-initdb.d/ by docker-compose.yml, where it runs
+-- only when the database volume is first created, as the POSTGRES_USER superuser.
 --
--- The passwords below are development credentials committed on purpose so the demo
--- stack is reproducible. NEVER use them outside a local/demo environment. In a real
--- deployment create the roles with a secret manager and run sql/roles.sql separately.
+-- Passwords come from psql variables so the same file is safe for the demo and for
+-- a deployment that injects secrets:
+--
+--   psql -v migrator_password="$SIH_MIGRATOR_PASSWORD" ... -f bootstrap_roles.sql
+--
+-- Without variables the committed development credentials are used. NEVER use the
+-- defaults outside a local/demo environment.
 --
 -- Role contract (enforced by sql/roles.sql, which runs after migrations):
 --   sih_migrator    owns the schema objects and runs Alembic. Not used by the API.
 --   app_rw          operational read/write. No access to the sim schema.
 --   sim_prod_ro     operational SELECT only, default_transaction_read_only=on.
 --   sim_results_rw  USAGE on sim only; no USAGE on public.
+
+\set ON_ERROR_STOP on
+
+\if :{?migrator_password}
+\else
+    \set migrator_password 'sih_migrator_dev'
+\endif
+\if :{?app_rw_password}
+\else
+    \set app_rw_password 'app_rw_dev'
+\endif
+\if :{?sim_prod_ro_password}
+\else
+    \set sim_prod_ro_password 'sim_prod_ro_dev'
+\endif
+\if :{?sim_results_rw_password}
+\else
+    \set sim_results_rw_password 'sim_results_rw_dev'
+\endif
 
 DO $$
 BEGIN
@@ -30,10 +53,10 @@ BEGIN
 END
 $$;
 
-ALTER ROLE sih_migrator PASSWORD 'sih_migrator_dev';
-ALTER ROLE app_rw PASSWORD 'app_rw_dev';
-ALTER ROLE sim_prod_ro PASSWORD 'sim_prod_ro_dev';
-ALTER ROLE sim_results_rw PASSWORD 'sim_results_rw_dev';
+ALTER ROLE sih_migrator PASSWORD :'migrator_password';
+ALTER ROLE app_rw PASSWORD :'app_rw_password';
+ALTER ROLE sim_prod_ro PASSWORD :'sim_prod_ro_password';
+ALTER ROLE sim_results_rw PASSWORD :'sim_results_rw_password';
 
 ALTER ROLE sim_prod_ro SET default_transaction_read_only = on;
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, new_id, utcnow
@@ -19,8 +19,13 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(255))
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Tokens issued before this instant are rejected, so a password change also
+    # revokes sessions that were already signed in.
+    password_changed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
 
-    assignments: Mapped[list["UserRoleAssignment"]] = relationship(
+    assignments: Mapped[list[UserRoleAssignment]] = relationship(
         back_populates="user", cascade="all, delete-orphan"
     )
 
@@ -73,6 +78,27 @@ class UserRoleAssignment(Base):
 
     user: Mapped[User] = relationship(back_populates="assignments")
     role: Mapped[Role] = relationship()
+
+
+class LoginAttempt(Base):
+    """Persisted sign-in throttle state.
+
+    A database table (rather than per-process memory) means limits still apply
+    across API replicas and restarts. The key is a hash of the normalised email and
+    client address, so the raw identifiers are not retained in this table.
+    """
+
+    __tablename__ = "login_attempts"
+    __table_args__ = (
+        Index("ix_login_attempts_key_attempted", "key_hash", "attempted_at"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    key_hash: Mapped[str] = mapped_column(String(64))
+    attempted_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+    successful: Mapped[bool] = mapped_column(Boolean, default=False)
 
 
 class JurisdictionAssignment(Base):

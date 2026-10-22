@@ -11,7 +11,7 @@ import json
 import os
 from pathlib import Path
 
-from ...core.clock import iso, get_clock
+from ...core.clock import get_clock, iso
 from ...models import Alert
 
 

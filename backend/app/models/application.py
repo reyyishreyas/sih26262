@@ -5,12 +5,12 @@ from __future__ import annotations
 from datetime import date, datetime
 
 from sqlalchemy import (
+    JSON,
     Date,
     DateTime,
     Float,
     ForeignKey,
     Integer,
-    JSON,
     String,
     Text,
     UniqueConstraint,
@@ -69,7 +69,7 @@ class Application(Base):
     )
 
     institution: Mapped[Institution] = relationship()
-    documents: Mapped[list["Document"]] = relationship(back_populates="application")
+    documents: Mapped[list[Document]] = relationship(back_populates="application")
 
 
 class Document(Base):
@@ -94,7 +94,7 @@ class Document(Base):
     )
 
     application: Mapped[Application | None] = relationship(back_populates="documents")
-    fields: Mapped[list["ExtractedField"]] = relationship(
+    fields: Mapped[list[ExtractedField]] = relationship(
         back_populates="document", cascade="all, delete-orphan"
     )
 

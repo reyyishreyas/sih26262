@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import os
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
@@ -10,15 +11,25 @@ from sqlalchemy.orm import Session
 from ..adapters.ocr.mock import MockOCRExtractor
 from ..core.clock import get_clock
 from ..core.config import get_settings
+from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import DOCUMENT_READ, DOCUMENT_UPLOAD, DOCUMENT_VERIFY
 from ..models import Document, ExtractedField
 from ..schemas.api import DocumentOut, VerifyFieldRequest
 from ..services.audit_service import AuditService
-from ..services.authorization_service import EffectiveAccess, require_application
-from ..services.authorization_service import require_permission
-from ..services.evidence_service import latest_document_fields
-from .deps import get_access, require
+from ..services.authorization_service import (
+    EffectiveAccess,
+    require_application,
+    require_permission,
+)
+from ..services.upload_validation import (
+    UnsupportedUpload,
+    UploadTooLarge,
+    read_upload_limited,
+    safe_filename,
+    validate_upload,
+)
+from .deps import require
 
 router = APIRouter(prefix="/applications/{application_id}/documents", tags=["documents"])
 _ocr = MockOCRExtractor()
@@ -43,7 +54,7 @@ def list_documents(
 @router.post("", status_code=status.HTTP_201_CREATED)
 def upload_document(
     application_id: str,
-    doc_type: str = Form(...),
+    doc_type: str = Form(..., min_length=1, max_length=64, pattern="^[a-z0-9_]+$"),
     file: UploadFile = File(...),
     access: EffectiveAccess = Depends(require(DOCUMENT_UPLOAD)),
     db: Session = Depends(get_db),
@@ -51,17 +62,22 @@ def upload_document(
     application = require_application(db, access, application_id)
     settings = get_settings()
 
-    content = file.file.read()
-    if len(content) == 0:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "empty file")
-    if len(content) > settings.max_upload_bytes:
-        raise HTTPException(status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "file too large")
-    if file.content_type not in settings.allowed_upload_types:
+    try:
+        content = read_upload_limited(file.file, settings.max_upload_bytes)
+    except UploadTooLarge:
         raise HTTPException(
-            status.HTTP_415_UNSUPPORTED_MEDIA_TYPE,
-            f"content type {file.content_type!r} is not allowed",
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE, "file too large"
+        ) from None
+    try:
+        content_type = validate_upload(
+            content=content,
+            declared_type=file.content_type,
+            allowed_types=settings.allowed_upload_types,
         )
+    except UnsupportedUpload as exc:
+        raise HTTPException(status.HTTP_415_UNSUPPORTED_MEDIA_TYPE, str(exc)) from exc
 
+    filename = safe_filename(file.filename)
     sha = hashlib.sha256(content).hexdigest()
     duplicate = db.scalars(
         select(Document).where(
@@ -70,10 +86,15 @@ def upload_document(
         )
     ).first()
 
-    storage_dir = Path(settings.storage_dir) / application.id
+    storage_root = Path(settings.storage_dir).resolve()
+    storage_dir = (storage_root / application.id).resolve()
+    if storage_dir != storage_root and storage_root not in storage_dir.parents:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "invalid application storage path"
+        )
     storage_dir.mkdir(parents=True, exist_ok=True)
-    storage_ref = storage_dir / f"{sha[:16]}-{file.filename}"
-    storage_ref.write_bytes(content)
+    storage_ref = storage_dir / f"{sha[:16]}-{filename}"
+    temporary_ref = storage_ref.with_name(f".{storage_ref.name}.tmp")
 
     version = (
         db.scalar(
@@ -88,56 +109,69 @@ def upload_document(
     ) + 1
 
     extraction = _ocr.extract(
-        doc_type=doc_type, content=content, file_name=file.filename or "upload"
+        doc_type=doc_type, content=content, file_name=filename
     )
 
-    document = Document(
-        institution_id=application.institution_id,
-        application_id=application.id,
-        doc_type=doc_type,
-        file_name=file.filename or "upload",
-        content_type=file.content_type or "application/octet-stream",
-        file_sha256=sha,
-        perceptual_hash=None,
-        storage_ref=str(storage_ref),
-        size_bytes=len(content),
-        version=version,
-        uploaded_at=get_clock().now(),
-    )
-    db.add(document)
-    db.flush()
+    stored = False
+    try:
+        temporary_ref.write_bytes(content)
+        os.replace(temporary_ref, storage_ref)
+        stored = True
 
-    for candidate in extraction.fields:
-        db.add(
-            ExtractedField(
-                document_id=document.id,
-                document_version=document.version,
-                field_name=candidate.field_name,
-                value=candidate.value,
-                source_page=candidate.source_page,
-                source_span=candidate.source_span,
-                method=candidate.method,
-                confidence=candidate.confidence,
-                verification_status="unverified",
-            )
+        document = Document(
+            institution_id=application.institution_id,
+            application_id=application.id,
+            doc_type=doc_type,
+            file_name=filename,
+            content_type=content_type,
+            file_sha256=sha,
+            perceptual_hash=None,
+            storage_ref=str(storage_ref),
+            size_bytes=len(content),
+            version=version,
+            uploaded_at=get_clock().now(),
         )
+        db.add(document)
+        db.flush()
 
-    application.baseline_version += 1
-    AuditService(db).append(
-        action="document.uploaded",
-        entity_type="document",
-        entity_id=document.id,
-        outcome="accepted",
-        actor_id=access.user_id,
-        actor_role=access.primary_role,
-        after={
-            "application_id": application.id,
-            "doc_type": doc_type,
-            "version": version,
-            "sha256": sha,
-        },
-    )
-    db.commit()
+        for candidate in extraction.fields:
+            db.add(
+                ExtractedField(
+                    document_id=document.id,
+                    document_version=document.version,
+                    field_name=candidate.field_name,
+                    value=candidate.value,
+                    source_page=candidate.source_page,
+                    source_span=candidate.source_span,
+                    method=candidate.method,
+                    confidence=candidate.confidence,
+                    verification_status="unverified",
+                )
+            )
+
+        application.baseline_version += 1
+        AuditService(db).append(
+            action="document.uploaded",
+            entity_type="document",
+            entity_id=document.id,
+            outcome="accepted",
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+            after={
+                "application_id": application.id,
+                "doc_type": doc_type,
+                "version": version,
+                "sha256": sha,
+            },
+            request_id=current_request_id(),
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
+        if stored:
+            storage_ref.unlink(missing_ok=True)
+        temporary_ref.unlink(missing_ok=True)
+        raise
 
     return {
         "document": DocumentOut.model_validate(document).model_dump(),
@@ -199,6 +233,7 @@ def verify_field(
         reason=payload.note,
         before=before,
         after={"status": payload.verification_status},
+        request_id=current_request_id(),
     )
     db.commit()
     return {"field_id": field.id, "verification_status": field.verification_status}

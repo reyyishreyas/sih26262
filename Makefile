@@ -2,7 +2,7 @@ SHELL := /bin/bash
 PYTHON ?= .venv/bin/python
 COMPOSE ?= docker compose
 
-.PHONY: help up down reset logs ps test build migrate seed smoke verify-isolation migrate-sqlite
+.PHONY: help up down reset logs ps lint test build migrate seed smoke verify-isolation migrate-sqlite prod-config
 
 help:
 	@echo "SIH26262 developer commands"
@@ -11,8 +11,10 @@ help:
 	@echo "  make reset             stop and DELETE volumes, then start fresh"
 	@echo "  make logs              follow API/worker/db logs"
 	@echo "  make ps                show container health"
+	@echo "  make lint              run Ruff over backend code"
 	@echo "  make test              run the backend test suite"
 	@echo "  make build             type-check/build the frontend"
+	@echo "  make prod-config       validate docker-compose.prod.yml (needs .env.production)"
 	@echo "  make smoke             exercise the running stack end to end"
 	@echo "  make verify-isolation  prove PostgreSQL role isolation"
 	@echo "  make migrate-sqlite    run Alembic against a throwaway SQLite file"
@@ -35,11 +37,18 @@ logs:
 ps:
 	$(COMPOSE) ps
 
+lint:
+	cd backend && ../$(PYTHON) -m ruff check app tests migrations scripts
+
 test:
 	cd backend && ../$(PYTHON) -m pytest -q
 
 build:
 	cd frontend && npm run build
+
+prod-config:
+	docker compose --env-file .env.production -f docker-compose.prod.yml config >/dev/null
+	@echo "docker-compose.prod.yml is valid"
 
 migrate:
 	$(COMPOSE) run --rm migrate

@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..core.clock import iso
-from ..core.config import get_settings
 from ..core.db import get_db
-from ..core.permissions import ADMIN_USERS, ALERT_DELIVER, MONITORING_READ
+from ..core.pagination import PageParams, pagination, set_total
+from ..core.permissions import ADMIN_USERS, MONITORING_READ
 from ..models import Alert, Document, Undertaking
 from ..services import deadline_service
 from ..services.authorization_service import EffectiveAccess, scope_filter
@@ -18,6 +18,8 @@ router = APIRouter(tags=["alerts"])
 
 @router.get("/alerts")
 def list_alerts(
+    response: Response,
+    page: PageParams = Depends(pagination),
     access: EffectiveAccess = Depends(require(MONITORING_READ)),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -29,7 +31,11 @@ def list_alerts(
         query = query.where(clause)
     scoped_ids = set(db.scalars(query).all())
 
-    rows = db.scalars(select(Alert).order_by(Alert.fired_at.desc()).limit(500)).all()
+    # The scope filter needs related rows, so the window is applied after
+    # filtering and the fetch is bounded above by a generous constant.
+    rows = db.scalars(
+        select(Alert).order_by(Alert.fired_at.desc()).limit(2000)
+    ).all()
     out = []
     for alert in rows:
         application_id = _application_for(db, alert)
@@ -60,11 +66,16 @@ def list_alerts(
                 ],
             }
         )
+    total = len(out)
+    set_total(response, total)
     return {
         "delivery_channel": "in_app",
         "simulated": True,
         "note": "Notification delivery is a mock adapter; records are real, transport is not.",
-        "alerts": out,
+        "total": total,
+        "limit": page.limit,
+        "offset": page.offset,
+        "alerts": out[page.offset : page.offset + page.limit],
     }
 
 

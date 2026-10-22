@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import os
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 
 TMP = Path(tempfile.mkdtemp(prefix="sih26262-tests-"))
@@ -28,12 +28,12 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from app.core.clock import FixedClock, set_clock  # noqa: E402
 from app.core.db import Base, SessionLocal, engine  # noqa: E402
-from app.core.security import create_access_token  # noqa: E402
+from app.core.security import create_access_token, password_marker  # noqa: E402
 from app.main import app  # noqa: E402
 from app.models import User  # noqa: E402
 from app.services.seed import seed  # noqa: E402
 
-DEMO_NOW = datetime(2026, 10, 22, 9, 0, tzinfo=timezone.utc)
+DEMO_NOW = datetime(2026, 10, 22, 9, 0, tzinfo=UTC)
 
 USER_EMAILS = {
     "admin": "admin@demo.local",
@@ -85,7 +85,9 @@ def _token(email: str) -> str:
     session = SessionLocal()
     try:
         user = session.query(User).filter_by(email=email).one()
-        return create_access_token(user.id)
+        return create_access_token(
+            user.id, extra={"pwd": password_marker(user.password_hash)}
+        )
     finally:
         session.close()
 

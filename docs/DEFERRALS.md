@@ -19,7 +19,7 @@ exercised**.
 | **Automatic case allocation** | Needs workload/capacity policy | Seeded assignments; admin assignment endpoint for roles/scope; case assignment data model |
 | **Holiday calendar / business-day arithmetic** | Needs an authoritative calendar | Deadline offsets in calendar days; end-of-day uses `Asia/Kolkata` |
 | **Document download / signed URLs** | Security surface | Files are stored under `SIH_STORAGE_DIR`; metadata is readable, bytes are not served |
-| **MFA, password reset, lockout, rate limiting** | Not built | PBKDF2-SHA256 password hashing, HS256 JWT, eight-hour default token |
+| **MFA, password reset / account recovery, SSO** | Not built | PBKDF2-SHA256 hashing, HS256 JWT with issuer/audience, persisted sign-in throttling, authenticated password change that revokes old tokens |
 | **SSO / government identity** | Integration out of scope | Seeded demo accounts |
 | **Four-eyes / segregation of duties** | Policy decision | Roles make it configurable; the prototype does not enforce it |
 | **Retention, archival, partitioning** | Operational policy | None; tables grow without bound |
@@ -33,8 +33,12 @@ exercised**.
 | `docker compose up` (PostgreSQL + API + worker + frontend) | **Run here.** Stack starts, migrates, seeds and serves; `scripts/smoke.sh` exercises the API end to end against it |
 | PostgreSQL role isolation (`backend/sql/roles.sql`) | **Applied and verified here** by `backend/scripts/verify_isolation.py`: the baseline reader cannot write, the results writer cannot read operational tables, and neither can reach the other's schema |
 | Dedicated `sim` schema | **Implemented for PostgreSQL** (`SIH_SIMULATION_SCHEMA=sim`, migration `0002_sim_schema`). SQLite has no schemas, so development and tests fall back to table-level grants |
-| Alembic against PostgreSQL | **Applied here** — initial revision plus `0002_sim_schema`; `alembic check` is clean on SQLite and the Compose migration job runs on every start |
-| `.github/workflows/ci.yml` | Written, including a PostgreSQL isolation job; **not yet observed on GitHub** because the repository is private and no run has been triggered |
+| Alembic against PostgreSQL | **Applied here** — initial revision, `0002_sim_schema` and `0003_auth_hardening`; `alembic check` is clean on SQLite and PostgreSQL, and the Compose migration job runs on every start |
+| `.github/workflows/ci.yml` | Ruff, SQLite Alembic check, 99 tests, PostgreSQL role isolation and frontend production build. Run status: see the latest GitHub Actions run on `master` |
+| Production-shaped Compose | **Run here** — `docker-compose.prod.yml` rendered with URL-safe secrets; bootstrap, Alembic, API, worker and nginx frontend started under `SIH_ENV=production`; readiness showed `app_rw`, `sim_prod_ro` and `sim_results_rw`; HSTS and docs-disabled behaviour checked |
+| Upload safety | **Tested** — streaming size limit, magic-byte signature, declared-type match, filename sanitisation and atomic write; no malware scanner |
+| Sign-in protection | **Tested** — database-backed account/address and address-only throttling with `Retry-After`, generic 401, accepted/rejected login audit, password-change token invalidation; a success clears only its account/address counter |
+| Observability | **Implemented** — JSON logs, request ids, security headers, live/readiness probes, database pool timeouts; no metrics endpoint or log shipper |
 | Load / concurrency behaviour | Single-process tests only; no load test, no soak test, no multi-worker behaviour measured |
 
 ## Prototype-level implementations
@@ -47,7 +51,7 @@ exercised**.
 | Monitoring | Server-enforced scope shared with drill-downs, live counts | No scheduler-driven SLA forecasting; no capacity model |
 | Evidence | Source page/span, confidence, verification status, audited verification, versioned uploads | Extraction is canned; confidence does not decide anything |
 | Rules | Allowlisted grammar, three-valued logic, immutable approved versions, six rules | Clause mapping pending; no full APH coverage |
-| Security | Server-side RBAC + scope, 404 for out-of-scope, hashed passwords, least-privilege database roles | No MFA, no pen test, default dev secret must be replaced |
+| Security | Server-side RBAC + scope, 404 for out-of-scope, PBKDF2 passwords, JWT issuer/audience, persisted login throttling, password-change token invalidation, least-privilege database roles, upload signature checks, security headers | No MFA/SSO, no password reset, no penetration test, no malware scan, no external secret manager integration; the development secret must be replaced |
 
 ## Claims we deliberately do not make
 

@@ -5,8 +5,8 @@ from __future__ import annotations
 import pytest
 
 from app.services.rule_engine import (
-    InvalidRuleDefinition,
     MISSING,
+    InvalidRuleDefinition,
     RuleOutcome,
     RuleSpec,
     Snapshot,

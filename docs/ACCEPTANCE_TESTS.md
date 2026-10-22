@@ -3,7 +3,7 @@
 ```bash
 cd backend
 ../.venv/bin/python -m pytest -q
-# 82 passed
+# 99 passed
 ```
 
 Pytest fixtures (`tests/conftest.py`) use a fixed clock
@@ -132,6 +132,32 @@ One warning is emitted: Starlette's notice that `httpx` with
 | Admin sweep is idempotent; alerts expose simulated delivery | `test_api.py::test_admin_can_run_the_deadline_sweep_and_read_alerts` |
 | Institution cannot run the sweep | `test_api.py::test_institution_cannot_run_the_deadline_sweep` |
 
+### Hardening and operability
+
+| Claim | Test |
+|---|---|
+| Security headers, request id echo and no-store caching | `test_hardening.py::test_security_headers_and_request_id` |
+| Unsafe client request ids are replaced, not echoed | `test_hardening.py::test_invalid_request_id_is_replaced` |
+| Liveness and readiness report their components | `test_hardening.py::test_liveness_and_readiness_endpoints` |
+| Validation errors use the typed error envelope | `test_hardening.py::test_validation_errors_are_structured` |
+| Repeated failures return 429 with `Retry-After` | `test_hardening.py::test_login_is_throttled_after_repeated_failures` |
+| A successful login clears recent failures | `test_hardening.py::test_successful_login_clears_recent_failures` |
+| A success does not reset the address-wide spraying counter | `test_hardening.py::test_successful_login_does_not_clear_address_failures` |
+| Failed sign-ins persist throttle rows and audit events | `test_hardening.py::test_login_attempts_and_audit_are_persisted` |
+| Upload magic bytes must match the declared type | `test_hardening.py::test_upload_rejects_content_type_mismatch` |
+| Filenames are sanitised and traversal is rejected | `test_hardening.py::test_upload_sanitises_path_traversal_filenames` |
+| Password change revokes previously issued tokens | `test_hardening.py::test_password_change_invalidates_existing_tokens` |
+| Password change enforces the strength policy | `test_hardening.py::test_password_change_enforces_policy` |
+| Password change is audited with the fixed clock | `test_hardening.py::test_password_change_audit_is_chained` |
+| List endpoints are bounded and expose `X-Total-Count` | `test_hardening.py::test_list_endpoints_are_bounded_and_report_totals` |
+| Production config rejects unsafe settings | `test_hardening.py::test_production_configuration_rejects_unsafe_defaults` |
+| Production config accepts a safe profile | `test_hardening.py::test_valid_production_configuration_is_accepted` |
+| Production requires isolated rehearsal URLs, roles and schema | `test_hardening.py::test_production_configuration_requires_isolated_simulation_roles` |
+
+Ruff (selected rules `E,F,I,B,UP,SIM`) runs over `app`, `tests`, `migrations` and
+`scripts` in CI. The suite still emits Starlette's `httpx` deprecation warning;
+behaviour is unaffected.
+
 ## Migration and build checks
 
 ```bash
@@ -148,7 +174,7 @@ npm run build   # tsc --noEmit && vite build
 PostgreSQL as well — the Compose `migrate` job runs `alembic upgrade head` on every
 start of the stack.
 
-## Live stack checks (run here, not in CI)
+## Live stack checks (Compose)
 
 ```bash
 make up                 # PostgreSQL 16 + API + worker + frontend
@@ -158,24 +184,31 @@ make verify-isolation   # prove the PostgreSQL role contract
 
 `scripts/smoke.sh` signs in, lists institutions, creates a draft, uploads evidence,
 reads the compliance batch, runs a rehearsal (asserting `production_modified:
-false` and `load_factor: null`) and lists alerts.
+false` and `load_factor: null`), lists alerts, checks `/health/ready` and asserts
+the security headers.
 
 `backend/scripts/verify_isolation.py` asserts the role contract against the live
 database:
 
 ```
+  [PASS] sih_migrator: sim schema contains all simulation tables
   [PASS] sim_prod_ro: baseline reader can SELECT operational data
   [PASS] sim_prod_ro: baseline reader cannot INSERT operational data (cannot execute INSERT in a read-only transaction)
   [PASS] sim_prod_ro: baseline reader cannot reach the simulation schema (permission denied for schema sim)
   [PASS] sim_results_rw: results writer can INSERT simulation rows
+  [PASS] sim_results_rw: results writer can SELECT simulation rows
   [PASS] sim_results_rw: results writer cannot SELECT operational data (permission denied for schema public)
   [PASS] sim_results_rw: results writer cannot INSERT operational data (permission denied for schema public)
   [PASS] app_rw: application role can read/write operational data
+  [PASS] app_rw: application role can write sign-in throttle rows
+  [PASS] app_rw: application role cannot perform DDL (permission denied for schema public)
   [PASS] app_rw: application role cannot reach the simulation schema (permission denied for schema sim)
 ```
 
 CI runs the same script against a PostgreSQL service container
-(`.github/workflows/ci.yml`, job `postgres-isolation`).
+(`.github/workflows/ci.yml`, job `postgres-isolation`), and also runs
+`alembic check` as `sih_migrator` there. The workflow runs on every push to
+`master`; check the latest run on GitHub for its status.
 
 ## What is not covered by automated tests
 
@@ -188,8 +221,10 @@ Be explicit in a review; do not imply coverage that does not exist.
 - **PostgreSQL in the pytest suite.** The suite runs on SQLite. PostgreSQL is
   covered by the Alembic run, the Compose migration job, `scripts/smoke.sh` and
   `scripts/verify_isolation.py` — not by pytest assertions.
-- **CI.** The GitHub Actions workflow has not run on GitHub yet (the repository is
-  private and no run has been triggered).
+- **CI.** The GitHub Actions workflow runs Ruff, an SQLite Alembic check, the
+  backend suite, a PostgreSQL isolation job and a frontend production build. It is
+  not a substitute for the live Compose checks above, and a green run is not a
+  security audit.
 - **Real OCR / LLM / notifications.** Only mock adapters exist, and only the mock
   paths are tested.
 - **Load / concurrency.** Tests are single-process. Audit chain locking and alert

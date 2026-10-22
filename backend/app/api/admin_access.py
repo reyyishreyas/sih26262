@@ -7,7 +7,6 @@ from sqlalchemy.orm import Session
 from ..core.clock import get_clock, iso
 from ..core.db import get_db
 from ..core.permissions import ADMIN_ASSIGNMENTS, ADMIN_USERS, AUDIT_READ
-from ..core.security import hash_password
 from ..models import (
     AuditEvent,
     Permission,

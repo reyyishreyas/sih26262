@@ -19,8 +19,8 @@ from __future__ import annotations
 
 import copy
 import re
-from datetime import date
 from dataclasses import dataclass
+from datetime import date
 from typing import Any
 
 from sqlalchemy import select
@@ -28,7 +28,7 @@ from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock, iso
 from ..core.db import open_readonly_session, open_sim_results_session
-from ..core.permissions import PermissionDenied, REHEARSAL_RUN
+from ..core.permissions import REHEARSAL_RUN, PermissionDenied
 from ..models import Application, WorkflowTransitionDefinition
 from ..models.base import new_id
 from ..models.rehearsal import SimInputSnapshot, SimMetric, SimRuleResult, SimRun
@@ -315,7 +315,9 @@ def run_rehearsal(
                 assumptions=report.assumptions,
             )
         )
-        for item, before, after in zip(diff, baseline_results, simulated_results):
+        for item, before, after in zip(
+            diff, baseline_results, simulated_results, strict=True
+        ):
             writer.add(
                 SimRuleResult(
                     run_id=run.id,

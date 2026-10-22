@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import APPLICATION_READ, CASE_READ
 from ..schemas.api import TransitionRequest
@@ -41,7 +42,6 @@ def list_routes(access: EffectiveAccess = Depends(get_access)) -> list[dict]:
 def request_transition(
     application_id: str,
     payload: TransitionRequest,
-    request: Request,
     access: EffectiveAccess = Depends(require_any(CASE_READ, APPLICATION_READ)),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -51,7 +51,7 @@ def request_transition(
         application_id,
         payload.action,
         payload.reason,
-        request_id=request.headers.get("x-request-id"),
+        request_id=current_request_id(),
     )
     return decision.as_dict()
 

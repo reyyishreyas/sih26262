@@ -26,14 +26,36 @@ class Base(DeclarativeBase):
     pass
 
 
-def _connect_args(url: str) -> dict:
+def _connect_args(url: str, settings) -> dict:
     if url.startswith("sqlite"):
         return {"check_same_thread": False}
-    return {}
+    args: dict = {"connect_timeout": settings.db_connect_timeout_seconds}
+    if url.startswith("postgresql"):
+        # Bound every statement; a runaway query must not hold a pooled connection
+        # (and a transaction) indefinitely.
+        args["options"] = f"-c statement_timeout={settings.db_statement_timeout_ms}"
+    return args
 
 
-def _build_engine(url: str) -> Engine:
-    engine = create_engine(url, future=True, connect_args=_connect_args(url))
+def _build_engine(url: str, settings) -> Engine:
+    if url.startswith("sqlite"):
+        engine = create_engine(
+            url,
+            future=True,
+            connect_args=_connect_args(url, settings),
+            pool_pre_ping=False,
+        )
+    else:
+        engine = create_engine(
+            url,
+            future=True,
+            connect_args=_connect_args(url, settings),
+            pool_size=settings.db_pool_size,
+            max_overflow=settings.db_max_overflow,
+            pool_timeout=settings.db_pool_timeout_seconds,
+            pool_recycle=settings.db_pool_recycle_seconds,
+            pool_pre_ping=True,
+        )
 
     if url.startswith("sqlite"):
 
@@ -49,17 +71,17 @@ def _build_engine(url: str) -> Engine:
 
 
 _settings = get_settings()
-engine: Engine = _build_engine(_settings.database_url)
+engine: Engine = _build_engine(_settings.database_url, _settings)
 SessionLocal = sessionmaker(bind=engine, autoflush=False, expire_on_commit=False)
 
 _results_url = _settings.simulation_results_url or _settings.database_url
-sim_engine: Engine = _build_engine(_results_url)
+sim_engine: Engine = _build_engine(_results_url, _settings)
 SimSessionLocal = sessionmaker(
     bind=sim_engine, autoflush=False, expire_on_commit=False
 )
 
 _readonly_url = _settings.simulation_readonly_url or _settings.database_url
-readonly_engine: Engine = _build_engine(_readonly_url)
+readonly_engine: Engine = _build_engine(_readonly_url, _settings)
 
 
 def get_db() -> Iterator[Session]:
@@ -86,7 +108,7 @@ def open_readonly_session() -> Iterator[Session]:
 
 
 @contextmanager
-def open_sim_results_session() -> Iterator["SimResultsWriter"]:
+def open_sim_results_session() -> Iterator[SimResultsWriter]:
     db = SimSessionLocal()
     try:
         yield SimResultsWriter(db)
@@ -113,8 +135,7 @@ class SimResultsWriter:
         return self._session
 
     def add(self, obj: object) -> None:
-        from ..models.rehearsal import SimMetric, SimRuleResult, SimRun
-        from ..models.rehearsal import SimInputSnapshot
+        from ..models.rehearsal import SimInputSnapshot, SimMetric, SimRuleResult, SimRun
 
         allowed = (SimRun, SimInputSnapshot, SimRuleResult, SimMetric)
         if not isinstance(obj, allowed):
@@ -145,3 +166,9 @@ def create_all() -> None:
     if engine.dialect.name != "sqlite":
         return
     Base.metadata.create_all(bind=engine)
+
+
+def dispose_engines() -> None:
+    """Release pooled connections during a graceful shutdown."""
+    for candidate in (engine, sim_engine, readonly_engine):
+        candidate.dispose()

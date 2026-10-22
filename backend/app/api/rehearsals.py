@@ -1,8 +1,9 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
+from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import REHEARSAL_RUN
 from ..schemas.api import RehearsalRequest
@@ -17,7 +18,6 @@ router = APIRouter(tags=["rehearsal"])
 def create_rehearsal(
     application_id: str,
     payload: RehearsalRequest,
-    request: Request,
     access: EffectiveAccess = Depends(require(REHEARSAL_RUN)),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -26,7 +26,7 @@ def create_rehearsal(
         access,
         application_id,
         overrides=payload.overrides,
-        request_id=request.headers.get("x-request-id"),
+        request_id=current_request_id(),
     )
 
 

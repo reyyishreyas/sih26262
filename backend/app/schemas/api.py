@@ -7,8 +7,13 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 class LoginRequest(BaseModel):
-    email: str
-    password: str
+    email: str = Field(min_length=3, max_length=254)
+    password: str = Field(min_length=1, max_length=256)
+
+
+class ChangePasswordRequest(BaseModel):
+    current_password: str = Field(min_length=1, max_length=256)
+    new_password: str = Field(min_length=12, max_length=128)
 
 
 class TokenResponse(BaseModel):

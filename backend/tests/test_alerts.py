@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select
 
@@ -10,7 +10,7 @@ from app.adapters.notifications.mock import MockNotificationAdapter
 from app.models import Alert, AlertDelivery, Document, User
 from app.services import alert_service, deadline_service
 
-NOW = datetime(2026, 10, 22, 9, 0, tzinfo=timezone.utc)
+NOW = datetime(2026, 10, 22, 9, 0, tzinfo=UTC)
 
 
 def test_repeated_sweeps_create_no_duplicate_alerts(db):

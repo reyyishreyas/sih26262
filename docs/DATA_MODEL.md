@@ -1,9 +1,9 @@
 # Data Model
 
 SQLAlchemy 2.x models, SQLite in development, PostgreSQL-ready. The Alembic
-revisions are `backend/migrations/versions/075aed043fd2_initial_schema.py` and
-`0002_sim_schema_and_finding_labels.py`; `alembic check` reports no drift against
-the models.
+revisions are `backend/migrations/versions/075aed043fd2_initial_schema.py`,
+`0002_sim_schema_and_finding_labels.py` and `0003_auth_hardening.py`;
+`alembic check` reports no drift against the models on SQLite and PostgreSQL.
 
 Identifiers are strings (UUID-shaped), timestamps are stored in UTC (`DateTime
 (timezone=True)`; SQLite returns naive values, normalised by `to_utc`).
@@ -29,7 +29,8 @@ application, and the simulation role never has to resolve an operational table.
 
 | Table | Purpose | Invariants |
 |---|---|---|
-| `users` | Accounts, PBKDF2 password hash, active flag | Email unique |
+| `users` | Accounts, PBKDF2 password hash, active flag, `password_changed_at` token marker | Email unique |
+| `login_attempts` | Hashed account/address and address keys, timestamp, success flag | Indexed by `(key_hash, attempted_at)`; pruned on write |
 | `roles` | Six role names | Name unique |
 | `permissions` | Permission catalogue | Code unique |
 | `role_permissions` | Role → permission | DB copy of the policy matrix |

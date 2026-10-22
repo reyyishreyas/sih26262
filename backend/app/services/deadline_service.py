@@ -8,7 +8,7 @@ running the sweep twice produce nothing new.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import UTC, date, datetime, time, timedelta
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
@@ -58,7 +58,7 @@ def end_of_day(value: date) -> datetime:
     """Deadlines are end-of-day in the configured business timezone, stored in UTC."""
     settings = get_settings()
     tz = ZoneInfo(settings.business_timezone)
-    return datetime.combine(value, time(23, 59, 59), tzinfo=tz).astimezone(timezone.utc)
+    return datetime.combine(value, time(23, 59, 59), tzinfo=tz).astimezone(UTC)
 
 
 def collect_items(db: Session, now: datetime) -> list[DeadlineItem]:

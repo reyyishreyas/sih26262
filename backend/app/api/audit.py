@@ -1,11 +1,12 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, Response
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..core.clock import iso
 from ..core.db import get_db
+from ..core.pagination import PageParams, apply_page, pagination, set_total
 from ..core.permissions import AUDIT_READ
 from ..models import AuditEvent
 from ..services.audit_service import verify_chain
@@ -18,6 +19,8 @@ router = APIRouter(tags=["audit"])
 @router.get("/applications/{application_id}/audit")
 def case_timeline(
     application_id: str,
+    response: Response,
+    page: PageParams = Depends(pagination),
     access: EffectiveAccess = Depends(require(AUDIT_READ)),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -37,16 +40,31 @@ def case_timeline(
     )
 
     events = db.scalars(
-        select(AuditEvent)
-        .where(AuditEvent.entity_id.in_(entity_ids))
-        .order_by(AuditEvent.seq)
+        apply_page(
+            select(AuditEvent)
+            .where(AuditEvent.entity_id.in_(entity_ids))
+            .order_by(AuditEvent.seq),
+            page,
+        )
     ).all()
+    total = int(
+        db.scalar(
+            select(func.count())
+            .select_from(AuditEvent)
+            .where(AuditEvent.entity_id.in_(entity_ids))
+        )
+        or 0
+    )
+    set_total(response, total)
     return {
         "application_id": application.id,
         "note": (
             "Chronological audit timeline. This is not a historical state replay: "
             "reconstruction from snapshots is not implemented."
         ),
+        "total": total,
+        "limit": page.limit,
+        "offset": page.offset,
         "events": [_serialise(event) for event in events],
     }
 

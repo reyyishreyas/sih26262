@@ -32,7 +32,6 @@ from ..models import (
     Institution,
     JurisdictionAssignment,
     Permission,
-    Role,
     RolePermission,
     User,
     UserRoleAssignment,
@@ -214,11 +213,9 @@ def can_access_application(db: Session, access: EffectiveAccess, application: Ap
     ).all()
     if any(a.committee_id in access.committees for a in assignments if a.committee_id):
         return True
-    if access.assigned_cases_only and any(
+    return access.assigned_cases_only and any(
         a.user_id == access.user_id for a in assignments
-    ):
-        return True
-    return False
+    )
 
 
 def require_application(

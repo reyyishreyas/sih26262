@@ -35,7 +35,11 @@ application being written to.
 | Database | **PostgreSQL 16 in Compose, SQLite in dev/test** | Alembic migrations run on every stack start; the API never performs DDL |
 | Frontend | **Implemented (review UI)** | Case list, findings, evidence, undertakings, rehearsal diff, transitions, audit, monitoring |
 | Docker Compose | **Run here** | Full stack starts, migrates, seeds and serves; `make smoke` exercises it end to end |
-| CI | **Written, not yet observed on GitHub** | Backend job + PostgreSQL isolation job; the repository is private and no run has been triggered |
+| Production-shaped deployment | **Implemented** | Multi-stage non-root images, `docker-compose.prod.yml`, nginx prod build, required secrets, fail-fast production config |
+| API hardening | **Implemented** | JSON logs, request ids, security headers, bounded pagination, upload signature checks, typed error envelope |
+| Sign-in protection | **Implemented** | PBKDF2-SHA256, JWT issuer/audience, persisted account/address throttling, password change revokes old tokens |
+| Health and readiness | **Implemented** | `/health/live`, `/health/ready`, database probes for all three roles |
+| CI | **Implemented** | GitHub Actions: Ruff, SQLite Alembic check, 99 tests, PostgreSQL role isolation, frontend production build |
 | Historical state replay | **Not implemented** | The UI says "audit timeline", not "replay" |
 
 All demo people, institutions, documents and outcomes are **synthetic**.
@@ -79,7 +83,7 @@ These credentials are for the synthetic demo only.
 ```bash
 cd backend
 python3 -m venv ../.venv            # once
-../.venv/bin/pip install -r requirements.txt
+../.venv/bin/pip install -r requirements-dev.txt   # runtime + pytest + ruff
 cp ../.env.example .env             # optional; defaults are safe for local use
 ../.venv/bin/python -m app.services.seed
 ../.venv/bin/python -m uvicorn app.main:app --reload --port 8000
@@ -130,14 +134,17 @@ The API allows `http://localhost:5173` and `http://127.0.0.1:5173` by default.
 ## Tests
 
 ```bash
+make lint        # ruff check app tests migrations scripts
 make test        # cd backend && ../.venv/bin/python -m pytest -q
-# 82 passed
+# 99 passed
 ```
 
 The suite covers rule semantics and immutability, workflow guards, rejected-action
 auditing, hash-chain tampering, RBAC and scope, rehearsal isolation, alert dedupe
-and boundaries, the evidence/institution/undertaking flows, and HTTP-level
-behaviour. See [docs/ACCEPTANCE_TESTS.md](docs/ACCEPTANCE_TESTS.md) for the
+and boundaries, the evidence/institution/undertaking flows, HTTP-level behaviour,
+password-change invalidation, persisted sign-in throttling, upload signature and
+path checks, bounded pagination, structured errors and production-config
+validation. See [docs/ACCEPTANCE_TESTS.md](docs/ACCEPTANCE_TESTS.md) for the
 claim-to-test map.
 
 Alembic:
@@ -167,10 +174,12 @@ least-privilege roles:
 | `sim_prod_ro` | API (rehearsal baseline) | SELECT only, read-only by default | no access |
 | `sim_results_rw` | API (rehearsal results) | **no access** | SELECT/INSERT/UPDATE/DELETE |
 
-Roles are created by [`backend/sql/bootstrap_roles.sql`](backend/sql/bootstrap_roles.sql)
-and granted by [`backend/sql/roles.sql`](backend/sql/roles.sql); the migration job
-applies both in order. `make verify-isolation` asserts the contract against the live
-database:
+On the demo stack, [`backend/sql/bootstrap_roles.sql`](backend/sql/bootstrap_roles.sql)
+runs from the PostgreSQL init directory on a fresh volume; the `migrate` job then
+runs Alembic and applies [`backend/sql/roles.sql`](backend/sql/roles.sql). The
+production Compose file runs bootstrap as a one-shot job with passwords injected
+from the environment instead of the committed development defaults.
+`make verify-isolation` asserts the contract against the live database:
 
 ```
   [PASS] sim_prod_ro: baseline reader cannot INSERT operational data (cannot execute INSERT in a read-only transaction)
@@ -178,8 +187,45 @@ database:
   [PASS] app_rw: application role cannot reach the simulation schema (permission denied for schema sim)
 ```
 
-The stack uses development credentials and mock adapters; this is not a production
-deployment. See [Deferrals](docs/DEFERRALS.md) for the rest of the boundaries.
+The demo stack uses development credentials and mock adapters on purpose. For a
+deployment-shaped stack with required secrets, non-root images, no fixed clock and
+no startup seeding:
+
+```bash
+cp .env.production.example .env.production
+# replace every placeholder, then:
+docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+```
+
+The API refuses to start with `SIH_ENV=production` if the JWT secret is weak, the
+database is not PostgreSQL, the isolated rehearsal URLs or schema are missing, a
+rehearsal connection reuses the API's database role, CORS or allowed hosts are
+wildcards, seeding is enabled, the clock is fixed, debug is on, or HSTS is shorter
+than one year. Read
+[docs/PRODUCTION.md](docs/PRODUCTION.md) before deploying: it covers secrets, TLS,
+backups, monitoring, scaling and the boundaries that remain.
+
+---
+
+## Production operations
+
+| Endpoint | Purpose |
+|---|---|
+| `GET /health/live` | process liveness; no database dependency |
+| `GET /health/ready` | readiness; probes the operational, rehearsal-reader and rehearsal-writer roles, returns 503 when any fail |
+| `GET /health` | human-readable status, clock, environment, database role and component probes |
+
+Every response carries `X-Request-ID` (a safe client value is echoed, otherwise one
+is generated), security headers and `Cache-Control: no-store` for API/health paths.
+Logs are JSON by default with the request id, method, path, status and duration.
+List endpoints are bounded (`limit`/`offset`, maximum 500) and report
+`X-Total-Count`.
+
+Failed sign-ins are counted per account/address and per address in the database;
+five failures return `429` with `Retry-After`. `POST /api/v1/auth/change-password`
+enforces a 12-character letter-and-digit policy and invalidates previously issued
+tokens. `POST /api/v1/auth/login` writes accepted and rejected attempts to the
+hash-chained audit log.
 
 ---
 
@@ -203,11 +249,11 @@ backend/
   migrations/     Alembic environment and revisions
   scripts/        verify_isolation.py (live PostgreSQL role proof)
   sql/            bootstrap_roles.sql, roles.sql (least-privilege grants)
-  tests/          82 tests
-frontend/         React + TypeScript + Vite review UI
+  tests/          99 tests
+frontend/         React + TypeScript + Vite review UI; Dockerfile.prod + nginx.conf
 scripts/          smoke.sh (end-to-end API exercise)
-docs/             architecture, rules, rehearsal, roles, data model, tests, demo
-Makefile          up / down / reset / test / build / smoke / verify-isolation
+docs/             architecture, rules, rehearsal, roles, data model, tests, production
+Makefile          up / down / reset / lint / test / build / smoke / verify-isolation
 ```
 
 ## Documentation
@@ -221,6 +267,7 @@ Makefile          up / down / reset / test / build / smoke / verify-isolation
 - [Acceptance tests](docs/ACCEPTANCE_TESTS.md) — claims mapped to tests
 - [Demo script](docs/DEMO_SCRIPT.md) — reproducible 10-minute walkthrough
 - [Evidence intelligence](docs/EVIDENCE_INTELLIGENCE.md) — extract and explain, never decide
+- [Production](docs/PRODUCTION.md) — deployment, secrets, TLS, backups, monitoring
 - [Deferrals](docs/DEFERRALS.md) — what is not built, and why
 
 ## Scope disclaimer

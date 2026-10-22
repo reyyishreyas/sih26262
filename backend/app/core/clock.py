@@ -7,7 +7,7 @@ rehearsal clock cannot leave the database inconsistent.
 
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Protocol
 
 from .config import get_settings
@@ -19,7 +19,7 @@ class Clock(Protocol):
 
 class SystemClock:
     def now(self) -> datetime:
-        return datetime.now(timezone.utc)
+        return datetime.now(UTC)
 
 
 class FixedClock:
@@ -27,7 +27,7 @@ class FixedClock:
 
     def __init__(self, fixed_at: datetime) -> None:
         if fixed_at.tzinfo is None:
-            fixed_at = fixed_at.replace(tzinfo=timezone.utc)
+            fixed_at = fixed_at.replace(tzinfo=UTC)
         self._fixed_at = fixed_at
 
     def now(self) -> datetime:
@@ -42,7 +42,7 @@ class OffsetClock:
         self._offset = offset
 
     def now(self) -> datetime:
-        return datetime.now(timezone.utc) + self._offset
+        return datetime.now(UTC) + self._offset
 
 
 _clock: Clock | None = None
@@ -77,8 +77,8 @@ def to_utc(value: datetime | None) -> datetime | None:
     if value is None:
         return None
     if value.tzinfo is None:
-        return value.replace(tzinfo=timezone.utc)
-    return value.astimezone(timezone.utc)
+        return value.replace(tzinfo=UTC)
+    return value.astimezone(UTC)
 
 
 def iso(value: datetime | None) -> str | None:
