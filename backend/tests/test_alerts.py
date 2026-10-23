@@ -132,3 +132,101 @@ def test_alert_delivery_is_marked_simulated(db, tmp_path):
         assert '"simulated": true' in log.replace("True", "true")
     finally:
         alert_service.set_notification_adapter(MockNotificationAdapter())
+
+
+# ---------------------------------------------------------------------------
+# Lifecycle: acknowledge, close, audit
+# ---------------------------------------------------------------------------
+
+
+def test_acknowledging_then_closing_an_alert_is_audited(db, client, as_user):
+    deadline_service.sweep(db, NOW)
+    admin = as_user("admin@demo.local")
+    alert_id = client.get("/api/v1/alerts", headers=admin).json()["alerts"][0]["id"]
+
+    acked = client.post(f"/api/v1/alerts/{alert_id}/ack", headers=admin)
+    assert acked.status_code == 200
+    body = acked.json()
+    assert body["status"] == "acknowledged"
+    assert body["acknowledged_at"] is not None
+    assert body["acknowledged_by"]
+
+    # Idempotent: the second ack must not move the timestamp or add an event.
+    again = client.post(f"/api/v1/alerts/{alert_id}/ack", headers=admin)
+    assert again.json()["acknowledged_at"] == body["acknowledged_at"]
+
+    # Closing demands a reason — an alert must not vanish without explanation.
+    bare = client.post(
+        f"/api/v1/alerts/{alert_id}/close", headers=admin, json={"reason": "   "}
+    )
+    assert bare.status_code == 422
+
+    closed = client.post(
+        f"/api/v1/alerts/{alert_id}/close",
+        headers=admin,
+        json={"reason": "Evidence uploaded and checked."},
+    )
+    assert closed.status_code == 200
+    assert closed.json()["status"] == "closed"
+    assert closed.json()["close_reason"] == "Evidence uploaded and checked."
+
+    from app.models import AuditEvent
+
+    actions = list(
+        db.scalars(
+            select(AuditEvent.action)
+            .where(AuditEvent.entity_id == alert_id)
+            .order_by(AuditEvent.seq)
+        )
+    )
+    # The sweep's own "fired" event comes first, then the two officer actions
+    # in the order they happened.
+    assert actions == ["alert.fired", "alert.acknowledged", "alert.closed"]
+
+
+def test_firing_an_alert_writes_an_audit_event(db):
+    result = deadline_service.sweep(db, NOW)
+    assert result.created > 0
+
+    from app.models import AuditEvent
+
+    fired = db.scalars(
+        select(AuditEvent).where(AuditEvent.action.in_(("alert.fired", "alert.escalated")))
+    ).all()
+    assert len(fired) == result.created
+    for event in fired:
+        assert event.actor_role == "system"
+        assert event.outcome == "accepted"
+        assert event.after["application_id"]
+
+
+def test_a_closed_alert_is_not_re_delivered(db):
+    deadline_service.sweep(db, NOW)
+    alert = db.scalars(select(Alert).where(Alert.status == "delivered")).first()
+    assert alert is not None
+    alert.status = "closed"
+    db.commit()
+
+    result = deadline_service.sweep(db, NOW)
+    assert result.suppressed >= 1
+    assert result.failed == 0
+    # Nothing new went out for the alert we closed.
+    closed_entry = next(
+        entry for entry in result.alerts if entry["alert_id"] == alert.id
+    )
+    assert closed_entry["delivery"]["suppressed"] is True
+
+
+def test_alerts_outside_your_scope_look_missing(db, client, as_user):
+    """An officer must not be able to probe alerts on cases they cannot see."""
+    deadline_service.sweep(db, NOW)
+    admin = as_user("admin@demo.local")
+    alert_id = client.get("/api/v1/alerts", headers=admin).json()["alerts"][0]["id"]
+
+    # The EVC member is scoped to their committee and cannot read monitoring.
+    evc = as_user("evc@demo.local")
+    denied = client.post(f"/api/v1/alerts/{alert_id}/ack", headers=evc)
+    assert denied.status_code == 403
+
+    missing = client.post("/api/v1/alerts/no-such-alert/ack", headers=admin)
+    assert missing.status_code == 404

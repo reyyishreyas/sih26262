@@ -93,6 +93,23 @@ class Alert(Base):
     recipients: Mapped[list] = mapped_column(JSON, default=list)
     payload: Mapped[dict] = mapped_column(JSON, default=dict)
 
+    # Lifecycle: an officer has seen it (acknowledged) and/or dealt with it
+    # (closed, with a reason). The same transitions are also written to the
+    # hash-chained audit log, so this is the fast-to-read copy, not the history.
+    acknowledged_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    acknowledged_by: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id"), nullable=True
+    )
+    closed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    closed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    close_reason: Mapped[str] = mapped_column(
+        String(1024), default="", server_default=""
+    )
+
     deliveries: Mapped[list[AlertDelivery]] = relationship(
         back_populates="alert", cascade="all, delete-orphan"
     )

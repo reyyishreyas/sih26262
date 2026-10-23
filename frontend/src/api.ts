@@ -1,4 +1,5 @@
 import type {
+  AlertLifecycle,
   AlertRow,
   ApplicationSummary,
   AuditEvent,
@@ -238,6 +239,15 @@ export const api = {
   dashboard: () => request<OfficerDashboard>("/officer/dashboard"),
   alerts: () =>
     request<{ simulated: boolean; note: string; alerts: AlertRow[] }>("/alerts"),
+  /** "I have seen this reminder" — idempotent, recorded in the case history. */
+  ackAlert: (alertId: string) =>
+    request<AlertLifecycle>(`/alerts/${alertId}/ack`, { method: "POST" }),
+  /** "This is dealt with" — always requires a short explanation. */
+  closeAlert: (alertId: string, reason: string) =>
+    request<AlertLifecycle>(`/alerts/${alertId}/close`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
+    }),
 
   // --- Expert Visit Committee scheduling ---
   evcCommittees: () => request<EvcCommittee[]>("/evc/committees"),

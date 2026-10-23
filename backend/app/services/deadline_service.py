@@ -15,7 +15,7 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from ..core.clock import get_clock, to_utc
+from ..core.clock import get_clock, iso, to_utc
 from ..core.config import get_settings
 from ..models import Alert, Application, Document, EvcVisit, ExtractedField, Undertaking
 from . import alert_service, policy
@@ -41,6 +41,7 @@ class SweepResult:
     existing: int = 0
     delivered: int = 0
     failed: int = 0
+    suppressed: int = 0
     alerts: list[dict] = field(default_factory=list)
 
     def as_dict(self) -> dict:
@@ -50,6 +51,7 @@ class SweepResult:
             "existing": self.existing,
             "delivered": self.delivered,
             "failed": self.failed,
+            "suppressed": self.suppressed,
             "alerts": self.alerts,
         }
 
@@ -244,11 +246,39 @@ def sweep(db: Session, now: datetime | None = None, *, dry_run: bool = False) ->
             )
             if created:
                 result.created += 1
+                # Alerts are system-generated, so the actor is the system. The
+                # event is what makes "who was told, and when" auditable rather
+                # than something you have to take on trust.
+                from .audit_service import AuditService
+
+                AuditService(db).append(
+                    action=(
+                        "alert.escalated"
+                        if threshold.severity == "escalated"
+                        else "alert.fired"
+                    ),
+                    entity_type="alert",
+                    entity_id=alert.id,
+                    outcome="accepted",
+                    actor_role="system",
+                    reason=f"{threshold.level} ({threshold.severity})",
+                    after={
+                        "application_id": item.application_id,
+                        "alert_type": alert.alert_type,
+                        "level": alert.level,
+                        "severity": threshold.severity,
+                        "due_at": iso(item.due_at),
+                        "recipients": recipients,
+                    },
+                )
             else:
                 result.existing += 1
 
             outcome = alert_service.deliver(db, alert)
-            if outcome.delivered:
+            if outcome.suppressed:
+                # Acknowledged or closed: deliberately silent, not a failure.
+                result.suppressed += 1
+            elif outcome.delivered:
                 result.delivered += 1
             else:
                 result.failed += 1
@@ -265,6 +295,7 @@ def sweep(db: Session, now: datetime | None = None, *, dry_run: bool = False) ->
                         "delivered": outcome.delivered,
                         "attempt": outcome.attempt,
                         "error": outcome.error,
+                        "suppressed": outcome.suppressed,
                     },
                 }
             )

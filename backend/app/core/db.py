@@ -166,6 +166,59 @@ def create_all() -> None:
     if engine.dialect.name != "sqlite":
         return
     Base.metadata.create_all(bind=engine)
+    _backfill_sqlite_columns()
+
+
+def _sql_literal(value: object) -> str:
+    """Render a Python default as a SQL literal for an ALTER TABLE."""
+    if value is None:
+        return "NULL"
+    if isinstance(value, bool):
+        return "1" if value else "0"
+    if isinstance(value, (int, float)):
+        return str(value)
+    escaped = str(value).replace("'", "''")
+    return f"'{escaped}'"
+
+
+def _backfill_sqlite_columns() -> None:
+    """Add columns that were added to a model after the dev database existed.
+
+    ``create_all`` only creates missing tables, so a long-lived SQLite dev file
+    silently lacks new columns and every query touching them fails. PostgreSQL
+    deployments never reach this path — they run Alembic.
+    """
+    from sqlalchemy import inspect, text
+
+    inspector = inspect(engine)
+    with engine.begin() as conn:
+        for table in Base.metadata.tables.values():
+            if table.name not in inspector.get_table_names():
+                continue
+            existing = {column["name"] for column in inspector.get_columns(table.name)}
+            for column in table.columns:
+                if column.name in existing:
+                    continue
+                ddl_type = column.type.compile(dialect=engine.dialect)
+                if column.nullable:
+                    conn.execute(
+                        text(
+                            f'ALTER TABLE "{table.name}" '
+                            f'ADD COLUMN "{column.name}" {ddl_type}'
+                        )
+                    )
+                    continue
+                if column.server_default is None:
+                    # A required column with no default cannot be added to a
+                    # table that already holds rows; leave it to Alembic.
+                    continue
+                literal = _sql_literal(column.server_default.arg)
+                conn.execute(
+                    text(
+                        f'ALTER TABLE "{table.name}" ADD COLUMN "{column.name}" '
+                        f"{ddl_type} NOT NULL DEFAULT {literal}"
+                    )
+                )
 
 
 def dispose_engines() -> None:

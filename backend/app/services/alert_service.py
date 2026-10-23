@@ -40,6 +40,9 @@ class DeliveryOutcome:
     attempt: int
     provider_ref: str | None = None
     error: str | None = None
+    # True when nothing was sent on purpose (the alert was acknowledged or
+    # closed). Distinct from a failure so reports never claim a nag went out.
+    suppressed: bool = False
 
 
 def _users_with_role(
@@ -118,8 +121,16 @@ def deliver(db: Session, alert: Alert, *, max_attempts: int = 3) -> DeliveryOutc
     from ..models import AlertDelivery
 
     attempts = len(alert.deliveries or [])
-    if alert.status == "delivered":
-        return DeliveryOutcome(delivered=True, attempt=attempts, provider_ref="cached")
+    if alert.status != "open":
+        # Already sent, seen, or dealt with. Only "open" is eligible for a
+        # (re)delivery attempt — a reminder must not nag after an officer
+        # acknowledged or closed it.
+        return DeliveryOutcome(
+            delivered=False,
+            attempt=attempts,
+            provider_ref="suppressed",
+            suppressed=True,
+        )
     if attempts >= max_attempts:
         return DeliveryOutcome(
             delivered=False,

@@ -1,15 +1,17 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Response
+from fastapi import APIRouter, Depends, HTTPException, Response, status
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..core.clock import iso
+from ..core.clock import get_clock, iso
 from ..core.db import get_db
 from ..core.pagination import PageParams, pagination, set_total
 from ..core.permissions import ADMIN_USERS, MONITORING_READ
 from ..models import Alert, Document, Undertaking
 from ..services import deadline_service
+from ..services.audit_service import AuditService
 from ..services.authorization_service import EffectiveAccess, scope_filter
 from .deps import require
 
@@ -52,6 +54,11 @@ def list_alerts(
                 "status": alert.status,
                 "due_at": iso(alert.due_at),
                 "fired_at": iso(alert.fired_at),
+                "acknowledged_at": iso(alert.acknowledged_at),
+                "acknowledged_by": alert.acknowledged_by,
+                "closed_at": iso(alert.closed_at),
+                "closed_by": alert.closed_by,
+                "close_reason": alert.close_reason,
                 "recipients": alert.recipients,
                 "payload": alert.payload,
                 "deliveries": [
@@ -76,6 +83,122 @@ def list_alerts(
         "limit": page.limit,
         "offset": page.offset,
         "alerts": out[page.offset : page.offset + page.limit],
+    }
+
+
+class AlertActionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(default="", max_length=1024)
+
+
+def _load_scoped_alert(db: Session, access: EffectiveAccess, alert_id: str) -> Alert:
+    """Fetch an alert only if its case sits inside the caller's scope."""
+    alert = db.get(Alert, alert_id)
+    if alert is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "alert not found")
+
+    from ..models import Application
+
+    query = select(Application.id)
+    clause = scope_filter(access)
+    if clause is not None:
+        query = query.where(clause)
+    scoped_ids = set(db.scalars(query).all())
+    if _application_for(db, alert) not in scoped_ids:
+        # Same answer as "no such alert": scope must not be observable.
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "alert not found")
+    return alert
+
+
+@router.post("/alerts/{alert_id}/ack")
+def acknowledge_alert(
+    alert_id: str,
+    access: EffectiveAccess = Depends(require(MONITORING_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """An officer has seen this reminder and owns it from here.
+
+    Idempotent: acknowledging an already-acknowledged alert changes nothing and
+    writes no second audit event.
+    """
+    alert = _load_scoped_alert(db, access, alert_id)
+    if alert.acknowledged_at is not None:
+        return _serialise_alert(alert)
+
+    now = get_clock().now()
+    before = {"status": alert.status}
+    alert.acknowledged_at = now
+    alert.acknowledged_by = access.user_id
+    alert.status = "acknowledged"
+    AuditService(db).append(
+        action="alert.acknowledged",
+        entity_type="alert",
+        entity_id=alert.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        before=before,
+        after={"status": alert.status, "alert_type": alert.alert_type},
+    )
+    db.commit()
+    return _serialise_alert(alert)
+
+
+@router.post("/alerts/{alert_id}/close")
+def close_alert(
+    alert_id: str,
+    payload: AlertActionRequest,
+    access: EffectiveAccess = Depends(require(MONITORING_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """The matter behind this reminder has been dealt with — say how.
+
+    Closing always records a reason: an alert that disappears silently is
+    indistinguishable from one nobody looked at.
+    """
+    alert = _load_scoped_alert(db, access, alert_id)
+    if alert.status == "closed":
+        return _serialise_alert(alert)
+    if not payload.reason.strip():
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "say what you did about this alert before closing it",
+        )
+
+    now = get_clock().now()
+    before = {"status": alert.status}
+    alert.status = "closed"
+    alert.closed_at = now
+    alert.closed_by = access.user_id
+    alert.close_reason = payload.reason.strip()
+    if alert.acknowledged_at is None:
+        alert.acknowledged_at = now
+        alert.acknowledged_by = access.user_id
+    AuditService(db).append(
+        action="alert.closed",
+        entity_type="alert",
+        entity_id=alert.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        reason=alert.close_reason,
+        before=before,
+        after={"status": "closed", "alert_type": alert.alert_type},
+    )
+    db.commit()
+    return _serialise_alert(alert)
+
+
+def _serialise_alert(alert: Alert) -> dict:
+    return {
+        "id": alert.id,
+        "status": alert.status,
+        "acknowledged_at": iso(alert.acknowledged_at),
+        "acknowledged_by": alert.acknowledged_by,
+        "closed_at": iso(alert.closed_at),
+        "closed_by": alert.closed_by,
+        "close_reason": alert.close_reason,
     }
 
 

@@ -732,6 +732,47 @@ button.step .step-num {
 .alert-row .alert-main { display: grid; }
 .alert-row .alert-type { font-weight: 700; }
 
+/* A closed reminder reads as handled, not as a live problem */
+.alert-row.done { opacity: 0.72; background: var(--panel); }
+.alert-row .alert-icon.muted { background: var(--line); color: var(--muted); }
+
+/* "Seen …" / closing note under the alert title */
+.alert-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+}
+.alert-note svg { flex-shrink: 0; }
+
+/* Acknowledge / close controls, pushed to the right of the row */
+.alert-actions {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin-left: auto;
+  flex-wrap: wrap;
+}
+.alert-close-form {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+}
+.alert-close-form input {
+  min-width: 220px;
+  padding: 0.4rem 0.6rem;
+  border: 1.5px solid var(--line);
+  border-radius: 8px;
+  font: inherit;
+  font-size: 0.9rem;
+}
+.alert-close-form input:focus {
+  outline: none;
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-soft);
+}
+
 /* --------------------------------------------------------------------------
    Misc
    -------------------------------------------------------------------------- */

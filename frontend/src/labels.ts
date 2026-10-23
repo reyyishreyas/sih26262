@@ -237,6 +237,8 @@ export function plainAlertLevel(level: string): { label: string; icon: IconName 
     return { label: "Overdue", icon: "alertCircle" };
   if (value.includes("due_soon") || value.includes("due soon") || value.includes("warn"))
     return { label: "Due soon", icon: "clock" };
+  if (value.includes("reminder"))
+    return { label: "Reminder", icon: "bell" };
   if (value.includes("info") || value.includes("low"))
     return { label: "For information", icon: "info" };
   return { label: humanize(level), icon: "bell" };
@@ -257,6 +259,7 @@ export function plainAlertStatus(status: string): string {
   if (status === "sent" || status === "delivered") return "Sent";
   if (status === "escalated") return "Escalated";
   if (status === "acked" || status === "acknowledged") return "Seen";
+  if (status === "closed") return "Closed";
   return humanize(status);
 }
 

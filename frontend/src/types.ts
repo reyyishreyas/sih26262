@@ -142,12 +142,29 @@ export interface AlertRow {
   id: string;
   entity_type: string;
   entity_id: string;
+  application_id?: string | null;
   alert_type: string;
   level: string;
   status: string;
   due_at: string;
   fired_at: string;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+  closed_at: string | null;
+  closed_by: string | null;
+  close_reason: string;
   deliveries: Array<{ attempt: number; status: string; at: string }>;
+}
+
+/** What the ack/close endpoints return: just the lifecycle fields. */
+export interface AlertLifecycle {
+  id: string;
+  status: string;
+  acknowledged_at: string | null;
+  acknowledged_by: string | null;
+  closed_at: string | null;
+  closed_by: string | null;
+  close_reason: string;
 }
 
 export interface SessionUser {

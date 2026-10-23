@@ -131,6 +131,17 @@ export default function App() {
       );
   }, [canMonitor, user, view]);
 
+  // Re-read just the alerts (after acknowledging or closing one) without
+  // reloading the whole dashboard.
+  async function loadAlerts() {
+    try {
+      const rows = await api.alerts();
+      setAlerts(rows.alerts);
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not load alerts");
+    }
+  }
+
   function signOut() {
     clearSession();
     setUser(null);
@@ -327,7 +338,7 @@ export default function App() {
                 <span className="spinner" /> Loading the numbers…
               </p>
             )}
-            <AlertList alerts={alerts} />
+            <AlertList alerts={alerts} onChanged={() => void loadAlerts()} />
           </>
         )}
       </main>

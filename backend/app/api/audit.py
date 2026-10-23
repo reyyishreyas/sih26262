@@ -26,7 +26,7 @@ def case_timeline(
 ) -> dict:
     application = require_application(db, access, application_id)
     entity_ids = {application.id}
-    from ..models import Document, Undertaking
+    from ..models import Alert, Document, EvcVisit, Undertaking
 
     entity_ids |= set(
         db.scalars(
@@ -36,6 +36,18 @@ def case_timeline(
     entity_ids |= set(
         db.scalars(
             select(Undertaking.id).where(Undertaking.application_id == application.id)
+        ).all()
+    )
+    entity_ids |= set(
+        db.scalars(
+            select(EvcVisit.id).where(EvcVisit.application_id == application.id)
+        ).all()
+    )
+    # Alert lifecycle events are recorded against the alert itself, so pull in
+    # the alerts raised on this case (and on its documents/undertakings/visits).
+    entity_ids |= set(
+        db.scalars(
+            select(Alert.id).where(Alert.entity_id.in_(entity_ids))
         ).all()
     )
 
