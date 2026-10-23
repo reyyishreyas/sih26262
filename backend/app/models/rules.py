@@ -119,6 +119,14 @@ def _guard_approved_versions(_mapper, connection, target: RuleVersion) -> None:
         )
 
 
+@event.listens_for(RuleVersion.__table__, "after_create")
+def _install_rule_version_guard(_target, connection, **_kwargs) -> None:
+    """Install the same guard inside the database for direct-SQL writes."""
+    from ..core.db_guards import install_rule_version_guard
+
+    install_rule_version_guard(connection)
+
+
 class RuleTest(Base):
     __tablename__ = "rule_tests"
 

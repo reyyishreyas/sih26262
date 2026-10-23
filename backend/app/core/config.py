@@ -104,6 +104,24 @@ class Settings(BaseSettings):
     log_json: bool = True
     seed_on_startup: bool = False
 
+    # Prometheus scrape endpoint. The token is optional in development and
+    # mandatory in production when the endpoint is enabled.
+    metrics_enabled: bool = True
+    metrics_token: str | None = None
+
+    # Optional upload malware scanning. Production validation requires this to be
+    # enabled; development and tests can leave it off.
+    malware_scan_enabled: bool = False
+    malware_scanner: str = "clamav"
+    clamav_host: str = "clamav"
+    clamav_port: int = 3310
+    clamav_timeout_seconds: float = 5.0
+
+    # Bounded retention for transient operational rows. Audit events are retained
+    # indefinitely because deleting a middle event would break the hash chain.
+    retention_login_attempt_days: int = 30
+    retention_alert_delivery_days: int = 180
+
     @property
     def is_production(self) -> bool:
         return self.env.strip().lower() in _PRODUCTION_ENVS
@@ -124,6 +142,16 @@ class Settings(BaseSettings):
             raise ValueError("login attempt limits must be positive")
         if self.login_window_seconds < 1 or self.login_lockout_seconds < 1:
             raise ValueError("login window and lockout must be positive")
+        if not 1 <= self.clamav_port <= 65_535:
+            raise ValueError("clamav_port must be a valid TCP port")
+        if self.clamav_timeout_seconds <= 0:
+            raise ValueError("clamav_timeout_seconds must be positive")
+        if self.retention_login_attempt_days < 1:
+            raise ValueError("retention_login_attempt_days must be positive")
+        if self.retention_alert_delivery_days < 1:
+            raise ValueError("retention_alert_delivery_days must be positive")
+        if self.metrics_token is not None and len(self.metrics_token) < 16:
+            raise ValueError("metrics_token must be at least 16 characters when set")
 
         if not self.is_production:
             return self
@@ -208,6 +236,19 @@ class Settings(BaseSettings):
             problems.append("SIH_DEBUG must be false in production")
         if self.hsts_seconds < 31_536_000:
             problems.append("SIH_HSTS_SECONDS must be at least one year")
+        if self.metrics_enabled and not self.metrics_token:
+            problems.append(
+                "SIH_METRICS_TOKEN must be set when SIH_METRICS_ENABLED=true "
+                "in production"
+            )
+        if not self.malware_scan_enabled:
+            problems.append(
+                "SIH_MALWARE_SCAN_ENABLED must be true in production"
+            )
+        if self.malware_scanner != "clamav":
+            problems.append(
+                "SIH_MALWARE_SCANNER must be 'clamav' in production"
+            )
         if problems:
             raise ValueError(
                 "unsafe production configuration: " + "; ".join(problems)

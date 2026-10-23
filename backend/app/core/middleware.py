@@ -15,6 +15,11 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 from .config import Settings
 from .context import reset_request_id, set_request_id
 from .http import client_ip
+from .metrics import (
+    HTTP_REQUESTS_IN_PROGRESS,
+    observe_request,
+    route_label,
+)
 
 logger = logging.getLogger("sih26262.http")
 
@@ -63,9 +68,16 @@ class RequestContextMiddleware:
         started = time.perf_counter()
         status_code = 500
         response_started = False
-        no_store = path.startswith(self.settings.api_prefix) or path.startswith(
-            "/health"
+        no_store = (
+            path.startswith(self.settings.api_prefix)
+            or path.startswith("/health")
+            or path.startswith("/metrics")
         )
+        # Scrapes are intentionally excluded from request metrics; otherwise the
+        # scrape interval becomes a visibly dominant traffic source.
+        measure = path != "/metrics"
+        if measure:
+            HTTP_REQUESTS_IN_PROGRESS.labels(method=method).inc()
 
         async def send_wrapper(message: Message) -> None:
             nonlocal status_code, response_started
@@ -122,7 +134,16 @@ class RequestContextMiddleware:
             )
             await send({"type": "http.response.body", "body": body})
         finally:
-            duration_ms = round((time.perf_counter() - started) * 1000, 2)
+            duration_seconds = time.perf_counter() - started
+            duration_ms = round(duration_seconds * 1000, 2)
+            if measure:
+                observe_request(
+                    method=method,
+                    route=route_label(scope),
+                    status=status_code,
+                    duration_seconds=duration_seconds,
+                )
+                HTTP_REQUESTS_IN_PROGRESS.labels(method=method).dec()
             logger.info(
                 "http.request",
                 extra={

@@ -7,3 +7,4 @@ pydantic-settings==2.16.1
 python-jose[cryptography]==3.5.0
 python-multipart==0.0.32
 psycopg[binary]>=3.2,<4
+prometheus-client==0.26.0

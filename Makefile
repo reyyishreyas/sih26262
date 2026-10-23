@@ -2,7 +2,7 @@ SHELL := /bin/bash
 PYTHON ?= .venv/bin/python
 COMPOSE ?= docker compose
 
-.PHONY: help up down reset logs ps lint test build migrate seed smoke verify-isolation migrate-sqlite prod-config
+.PHONY: help up down reset logs ps lint test build migrate seed smoke verify-isolation migrate-sqlite prod-config retention loadtest
 
 help:
 	@echo "SIH26262 developer commands"
@@ -18,6 +18,8 @@ help:
 	@echo "  make smoke             exercise the running stack end to end"
 	@echo "  make verify-isolation  prove PostgreSQL role isolation"
 	@echo "  make migrate-sqlite    run Alembic against a throwaway SQLite file"
+	@echo "  make retention         report retention-eligible transient rows (dry run)"
+	@echo "  make loadtest          run a bounded read-only load probe"
 
 up:
 	$(COMPOSE) up -d --build

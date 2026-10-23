@@ -8,6 +8,7 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, s
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from ..adapters.malware import MalwareDetected, MalwareScannerError
 from ..adapters.ocr.mock import MockOCRExtractor
 from ..core.clock import get_clock
 from ..core.config import get_settings
@@ -16,6 +17,7 @@ from ..core.db import get_db
 from ..core.permissions import DOCUMENT_READ, DOCUMENT_UPLOAD, DOCUMENT_VERIFY
 from ..models import Document, ExtractedField
 from ..schemas.api import DocumentOut, VerifyFieldRequest
+from ..services import malware_service
 from ..services.audit_service import AuditService
 from ..services.authorization_service import (
     EffectiveAccess,
@@ -79,6 +81,46 @@ def upload_document(
 
     filename = safe_filename(file.filename)
     sha = hashlib.sha256(content).hexdigest()
+    try:
+        malware_result = malware_service.scan_upload(content)
+    except MalwareDetected as exc:
+        AuditService(db).append(
+            action="document.upload_rejected",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="rejected",
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+            reason=f"malware detected: {exc.signature}",
+            after={
+                "doc_type": doc_type,
+                "sha256": sha,
+                "scanner": exc.engine,
+            },
+            request_id=current_request_id(),
+        )
+        db.commit()
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "upload rejected by malware scanner",
+        ) from None
+    except MalwareScannerError:
+        AuditService(db).append(
+            action="document.upload_rejected",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="rejected",
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+            reason="malware scanner unavailable",
+            after={"doc_type": doc_type, "sha256": sha},
+            request_id=current_request_id(),
+        )
+        db.commit()
+        raise HTTPException(
+            status.HTTP_503_SERVICE_UNAVAILABLE,
+            "malware scanner unavailable; upload was not stored",
+        ) from None
     duplicate = db.scalars(
         select(Document).where(
             Document.file_sha256 == sha,
@@ -180,6 +222,15 @@ def upload_document(
             "warnings": extraction.warnings,
             "fields_extracted": len(extraction.fields),
             "note": "Mock extractor: values are canned per document type, not read from the file.",
+        },
+        "malware_scan": {
+            "engine": malware_result.engine,
+            "clean": malware_result.clean,
+            "note": (
+                "Scanner disabled."
+                if malware_result.engine == "disabled"
+                else "File passed the configured malware scanner."
+            ),
         },
         "duplicate_of_another_institution": {
             "found": duplicate is not None,

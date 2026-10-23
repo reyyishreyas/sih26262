@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hmac
 import logging
 from contextlib import asynccontextmanager
 
@@ -10,6 +11,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from sqlalchemy import text
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.trustedhost import TrustedHostMiddleware
@@ -40,6 +42,11 @@ from .core.db import (
     sim_engine,
 )
 from .core.logging import configure_logging
+from .core.metrics import (
+    REGISTRY,
+    record_app_info,
+    record_database_probe,
+)
 from .core.middleware import RequestContextMiddleware, error_payload
 from .core.permissions import PermissionDenied
 
@@ -74,9 +81,11 @@ def _database_probe() -> tuple[bool, dict[str, str]]:
                 else:
                     role = connection.execute(text("SELECT current_user")).scalar()
             components[name] = f"ok:{role or 'unknown'}"
+            record_database_probe(name, True)
         except Exception:  # pragma: no cover - operational path
             ok = False
             components[name] = "unavailable"
+            record_database_probe(name, False)
             if settings.debug:
                 logger.exception("database probe failed", extra={"database": name})
     return ok, components
@@ -152,6 +161,8 @@ def create_app() -> FastAPI:
     )
     app.add_middleware(RequestContextMiddleware, settings=settings)
 
+    record_app_info(settings.app_version, settings.env)
+
     prefix = settings.api_prefix
     for module in (
         auth,
@@ -223,6 +234,40 @@ def create_app() -> FastAPI:
         return JSONResponse(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             content=error_payload(detail, "internal_error", current_request_id()),
+        )
+
+    @app.get("/metrics", include_in_schema=False)
+    def metrics(request: Request) -> Response:
+        if not settings.metrics_enabled:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content=error_payload("not found", "http_error", current_request_id()),
+            )
+        expected = settings.metrics_token
+        if expected:
+            authorization = request.headers.get("authorization", "")
+            supplied = (
+                authorization[7:]
+                if authorization.lower().startswith("bearer ")
+                else ""
+            )
+            header_token = request.headers.get("x-metrics-token", "")
+            if not (
+                hmac.compare_digest(supplied, expected)
+                or hmac.compare_digest(header_token, expected)
+            ):
+                return JSONResponse(
+                    status_code=status.HTTP_403_FORBIDDEN,
+                    content=error_payload(
+                        "metrics authentication required",
+                        "forbidden",
+                        current_request_id(),
+                    ),
+                    headers={"WWW-Authenticate": "Bearer"},
+                )
+        return Response(
+            content=generate_latest(REGISTRY),
+            media_type=CONTENT_TYPE_LATEST,
         )
 
     @app.get("/health/live", tags=["health"])

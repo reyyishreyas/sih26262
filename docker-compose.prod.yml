@@ -40,6 +40,15 @@ x-app-environment: &app-environment
   SIH_LOGIN_MAX_ATTEMPTS_PER_IP: ${SIH_LOGIN_MAX_ATTEMPTS_PER_IP:-25}
   SIH_LOGIN_WINDOW_SECONDS: ${SIH_LOGIN_WINDOW_SECONDS:-900}
   SIH_LOGIN_LOCKOUT_SECONDS: ${SIH_LOGIN_LOCKOUT_SECONDS:-900}
+  SIH_METRICS_ENABLED: ${SIH_METRICS_ENABLED:-true}
+  SIH_METRICS_TOKEN: ${SIH_METRICS_TOKEN:?set SIH_METRICS_TOKEN}
+  SIH_MALWARE_SCAN_ENABLED: ${SIH_MALWARE_SCAN_ENABLED:-true}
+  SIH_MALWARE_SCANNER: ${SIH_MALWARE_SCANNER:-clamav}
+  SIH_CLAMAV_HOST: ${SIH_CLAMAV_HOST:-clamav}
+  SIH_CLAMAV_PORT: ${SIH_CLAMAV_PORT:-3310}
+  SIH_CLAMAV_TIMEOUT_SECONDS: ${SIH_CLAMAV_TIMEOUT_SECONDS:-5}
+  SIH_RETENTION_LOGIN_ATTEMPT_DAYS: ${SIH_RETENTION_LOGIN_ATTEMPT_DAYS:-30}
+  SIH_RETENTION_ALERT_DELIVERY_DAYS: ${SIH_RETENTION_ALERT_DELIVERY_DAYS:-180}
 
 services:
   db:
@@ -59,6 +68,14 @@ services:
       interval: 5s
       timeout: 5s
       retries: 20
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+
+  clamav:
+    image: clamav/clamav:stable
+    volumes:
+      - clamav_db:/var/lib/clamav
     restart: unless-stopped
     security_opt:
       - no-new-privileges:true
@@ -146,6 +163,8 @@ services:
     depends_on:
       migrate:
         condition: service_completed_successfully
+      clamav:
+        condition: service_started
     restart: unless-stopped
     read_only: true
     tmpfs:
@@ -205,3 +224,4 @@ services:
 volumes:
   pgdata:
   storage:
+  clamav_db:

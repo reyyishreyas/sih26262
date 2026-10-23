@@ -2,14 +2,30 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta
 
 import pytest
 from pydantic import ValidationError
+from sqlalchemy import text
+from sqlalchemy.exc import IntegrityError
 
+from app.adapters.malware import (
+    MalwareDetected,
+    MalwareScannerError,
+    ScanResult,
+)
 from app.core.config import Settings
-from app.models import AuditEvent, Document, LoginAttempt, User
-from app.services import login_throttle
+from app.models import (
+    Alert,
+    AlertDelivery,
+    AuditEvent,
+    Document,
+    LoginAttempt,
+    RuleVersion,
+    User,
+)
+from app.services import login_throttle, malware_service
+from app.services.retention_service import apply_retention, plan_retention
 
 
 def test_security_headers_and_request_id(client):
@@ -267,6 +283,8 @@ def test_valid_production_configuration_is_accepted():
         password_hash_iterations=260_000,
         hsts_seconds=31_536_000,
         clock_mode="system",
+        metrics_token="m" * 32,
+        malware_scan_enabled=True,
         _env_file=None,
     )
     assert settings.is_production
@@ -324,3 +342,221 @@ def test_password_change_audit_is_chained(client, as_user, db):
         .password_changed_at.replace(tzinfo=UTC)
         == datetime(2026, 10, 22, 9, 0, tzinfo=UTC)
     )
+
+
+def test_metrics_endpoint_exposes_request_metrics(client):
+    assert client.get("/health/live").status_code == 200
+    response = client.get("/metrics")
+    assert response.status_code == 200
+    assert response.headers["content-type"].startswith("text/plain")
+    assert "sih_http_requests_total" in response.text
+    assert "sih_app_info" in response.text
+
+
+def test_metrics_endpoint_requires_token_when_configured(monkeypatch):
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    token = "metrics-token-" + "x" * 32
+    settings = Settings(metrics_token=token, _env_file=None)
+    monkeypatch.setattr("app.main.get_settings", lambda: settings)
+    app_with_token = create_app()
+    with TestClient(app_with_token) as test_client:
+        assert test_client.get("/metrics").status_code == 403
+        assert (
+            test_client.get(
+                "/metrics", headers={"Authorization": f"Bearer {token}"}
+            ).status_code
+            == 200
+        )
+
+
+def test_database_trigger_blocks_direct_rule_updates(db):
+    version = db.query(RuleVersion).first()
+    assert version is not None
+    with pytest.raises(IntegrityError):
+        db.execute(
+            text(
+                "UPDATE rule_versions SET condition = :condition WHERE id = :id"
+            ),
+            {'condition': '{"op": "always"}', "id": version.id},
+        )
+        db.commit()
+    db.rollback()
+
+
+def test_database_trigger_allows_retirement_and_blocks_changes_after_it(db):
+    version = db.query(RuleVersion).first()
+    assert version is not None
+    db.execute(
+        text("UPDATE rule_versions SET status = 'retired' WHERE id = :id"),
+        {"id": version.id},
+    )
+    db.commit()
+    db.expire_all()
+    assert db.get(RuleVersion, version.id).status == "retired"
+
+    with pytest.raises(IntegrityError):
+        db.execute(
+            text(
+                "UPDATE rule_versions SET condition = :condition WHERE id = :id"
+            ),
+            {'condition': '{"op": "never"}', "id": version.id},
+        )
+        db.commit()
+    db.rollback()
+
+
+def test_database_trigger_blocks_deleting_approved_versions(db):
+    version = db.query(RuleVersion).first()
+    assert version is not None
+    with pytest.raises(IntegrityError):
+        db.execute(
+            text("DELETE FROM rule_versions WHERE id = :id"), {"id": version.id}
+        )
+        db.commit()
+    db.rollback()
+
+
+class _FakeMalwareScanner:
+    name = "fake"
+
+    def scan(self, content: bytes) -> ScanResult:
+        if b"EICAR-TEST" in content:
+            raise MalwareDetected("EICAR-Test-File", self.name)
+        return ScanResult(clean=True, engine=self.name)
+
+
+@pytest.fixture
+def fake_malware_scanner():
+    malware_service.set_malware_scanner(_FakeMalwareScanner())
+    try:
+        yield
+    finally:
+        malware_service.reset_malware_scanner()
+
+
+def test_clean_upload_reports_the_scanner(client, as_user, fake_malware_scanner):
+    response = client.post(
+        "/api/v1/applications/app-draft-0004/documents",
+        headers=as_user("institution@demo.local"),
+        data={"doc_type": "lease_deed"},
+        files={"file": ("lease.pdf", b"%PDF-1.4 clean demo", "application/pdf")},
+    )
+    assert response.status_code == 201
+    assert response.json()["malware_scan"] == {
+        "engine": "fake",
+        "clean": True,
+        "note": "File passed the configured malware scanner.",
+    }
+
+
+def test_malware_detection_rejects_upload_and_audits_it(
+    client, as_user, db, fake_malware_scanner
+):
+    response = client.post(
+        "/api/v1/applications/app-draft-0004/documents",
+        headers=as_user("institution@demo.local"),
+        data={"doc_type": "lease_deed"},
+        files={
+            "file": ("lease.pdf", b"%PDF-1.4 EICAR-TEST", "application/pdf")
+        },
+    )
+    assert response.status_code == 422
+    assert "malware" in response.json()["detail"]
+    assert db.query(Document).filter_by(application_id="app-draft-0004").count() == 0
+    rejected = (
+        db.query(AuditEvent)
+        .filter_by(action="document.upload_rejected")
+        .order_by(AuditEvent.seq.desc())
+        .first()
+    )
+    assert rejected is not None
+    assert rejected.outcome == "rejected"
+
+
+class _UnavailableScanner:
+    name = "unavailable"
+
+    def scan(self, content: bytes) -> ScanResult:
+        raise MalwareScannerError("daemon down")
+
+
+def test_scanner_failure_rejects_upload_without_storing(
+    client, as_user, db
+):
+    malware_service.set_malware_scanner(_UnavailableScanner())
+    try:
+        response = client.post(
+            "/api/v1/applications/app-draft-0004/documents",
+            headers=as_user("institution@demo.local"),
+            data={"doc_type": "lease_deed"},
+            files={"file": ("lease.pdf", b"%PDF-1.4 clean demo", "application/pdf")},
+        )
+    finally:
+        malware_service.reset_malware_scanner()
+    assert response.status_code == 503
+    assert db.query(Document).filter_by(application_id="app-draft-0004").count() == 0
+
+
+def test_retention_plan_and_apply_remove_only_eligible_rows(db):
+    settings = Settings(
+        retention_login_attempt_days=30,
+        retention_alert_delivery_days=180,
+        _env_file=None,
+    )
+    now = datetime(2026, 10, 22, 9, 0, tzinfo=UTC)
+    old_attempt = LoginAttempt(
+        key_hash="old",
+        attempted_at=now - timedelta(days=31),
+        successful=False,
+    )
+    fresh_attempt = LoginAttempt(
+        key_hash="fresh",
+        attempted_at=now - timedelta(days=1),
+        successful=False,
+    )
+    alert = Alert(
+        entity_type="application",
+        entity_id="app-main-0001",
+        alert_type="test",
+        level="info",
+        cycle_key="test",
+        dedupe_key="retention-test-dedupe",
+        due_at=now,
+        fired_at=now,
+        status="open",
+        recipients=[],
+        payload={},
+    )
+    db.add_all([old_attempt, fresh_attempt, alert])
+    db.flush()
+    old_delivery = AlertDelivery(
+        alert_id=alert.id,
+        channel="in_app",
+        attempt=1,
+        status="delivered",
+        attempted_at=now - timedelta(days=181),
+    )
+    fresh_delivery = AlertDelivery(
+        alert_id=alert.id,
+        channel="in_app",
+        attempt=2,
+        status="delivered",
+        attempted_at=now - timedelta(days=1),
+    )
+    db.add_all([old_delivery, fresh_delivery])
+    db.commit()
+
+    plan = plan_retention(db, now=now, settings=settings)
+    assert plan.login_attempts_eligible == 1
+    assert plan.alert_deliveries_eligible == 1
+
+    result = apply_retention(db, now=now, settings=settings)
+    assert result["login_attempts_deleted"] == 1
+    assert result["alert_deliveries_deleted"] == 1
+    assert db.query(LoginAttempt).filter_by(key_hash="old").count() == 0
+    assert db.query(LoginAttempt).filter_by(key_hash="fresh").count() == 1
+    assert db.query(AlertDelivery).filter_by(id=old_delivery.id).count() == 0
+    assert db.query(AlertDelivery).filter_by(id=fresh_delivery.id).count() == 1
