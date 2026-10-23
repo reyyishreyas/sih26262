@@ -13,6 +13,7 @@ import { DashboardView } from "./components/DashboardView";
 import { Icon } from "./components/Icon";
 import { Login } from "./components/Login";
 import { NewApplicationForm } from "./components/NewApplicationForm";
+import { ReportsView } from "./components/ReportsView";
 import { plainRole, plainState, stateIcon, stateTone } from "./labels";
 import type {
   AlertRow,
@@ -23,7 +24,7 @@ import type {
   WorkflowRoute,
 } from "./types";
 
-type View = "cases" | "monitoring";
+type View = "cases" | "monitoring" | "reports";
 
 /** The person's display name, falling back to the email handle. */
 function displayName(user: SessionUser): string {
@@ -206,6 +207,15 @@ export default function App() {
               <Icon name="chart" size={18} /> Monitoring
             </button>
           )}
+          {canMonitor && (
+            <button
+              type="button"
+              className={view === "reports" ? "nav active" : "nav"}
+              onClick={() => setView("reports")}
+            >
+              <Icon name="fileText" size={18} /> Reports
+            </button>
+          )}
         </nav>
 
         <div className="who">
@@ -339,6 +349,20 @@ export default function App() {
               </p>
             )}
             <AlertList alerts={alerts} onChanged={() => void loadAlerts()} />
+          </>
+        )}
+
+        {view === "reports" && (
+          <>
+            <div className="hello">
+              <h2 className="hello-title">
+                <Icon name="fileText" size={26} /> Reports
+              </h2>
+              <p className="muted">
+                What needs attention across your scope, in plain words.
+              </p>
+            </div>
+            <ReportsView />
           </>
         )}
       </main>

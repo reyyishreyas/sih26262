@@ -167,6 +167,114 @@ export interface AlertLifecycle {
   close_reason: string;
 }
 
+// ---------------------------------------------------------------------------
+// Reports
+// ---------------------------------------------------------------------------
+
+export interface PendencySection {
+  total_cases: number;
+  by_state: Record<string, number>;
+  average_age_days: number;
+  oldest_case: {
+    application_id: string;
+    institution: string | null;
+    state: string;
+    age_days: number;
+  } | null;
+}
+
+export interface RegionReportRow {
+  region_code: string;
+  region_name: string;
+  cases: number;
+  overdue: number;
+  on_track: number;
+  average_age_days: number;
+}
+
+export interface EvcReportRow {
+  application_id: string;
+  institution: string | null;
+  visit_state: "not_scheduled" | "visit_scheduled" | "visit_due_soon" | "visit_overdue";
+  scheduled_date: string | null;
+  venue?: string;
+  days_until_visit: number | null;
+}
+
+export interface UndertakingReport {
+  total: number;
+  by_status: Record<string, number>;
+  open: number;
+  overdue: number;
+  due_soon: number;
+  by_obligation: Record<string, { total: number; overdue: number; open: number }>;
+  overdue_rows: Array<{
+    undertaking_id: string;
+    application_id: string;
+    institution: string | null;
+    title: string;
+    due_at: string;
+    days_late: number;
+    status: string;
+  }>;
+}
+
+export interface DocumentReportRow {
+  application_id: string;
+  institution: string | null;
+  doc_type: string;
+  file_name: string;
+  valid_to: string | null;
+  days_left: number | null;
+  state: "expired" | "expiring_30" | "expiring_60" | "valid" | "no_date_read";
+  verified: boolean;
+}
+
+export interface OverdueItem {
+  kind: "case_overdue" | "undertaking_overdue" | "document_expired" | "visit_overdue";
+  application_id: string;
+  institution: string | null;
+  title: string;
+  days_late: number;
+}
+
+export interface WorkloadRow {
+  officer: string;
+  cases: number;
+  overdue: number;
+  states: Record<string, number>;
+}
+
+export interface FullReport {
+  generated_at: string;
+  scope: { type: string; regions: string[]; institutions: string[] };
+  pendency: PendencySection;
+  regions: { regions: RegionReportRow[] };
+  evc: {
+    cases_needing_visit: number;
+    not_scheduled: number;
+    visit_due_soon: number;
+    visit_overdue: number;
+    rows: EvcReportRow[];
+  };
+  undertakings: UndertakingReport;
+  documents: {
+    documents_dated: number;
+    expired: number;
+    expiring_30_days: number;
+    expiring_60_days: number;
+    no_date_read: number;
+    rows: DocumentReportRow[];
+  };
+  overdue: {
+    total_overdue: number;
+    by_kind: Record<string, number>;
+    open_escalated_alerts: number;
+    items: OverdueItem[];
+  };
+  workload: { officers: WorkloadRow[] };
+}
+
 export interface SessionUser {
   id: string;
   email: string;

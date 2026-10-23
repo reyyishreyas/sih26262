@@ -774,6 +774,39 @@ button.step .step-num {
 }
 
 /* --------------------------------------------------------------------------
+   Reports
+   -------------------------------------------------------------------------- */
+
+.reports { display: grid; gap: 1rem; }
+.reports h4 { margin-top: 1.1rem; }
+
+/* One line per finding: label on the left, status pill on the right */
+.report-list {
+  list-style: none;
+  padding: 0;
+  margin: 0.7rem 0 0;
+  display: grid;
+  gap: 0.45rem;
+}
+.report-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.7rem;
+  border: 1.5px solid var(--line);
+  border-radius: 10px;
+  padding: 0.55rem 0.75rem;
+  background: var(--panel-2);
+  flex-wrap: wrap;
+}
+.report-item-main {
+  display: grid;
+  gap: 0.1rem;
+  min-width: 0;
+}
+.report-item-main strong { font-weight: 700; }
+
+/* --------------------------------------------------------------------------
    Misc
    -------------------------------------------------------------------------- */
 

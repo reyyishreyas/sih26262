@@ -9,6 +9,7 @@ import type {
   EvcCommittee,
   EvcQueue,
   EvcVisit,
+  FullReport,
   Institution,
   OfficerDashboard,
   RehearsalReport,
@@ -248,6 +249,9 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ reason }),
     }),
+
+  // --- Reports (all sections, one round trip) ---
+  reports: () => request<FullReport>("/reports"),
 
   // --- Expert Visit Committee scheduling ---
   evcCommittees: () => request<EvcCommittee[]>("/evc/committees"),
