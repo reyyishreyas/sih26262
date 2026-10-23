@@ -126,6 +126,57 @@ export const api = {
       body: form,
     });
   },
+  /**
+   * Fetch a document's bytes and hand them to the user. Needs the auth header,
+   * so it cannot be a plain <a href>; we fetch, then trigger a real download.
+   */
+  downloadDocument: async (
+    id: string,
+    documentId: string,
+    fileName: string,
+  ) => {
+    const headers = new Headers();
+    const token = storedToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(
+      `${BASE}/applications/${id}/documents/${documentId}/content`,
+      { headers },
+    );
+    if (!response.ok) {
+      throw new ApiError(
+        `Could not fetch the file (${response.status})`,
+        response.status,
+      );
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = fileName || "document";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  },
+
+  /** Open a document in a new tab (returns an object URL the caller revokes). */
+  openDocument: async (id: string, documentId: string) => {
+    const headers = new Headers();
+    const token = storedToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(
+      `${BASE}/applications/${id}/documents/${documentId}/content`,
+      { headers },
+    );
+    if (!response.ok) {
+      throw new ApiError(
+        `Could not fetch the file (${response.status})`,
+        response.status,
+      );
+    }
+    const blob = await response.blob();
+    return URL.createObjectURL(blob);
+  },
   verifyField: (
     id: string,
     documentId: string,

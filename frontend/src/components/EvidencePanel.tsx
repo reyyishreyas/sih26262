@@ -45,7 +45,39 @@ export function EvidencePanel({
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
+  const [busyDocId, setBusyDocId] = useState<string | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // Open the stored file in a new tab, or save it locally. The bytes come from
+  // the API with the session token, then we hand them to the browser.
+  const openDoc = async (document: DocumentRow) => {
+    setBusyDocId(document.id);
+    try {
+      const url = await api.openDocument(applicationId, document.id);
+      window.open(url, "_blank", "noopener");
+      // Revoke after the tab has had a chance to fetch it.
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError ? cause.message : "Could not open the file",
+      );
+    } finally {
+      setBusyDocId(null);
+    }
+  };
+
+  const downloadDoc = async (document: DocumentRow) => {
+    setBusyDocId(document.id);
+    try {
+      await api.downloadDocument(applicationId, document.id, document.file_name);
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError ? cause.message : "Could not download the file",
+      );
+    } finally {
+      setBusyDocId(null);
+    }
+  };
 
   const load = useCallback(async () => {
     try {
@@ -187,7 +219,27 @@ export function EvidencePanel({
                   {formatDateTime(document.uploaded_at)}
                 </p>
               </div>
-              <span className="pill">{humanize(document.status)}</span>
+              <div className="doc-head-actions">
+                <button
+                  type="button"
+                  className="secondary small"
+                  disabled={busyDocId === document.id}
+                  onClick={() => void openDoc(document)}
+                  title="Open this file in a new tab"
+                >
+                  <Icon name="eye" size={15} /> View
+                </button>
+                <button
+                  type="button"
+                  className="secondary small"
+                  disabled={busyDocId === document.id}
+                  onClick={() => void downloadDoc(document)}
+                  title="Save this file to your computer"
+                >
+                  <Icon name="download" size={15} /> Download
+                </button>
+                <span className="pill">{humanize(document.status)}</span>
+              </div>
             </div>
 
             {document.fields.length === 0 && (
