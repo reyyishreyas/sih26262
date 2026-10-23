@@ -22,7 +22,13 @@ def test_route_catalogue_is_available_to_authenticated_users(client, as_user):
     response = client.get("/api/v1/workflow/routes", headers=as_user("admin@demo.local"))
     assert response.status_code == 200
     keys = {route["key"] for route in response.json()}
-    assert keys == {"new_technical", "existing_technical"}
+    # The four approval paths named in the problem statement.
+    assert keys == {
+        "new_technical",
+        "existing_technical",
+        "evc_only",
+        "evc_sac_shc",
+    }
 
 
 def test_institution_can_create_a_draft_and_upload_evidence(client, as_user):

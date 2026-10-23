@@ -1,5 +1,5 @@
 {
-  "note": "Prototype route table. The stage combinations mirror the four approval paths named in the problem statement; the transitions, guards and SLAs are illustrative configuration and must be verified against the APH before production use.",
+  "note": "Prototype route table. The four routes mirror the four approval paths named in the problem statement: scrutiny only, scrutiny + EVC, EVC only, and EVC + SAC/SHC. The transitions, guards and SLAs are illustrative configuration and must be verified against the APH before production use.",
   "routes": {
     "new_technical": {
       "label": "New technical institution — Scrutiny + EVC",
@@ -158,6 +158,215 @@
           "required_documents": [],
           "requires_reason": true,
           "description": "Reject with a recorded reason"
+        }
+      ]
+    },
+    "evc_only": {
+      "label": "Expert committee visit only (no scrutiny)",
+      "stage_sla_days": {
+        "submitted": 5,
+        "evc_scheduled": 30,
+        "evc_completed": 10
+      },
+      "transitions": [
+        {
+          "action": "submit",
+          "from_state": "draft",
+          "to_state": "submitted",
+          "required_permission": "application.submit",
+          "allowed_roles": ["institution_representative"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Institution submits the application straight to the committee stage"
+        },
+        {
+          "action": "schedule_evc",
+          "from_state": "submitted",
+          "to_state": "evc_scheduled",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer", "regional_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Book the expert committee visit; the case moves with the booking"
+        },
+        {
+          "action": "return_for_clarification",
+          "from_state": "submitted",
+          "to_state": "returned",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer", "regional_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Return to the institution with a recorded reason"
+        },
+        {
+          "action": "resubmit",
+          "from_state": "returned",
+          "to_state": "submitted",
+          "required_permission": "application.submit",
+          "allowed_roles": ["institution_representative"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Institution resubmits after correction"
+        },
+        {
+          "action": "complete_evc",
+          "from_state": "evc_scheduled",
+          "to_state": "evc_completed",
+          "required_permission": "case.decide",
+          "allowed_roles": ["evc_member"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Committee records the visit outcome"
+        },
+        {
+          "action": "approve",
+          "from_state": "evc_completed",
+          "to_state": "approved",
+          "required_permission": "case.decide",
+          "allowed_roles": ["evc_member", "regional_officer"],
+          "required_rules": [
+            "LEASE_VALID_COVERS_PERIOD",
+            "REQUIRED_DOC_AFFIDAVIT"
+          ],
+          "required_documents": ["affidavit"],
+          "requires_reason": false,
+          "description": "Approval recorded after the visit, by the competent authority"
+        },
+        {
+          "action": "reject",
+          "from_state": "evc_completed",
+          "to_state": "rejected",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer", "regional_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Reject after the visit, with a recorded reason"
+        }
+      ]
+    },
+    "evc_sac_shc": {
+      "label": "EVC + SAC/SHC committee approval",
+      "stage_sla_days": {
+        "submitted": 5,
+        "scrutiny": 15,
+        "evc_scheduled": 30,
+        "evc_completed": 10,
+        "sac_review": 20
+      },
+      "transitions": [
+        {
+          "action": "submit",
+          "from_state": "draft",
+          "to_state": "submitted",
+          "required_permission": "application.submit",
+          "allowed_roles": ["institution_representative"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Institution submits the application for scrutiny"
+        },
+        {
+          "action": "start_scrutiny",
+          "from_state": "submitted",
+          "to_state": "scrutiny",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Scrutiny officer opens the case"
+        },
+        {
+          "action": "return_for_clarification",
+          "from_state": "scrutiny",
+          "to_state": "returned",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Return to the institution with a recorded reason"
+        },
+        {
+          "action": "resubmit",
+          "from_state": "returned",
+          "to_state": "submitted",
+          "required_permission": "application.submit",
+          "allowed_roles": ["institution_representative"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Institution resubmits after correction"
+        },
+        {
+          "action": "schedule_evc",
+          "from_state": "scrutiny",
+          "to_state": "evc_scheduled",
+          "required_permission": "case.transition",
+          "allowed_roles": ["scrutiny_officer", "regional_officer"],
+          "required_rules": [
+            "LEASE_VALID_COVERS_PERIOD",
+            "LEASE_ISSUING_AUTHORITY",
+            "REQUIRED_DOC_AFFIDAVIT",
+            "INSTITUTION_IDENTITY_MATCH"
+          ],
+          "required_documents": ["affidavit"],
+          "requires_reason": false,
+          "description": "Scrutiny complete; expert committee visit required"
+        },
+        {
+          "action": "complete_evc",
+          "from_state": "evc_scheduled",
+          "to_state": "evc_completed",
+          "required_permission": "case.decide",
+          "allowed_roles": ["evc_member"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Committee records the visit outcome"
+        },
+        {
+          "action": "forward_to_sac",
+          "from_state": "evc_completed",
+          "to_state": "sac_review",
+          "required_permission": "case.transition",
+          "allowed_roles": ["regional_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": false,
+          "description": "Forward to the standing approval committee (SAC/SHC) for the final word"
+        },
+        {
+          "action": "approve",
+          "from_state": "sac_review",
+          "to_state": "approved",
+          "required_permission": "case.transition",
+          "allowed_roles": ["regional_officer"],
+          "required_rules": [
+            "LEASE_VALID_COVERS_PERIOD",
+            "REQUIRED_DOC_AFFIDAVIT"
+          ],
+          "required_documents": ["affidavit"],
+          "requires_reason": false,
+          "description": "SAC/SHC approval recorded by the competent authority"
+        },
+        {
+          "action": "reject",
+          "from_state": "sac_review",
+          "to_state": "rejected",
+          "required_permission": "case.transition",
+          "allowed_roles": ["regional_officer"],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "SAC/SHC rejection with a recorded reason"
         }
       ]
     }

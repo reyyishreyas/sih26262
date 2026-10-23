@@ -1,9 +1,11 @@
 """Expert Visit Committee scheduling and the EVC queue.
 
-Scheduling is an operational convenience; the statutory gate remains the
-`schedule_evc` / `complete_evc` workflow transitions. This router records *when*
-and *where* a visit happens and feeds the queue/timeline reports plus the
-deadline sweep (visits that were due but never recorded).
+Scheduling records *when* and *where* a visit happens and feeds the queue and
+timeline reports plus the deadline sweep (visits that were due but never
+recorded). When a booking is made and the route's `schedule_evc` transition is
+available to the caller — right state, right role, evidence and rules met — the
+case moves to the committee stage with the booking instead of waiting for a
+second click; otherwise the statutory gate stays exactly where it is.
 """
 
 from __future__ import annotations
@@ -17,7 +19,12 @@ from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock, iso, to_utc
 from ..core.db import get_db
-from ..core.permissions import CASE_READ, CASE_TRANSITION, MONITORING_READ
+from ..core.permissions import (
+    APPLICATION_READ,
+    CASE_READ,
+    CASE_TRANSITION,
+    MONITORING_READ,
+)
 from ..models import Application, Committee, EvcVisit, Institution, Region
 from ..services.audit_service import AuditService
 from ..services.authorization_service import (
@@ -26,6 +33,7 @@ from ..services.authorization_service import (
     require_permission,
 )
 from ..services.policy import stage_sla_days
+from ..services import workflow_service
 from .deps import require, require_any
 
 router = APIRouter(tags=["evc"])
@@ -57,7 +65,11 @@ def _serialise(visit: EvcVisit, committee_name: str | None) -> dict:
 
 @router.get("/evc/committees")
 def list_committees(
-    access: EffectiveAccess = Depends(require_any(CASE_READ, MONITORING_READ)),
+    # Committee names only — no case data. The college sees them so it knows
+    # who is visiting; case scoping happens on the application endpoints.
+    access: EffectiveAccess = Depends(
+        require_any(CASE_READ, MONITORING_READ, APPLICATION_READ)
+    ),
     db: Session = Depends(get_db),
 ) -> list[dict]:
     rows = db.scalars(select(Committee).order_by(Committee.name)).all()
@@ -78,7 +90,12 @@ def list_committees(
 @router.get("/applications/{application_id}/evc/visits")
 def list_visits(
     application_id: str,
-    access: EffectiveAccess = Depends(require_any(CASE_READ, MONITORING_READ)),
+    # APPLICATION_READ: the college can see the visit booked on its own case
+    # (require_application still scopes it to their own records). Booking a
+    # visit still needs CASE_TRANSITION.
+    access: EffectiveAccess = Depends(
+        require_any(CASE_READ, MONITORING_READ, APPLICATION_READ)
+    ),
     db: Session = Depends(get_db),
 ) -> list[dict]:
     require_application(db, access, application_id)
@@ -159,7 +176,24 @@ def schedule_visit(
         },
     )
     db.commit()
-    return _serialise(visit, names.get(visit.committee_id))
+
+    # Booking the visit also moves the case when the route's schedule_evc
+    # transition is available to this caller right now (right stage, right role,
+    # evidence and rules met). When it is not, the booking still stands — the
+    # statutory gate simply stays where it is and the officer books first.
+    decision = workflow_service.auto_transition_if_available(
+        db,
+        access,
+        application.id,
+        "schedule_evc",
+        reason=(
+            f"Committee visit booked for {visit.scheduled_date.isoformat()}"
+            + (f" at {visit.venue}" if visit.venue else "")
+        ),
+    )
+    body = _serialise(visit, names.get(visit.committee_id))
+    body["case_advanced_to"] = decision.to_state if decision and decision.accepted else None
+    return body
 
 
 @router.get("/evc/queue")

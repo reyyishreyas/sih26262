@@ -47,6 +47,8 @@ class TransitionDecision:
     reasons: list[str] = field(default_factory=list)
     rule_results: list[RuleEvaluationResult] = field(default_factory=list)
     audit_seq: int | None = None
+    # Side effects worth telling the caller about (e.g. a cancelled booking).
+    notes: list[str] = field(default_factory=list)
 
     def as_dict(self) -> dict[str, Any]:
         return {
@@ -58,6 +60,7 @@ class TransitionDecision:
             "reasons": self.reasons,
             "rule_results": [r.as_dict() for r in self.rule_results],
             "audit_seq": self.audit_seq,
+            "notes": self.notes,
         }
 
 
@@ -361,3 +364,255 @@ def available_transitions(
             }
         )
     return sorted(out, key=lambda item: item["action"])
+
+
+# ---------------------------------------------------------------------------
+# Automatic stage movement
+# ---------------------------------------------------------------------------
+
+
+def auto_transition_if_available(
+    db: Session,
+    access: EffectiveAccess,
+    application_id: str,
+    action: str,
+    reason: str = "",
+) -> TransitionDecision | None:
+    """Move the case forward *only* when the trigger satisfies an already-available
+    transition.
+
+    Used by operational actions that imply a stage change — booking a committee
+    visit is the obvious one: the case should land on the committee stage with
+    the booking, not wait for a second click. If the transition's guards are not
+    met (missing evidence, rule still failing, wrong role) nothing moves and
+    nothing is audited as a failure — the operational action stands on its own.
+    """
+    application = db.get(Application, application_id)
+    if application is None:
+        return None
+    option = next(
+        (
+            entry
+            for entry in available_transitions(db, access, application)
+            if entry["action"] == action and entry["available"]
+        ),
+        None,
+    )
+    if option is None:
+        return None
+    return request_transition(db, access, application_id, action, reason)
+
+
+# ---------------------------------------------------------------------------
+# Revert (undo the last step)
+# ---------------------------------------------------------------------------
+
+TERMINAL_STATES = ("approved", "rejected")
+
+
+def revert_last_transition(
+    db: Session,
+    access: EffectiveAccess,
+    application_id: str,
+    reason: str,
+    request_id: str | None = None,
+) -> TransitionDecision:
+    """Take the case back one step, with the undo recorded like everything else.
+
+    Only the most recent *forward* step that has not already been undone can be
+    reverted, and only while the case is still in the state that step produced —
+    otherwise the undo would silently skip stages. Reverting out of a final
+    decision (approved/rejected) needs the decision permission, not just the
+    transition permission.
+    """
+    application = db.get(Application, application_id)
+    if application is None:
+        raise PermissionDenied("application not found in your scope", code="not_found")
+
+    from_state = application.current_state
+
+    if not can_access_application(db, access, application):
+        _reject(
+            db,
+            application=application,
+            access=access,
+            action="revert",
+            from_state=from_state,
+            reasons=["application is outside the caller's authorised scope"],
+            request_id=request_id,
+        )
+        raise PermissionDenied("application not found in your scope", code="not_found")
+
+    from ..core.permissions import CASE_DECIDE, CASE_TRANSITION
+
+    required = CASE_DECIDE if from_state in TERMINAL_STATES else CASE_TRANSITION
+    if not access.has(required):
+        return _reject(
+            db,
+            application=application,
+            access=access,
+            action="revert",
+            from_state=from_state,
+            reasons=[
+                f"undoing a step from “{from_state}” needs the {required!r} permission"
+            ],
+            request_id=request_id,
+        )
+
+    if not reason.strip():
+        return _reject(
+            db,
+            application=application,
+            access=access,
+            action="revert",
+            from_state=from_state,
+            reasons=["undoing a step requires a recorded reason"],
+            request_id=request_id,
+        )
+
+    # Which step to undo is read from the audit chain, not from timestamps:
+    # the audit sequence is monotonic even when the clock is frozen (tests)
+    # or two steps land in the same microsecond.
+    from ..models import AuditEvent
+
+    events = db.scalars(
+        select(AuditEvent)
+        .where(
+            AuditEvent.entity_type == "application",
+            AuditEvent.entity_id == application.id,
+            AuditEvent.outcome == "accepted",
+            AuditEvent.action.like("workflow.%"),
+            AuditEvent.action != "workflow.revert",
+        )
+        .order_by(AuditEvent.seq.desc())
+    ).all()
+    target = next(
+        (event for event in events if (event.after or {}).get("state") == from_state),
+        None,
+    )
+    if target is None:
+        return _reject(
+            db,
+            application=application,
+            access=access,
+            action="revert",
+            from_state=from_state,
+            reasons=["there is nothing to undo on this case"],
+            request_id=request_id,
+        )
+
+    undone_action = target.action.split(".", 1)[1]
+    last = db.scalars(
+        select(WorkflowTransition)
+        .where(
+            WorkflowTransition.application_id == application.id,
+            WorkflowTransition.action == undone_action,
+            WorkflowTransition.to_state == from_state,
+            WorkflowTransition.reverted_at.is_(None),
+        )
+        .order_by(WorkflowTransition.created_at.desc())
+    ).first()
+
+    now = get_clock().now()
+    before = {"state": from_state, "baseline_version": application.baseline_version}
+    target_state = (target.before or {}).get("state") or (last.from_state if last else None)
+    if target_state is None:
+        return _reject(
+            db,
+            application=application,
+            access=access,
+            action="revert",
+            from_state=from_state,
+            reasons=[f"the record of step {undone_action!r} is incomplete; not undoing it"],
+            request_id=request_id,
+        )
+    application.current_state = target_state
+    application.status = target_state
+    application.current_state_since = now
+    application.baseline_version = application.baseline_version + 1
+
+    # The undone step stays in the table, marked — deleting it would make the
+    # history dishonest. The undo is a new row on top.
+    if last is not None:
+        last.reverted_at = now
+        last.reverted_by = access.user_id
+    db.add(
+        WorkflowTransition(
+            application_id=application.id,
+            action="revert",
+            from_state=from_state,
+            to_state=target_state,
+            actor_id=access.user_id,
+            reason=reason.strip(),
+            created_at=now,
+        )
+    )
+    event = audit_service.AuditService(db).append(
+        action="workflow.revert",
+        entity_type="application",
+        entity_id=application.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        reason=reason.strip(),
+        before=before,
+        after={
+            "state": target_state,
+            "undone_transition": {
+                "action": undone_action,
+                "from_state": (target.before or {}).get("state"),
+                "to_state": from_state,
+            },
+        },
+        request_id=request_id,
+    )
+    db.commit()
+
+    notes: list[str] = []
+    cancelled = _cancel_visits_on_revert(db, application, from_state, target_state)
+    if cancelled:
+        notes.append(
+            f"{cancelled} committee visit booking(s) were cancelled — the case is "
+            "no longer at the committee stage"
+        )
+
+    return TransitionDecision(
+        accepted=True,
+        action="revert",
+        application_id=application.id,
+        from_state=from_state,
+        to_state=target_state,
+        audit_seq=event.seq,
+        notes=notes,
+    )
+
+
+def _cancel_visits_on_revert(
+    db: Session, application: Application, from_state: str, to_state: str
+) -> int:
+    """A booking must not outlive the stage it was made for."""
+    from ..models import EvcVisit
+
+    if "evc" not in from_state or "evc" in to_state:
+        return 0
+
+    visits = db.scalars(
+        select(EvcVisit).where(
+            EvcVisit.application_id == application.id,
+            EvcVisit.status == "scheduled",
+        )
+    ).all()
+    for visit in visits:
+        visit.status = "cancelled"
+    if visits:
+        audit_service.AuditService(db).append(
+            action="evc.visit_cancelled",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="accepted",
+            actor_role="system",
+            reason="the case was taken back a step, so the booking no longer applies",
+            after={"cancelled": len(visits)},
+        )
+        db.commit()
+    return len(visits)

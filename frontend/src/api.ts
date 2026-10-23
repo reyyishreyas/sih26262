@@ -224,10 +224,24 @@ export const api = {
       from_state: string;
       to_state: string;
       reasons: string[];
+      notes?: string[];
       transition_id?: string;
     }>(`/applications/${id}/transitions`, {
       method: "POST",
       body: JSON.stringify({ action, reason }),
+    }),
+  /** Undo the last step on a case. The undo is itself a recorded step. */
+  revert: (id: string, reason: string) =>
+    request<{
+      accepted: boolean;
+      action: string;
+      from_state: string;
+      to_state: string;
+      reasons: string[];
+      notes: string[];
+    }>(`/applications/${id}/revert`, {
+      method: "POST",
+      body: JSON.stringify({ reason }),
     }),
   audit: (id: string) =>
     request<{ application_id: string; note: string; events: AuditEvent[] }>(

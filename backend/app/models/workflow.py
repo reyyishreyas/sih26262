@@ -53,4 +53,10 @@ class WorkflowTransition(Base):
     to_state: Mapped[str] = mapped_column(String(32))
     actor_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     reason: Mapped[str] = mapped_column(String(1024), default="")
+    # When an officer undid this step, the row stays but is marked, so the
+    # history keeps showing what actually happened (including the undo).
+    reverted_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    reverted_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)

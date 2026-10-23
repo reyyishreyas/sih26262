@@ -363,6 +363,11 @@ export interface EvcVisit {
   notes: string;
   created_at: string;
   completed_at: string | null;
+  /**
+   * When booking the visit also carried the case to the committee stage, this
+   * is the stage it landed on; `null` when the case stayed where it was.
+   */
+  case_advanced_to?: string | null;
 }
 
 export interface EvcCommittee {

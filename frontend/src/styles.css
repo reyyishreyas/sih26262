@@ -645,6 +645,19 @@ button.step .step-num {
 .decision .decision-label { font-weight: 700; font-size: 1.05rem; display: flex; gap: 0.45rem; align-items: center; }
 .blocked-list { margin: 0; padding-left: 1.2rem; color: var(--bad); font-size: 0.9rem; }
 
+/* "Made a mistake?" — undo the last step, visually separated from the choices */
+.undo-panel {
+  margin-top: 1.2rem;
+  border: 1.5px dashed var(--line);
+  border-radius: 14px;
+  padding: 0.9rem 1rem;
+  background: var(--panel);
+  display: grid;
+  gap: 0.5rem;
+  justify-items: start;
+}
+.undo-panel h3 { margin: 0; }
+
 /* --------------------------------------------------------------------------
    Rehearsal (what-if)
    -------------------------------------------------------------------------- */

@@ -144,6 +144,31 @@ export function CaseView({
     }
   }
 
+  async function undoLastStep() {
+    if (reason.trim() === "") {
+      setError("Please type a short reason for the undo — it is saved in the records.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const decision = await api.revert(applicationId, reason);
+      setMessage(
+        decision.accepted
+          ? `Undone. The case is back at “${plainState(decision.to_state)}”.` +
+              (decision.notes.length > 0 ? ` ${decision.notes.join(". ")}.` : "")
+          : `That was not allowed: ${decision.reasons.join("; ")}`,
+      );
+      setReason("");
+      await load();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "The undo failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   const steps: Step[] = useMemo(() => {
     const list: Step[] = [
       { key: "checks", label: "Check-up" },
@@ -304,7 +329,11 @@ export function CaseView({
       )}
 
       {step === "evc" && (
-        <EvcPanel applicationId={applicationId} canSchedule={canScheduleVisit} />
+        <EvcPanel
+          applicationId={applicationId}
+          canSchedule={canScheduleVisit}
+          onCaseMoved={() => void load()}
+        />
       )}
 
       {step === "decision" && (
@@ -377,6 +406,25 @@ export function CaseView({
                 )}
               </div>
             ))}
+          </div>
+
+          <div className="undo-panel">
+            <h3 className="heading-row">
+              <Icon name="undo" size={18} /> Made a mistake?
+            </h3>
+            <p className="muted">
+              You can take the last step back. Type why, then press the button.
+              The undo is written into this case&apos;s History like any other step,
+              so nothing disappears quietly.
+            </p>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy || reason.trim() === ""}
+              onClick={() => void undoLastStep()}
+            >
+              <Icon name="undo" size={16} /> Undo the last step
+            </button>
           </div>
         </section>
       )}

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from fastapi import APIRouter, Depends
+from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from ..core.context import current_request_id
@@ -13,6 +14,12 @@ from ..services.policy import workflow_routes
 from .deps import get_access, require_any
 
 router = APIRouter(tags=["workflow"])
+
+
+class RevertRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = ""
 
 
 @router.get("/workflow/routes")
@@ -50,6 +57,24 @@ def request_transition(
         access,
         application_id,
         payload.action,
+        payload.reason,
+        request_id=current_request_id(),
+    )
+    return decision.as_dict()
+
+
+@router.post("/applications/{application_id}/revert")
+def revert_last_transition(
+    application_id: str,
+    payload: RevertRequest,
+    access: EffectiveAccess = Depends(require_any(CASE_READ, APPLICATION_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Undo the last step on a case. The undo is itself a recorded step."""
+    decision = workflow_service.revert_last_transition(
+        db,
+        access,
+        application_id,
         payload.reason,
         request_id=current_request_id(),
     )

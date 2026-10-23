@@ -40,6 +40,7 @@ from ..models import (
     Undertaking,
     User,
     UserRoleAssignment,
+    WorkflowTransition,
     WorkflowTransitionDefinition,
 )
 from .audit_service import AuditService
@@ -511,6 +512,7 @@ def seed(db: Session) -> dict:
             outcome="accepted",
             actor_id=representative.id,
             actor_role=INSTITUTION_REPRESENTATIVE,
+            before={"state": "draft"},
             after={"state": "submitted"},
         )
         audit.append(
@@ -520,9 +522,38 @@ def seed(db: Session) -> dict:
             outcome="accepted",
             actor_id=scrutiny.id,
             actor_role=SCRUTINY_OFFICER,
+            before={"state": "submitted"},
             after={"state": "scrutiny"},
         )
+        # Transition rows to match the audit trail, so "undo the last step"
+        # works on the demo data exactly as it does on live cases.
+        db.add(
+            WorkflowTransition(
+                application_id=main.id,
+                action="submit",
+                from_state="draft",
+                to_state="submitted",
+                actor_id=representative.id,
+                reason="",
+                created_at=main.submitted_at or now,
+            )
+        )
+        db.add(
+            WorkflowTransition(
+                application_id=main.id,
+                action="start_scrutiny",
+                from_state="submitted",
+                to_state="scrutiny",
+                actor_id=scrutiny.id,
+                reason="",
+                created_at=now - timedelta(days=6),
+            )
+        )
         db.commit()
+
+    # Re-running the seed must persist idempotent additions (a new route, a new
+    # rule) even when every demo row already existed.
+    db.commit()
 
     return {
         "users": {

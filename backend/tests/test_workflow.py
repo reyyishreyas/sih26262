@@ -117,8 +117,10 @@ def test_transition_from_wrong_state_is_rejected(db, access_for):
 def test_rejection_does_not_lose_the_previous_audit_chain(db, access_for):
     access = access_for("scrutiny@demo.local")
     application = _app(db, "app-main-0001")
+    before = db.scalar(select(func.count()).select_from(WorkflowTransition))
     for action in ("schedule_evc", "schedule_evc"):
         workflow_service.request_transition(db, access, application.id, action)
     verification = verify_chain(db)
     assert verification.ok is True
-    assert db.scalar(select(func.count()).select_from(WorkflowTransition)) == 0
+    # Two refused attempts must not add a single transition row.
+    assert db.scalar(select(func.count()).select_from(WorkflowTransition)) == before

@@ -3,21 +3,25 @@ import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
 import type { EvcCommittee, EvcVisit } from "../types";
 import { Icon } from "./Icon";
-import { formatDate } from "../labels";
+import { formatDate, plainState } from "../labels";
 
 /**
  * Expert Visit Committee scheduling for one case.
  *
- * Scheduling says *when* and *where* the visit happens. It does not move the
- * case through the workflow — that stays with the statutory `schedule_evc` /
- * `complete_evc` transitions, which remain the officer's own decision.
+ * Scheduling says *when* and *where* the visit happens. When the route's
+ * schedule-everything step is already open to this officer — right stage, right
+ * role, evidence in order — booking the visit also carries the case to the
+ * committee stage, so nobody has to press two buttons for one decision.
  */
 export function EvcPanel({
   applicationId,
   canSchedule,
+  onCaseMoved,
 }: {
   applicationId: string;
   canSchedule: boolean;
+  /** Called when booking also advanced the case, so the parent can reload it. */
+  onCaseMoved?: () => void;
 }) {
   const [visits, setVisits] = useState<EvcVisit[]>([]);
   const [committees, setCommittees] = useState<EvcCommittee[]>([]);
@@ -69,20 +73,29 @@ export function EvcPanel({
     setError(null);
     setMessage(null);
     try {
-      await api.scheduleEvcVisit(applicationId, {
+      const visit = await api.scheduleEvcVisit(applicationId, {
         scheduled_date: date,
         venue: venue.trim(),
         committee_id: committeeId || null,
         notes: notes.trim(),
       });
+      const moved = visit.case_advanced_to;
       setMessage(
-        live
-          ? "Visit rescheduled. Everyone watching this case now sees the new date."
-          : "Visit scheduled. It will appear in the committee's queue and reminders go out before the date.",
+        [
+          live
+            ? "Visit rescheduled. Everyone watching this case now sees the new date."
+            : "Visit scheduled. It will appear in the committee's queue and reminders go out before the date.",
+          moved
+            ? `The case itself moved on to “${plainState(moved)}” as well — no second click needed.`
+            : null,
+        ]
+          .filter(Boolean)
+          .join(" "),
       );
       setVenue("");
       setNotes("");
       await load();
+      if (moved) onCaseMoved?.();
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not schedule the visit");
     } finally {
@@ -101,7 +114,8 @@ export function EvcPanel({
       <p className="muted">
         Some applications need a visit by an expert committee before a decision can
         be recorded. Scheduling here sets the date and place — it does not approve
-        anything.
+        anything. On routes where the visit is the next step, booking it moves the
+        case to the committee stage too.
       </p>
 
       {live ? (

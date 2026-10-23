@@ -23,6 +23,7 @@ const STATE_LABELS: Record<string, string> = {
   returned: "Sent back for changes",
   evc_scheduled: "Committee visit scheduled",
   evc_completed: "Committee visit finished",
+  sac_review: "Waiting for the final committee (SAC/SHC)",
   approved: "Approved",
   rejected: "Rejected",
 };
@@ -35,7 +36,8 @@ export function plainState(state: string): string {
 export function stateTone(state: string): string {
   if (state === "approved") return "good";
   if (state === "rejected") return "bad";
-  if (state === "scrutiny" || state.startsWith("evc")) return "active";
+  if (state === "scrutiny" || state.startsWith("evc") || state === "sac_review")
+    return "active";
   if (state === "returned") return "warn";
   if (state === "draft") return "draft";
   return "waiting";
@@ -49,6 +51,7 @@ export function stateIcon(state: string): IconName {
   if (state === "scrutiny") return "search";
   if (state === "evc_scheduled") return "calendar";
   if (state === "evc_completed") return "clipboardCheck";
+  if (state === "sac_review") return "scale";
   return "send";
 }
 
@@ -63,8 +66,10 @@ const ACTION_LABELS: Record<string, string> = {
   return_for_clarification: "Send back for changes",
   schedule_evc: "Send to the committee",
   complete_evc: "Record the committee visit",
+  forward_to_sac: "Send to the final committee (SAC/SHC)",
   approve: "Approve this application",
   reject: "Reject this application",
+  revert: "Undo the last step",
 };
 
 const ACTION_ICONS: Record<string, IconName> = {
@@ -74,8 +79,10 @@ const ACTION_ICONS: Record<string, IconName> = {
   return_for_clarification: "undo",
   schedule_evc: "calendar",
   complete_evc: "clipboardCheck",
+  forward_to_sac: "scale",
   approve: "badgeCheck",
   reject: "xCircle",
+  revert: "undo",
 };
 
 /**
