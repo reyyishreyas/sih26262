@@ -2,13 +2,22 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
 import type { DocumentRow } from "../types";
+import { Icon } from "./Icon";
+import {
+  docTypeIcon,
+  formatDateTime,
+  humanize,
+  plainDocType,
+  plainVerification,
+  verificationTone,
+} from "../labels";
 
 const DOC_TYPES = [
-  ["lease_deed", "Lease deed"],
+  ["lease_deed", "Lease document"],
   ["ownership_record", "Ownership record"],
-  ["affidavit", "Affidavit"],
+  ["affidavit", "Affidavit (signed declaration)"],
   ["fire_safety_certificate", "Fire safety certificate"],
-  ["faculty_list", "Faculty list"],
+  ["faculty_list", "Teacher (faculty) list"],
   ["other", "Other supporting document"],
 ] as const;
 
@@ -57,7 +66,7 @@ export function EvidencePanel({
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!file) {
-      setError("Choose a file first.");
+      setError("Please choose a file first.");
       return;
     }
     setBusy(true);
@@ -69,13 +78,12 @@ export function EvidencePanel({
       const duplicate = result.duplicate_of_another_institution;
       setWarning(
         duplicate.found
-          ? `The same file hash exists for another institution (${duplicate.institution_id}). ${duplicate.note ?? ""}`
+          ? `Careful — the exact same file was already used by another college (${duplicate.institution_id}). ${duplicate.note ?? ""}`
           : null,
       );
       setMessage(
-        `Uploaded ${result.document.doc_type} v${result.document.version}; ` +
-          `${result.extraction.fields_extracted} candidate field(s) extracted. ` +
-          result.extraction.note,
+        `Uploaded! I found ${result.extraction.fields_extracted} detail(s) in the file. ` +
+          `Please check each one below and mark it correct or wrong.`,
       );
       formRef.current?.reset();
       setFile(null);
@@ -88,19 +96,25 @@ export function EvidencePanel({
     }
   }
 
-  async function verify(document: DocumentRow, fieldId: string, status: "verified" | "rejected") {
+  async function verify(
+    document: DocumentRow,
+    fieldId: string,
+    status: "verified" | "rejected",
+  ) {
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
       await api.verifyField(applicationId, document.id, fieldId, status);
       setMessage(
-        `${document.doc_type}: field marked ${status}. The baseline version changed; findings were recomputed.`,
+        status === "verified"
+          ? "Saved — that detail is confirmed correct."
+          : "Saved — that detail is marked wrong. The rules were updated.",
       );
       await load();
       onEvidenceChanged();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Verification failed");
+      setError(cause instanceof ApiError ? cause.message : "Could not save");
     } finally {
       setBusy(false);
     }
@@ -110,23 +124,24 @@ export function EvidencePanel({
     <section className="panel">
       <div className="panel-head">
         <div>
-          <h2>Evidence &amp; extraction</h2>
+          <h2>Documents &amp; their details</h2>
           <p className="muted">
-            Extracted values are candidates until an officer verifies them. Rules
-            degrade to <code>NEEDS_REVIEW</code> instead of guessing.
+            After a file is uploaded, the computer reads out some details. Your job is
+            simple: look at each one and say if it is <strong>correct</strong> or{" "}
+            <strong>wrong</strong>.
           </p>
         </div>
-        <span className="badge">mock OCR</span>
+        <span className="pill">Demo reader</span>
       </div>
 
       {error && <p className="error">{error}</p>}
       {message && <p className="message">{message}</p>}
-      {warning && <p className="warn">{warning}</p>}
+      {warning && <p className="warning">{warning}</p>}
 
       {canUpload && (
-        <form ref={formRef} className="upload-form" onSubmit={upload}>
+        <form ref={formRef} className="upload-box" onSubmit={upload}>
           <label className="field">
-            <span>Document type</span>
+            <span>1. What kind of document is it?</span>
             <select value={docType} onChange={(event) => setDocType(event.target.value)}>
               {DOC_TYPES.map(([value, label]) => (
                 <option key={value} value={value}>
@@ -136,7 +151,7 @@ export function EvidencePanel({
             </select>
           </label>
           <label className="field">
-            <span>File (PDF, PNG or JPEG)</span>
+            <span>2. Choose the file from your computer</span>
             <input
               type="file"
               accept="application/pdf,image/png,image/jpeg"
@@ -144,90 +159,78 @@ export function EvidencePanel({
             />
           </label>
           <button type="submit" disabled={busy || !file}>
-            {busy ? "Uploading…" : "Upload new version"}
+            <Icon name="upload" size={17} />
+            {busy ? "Uploading…" : "Upload this file"}
           </button>
           <p className="tiny muted">
-            The mock extractor does not read the file. It returns canned fields for the
-            selected document type and marks the extraction as simulated.
+            This demo does not really read the file — it shows example details so you
+            can try the checking process.
           </p>
         </form>
       )}
 
-      {documents.length === 0 && <p className="muted">No documents uploaded.</p>}
+      {documents.length === 0 && (
+        <p className="muted">No documents have been uploaded yet.</p>
+      )}
 
       <div className="document-list">
         {documents.map((document) => (
           <article className="document" key={document.id}>
             <div className="panel-head">
               <div>
-                <h3>
-                  {document.doc_type.replaceAll("_", " ")}{" "}
-                  <span className="badge">v{document.version}</span>
+                <h3 className="doc-title">
+                  <Icon name={docTypeIcon(document.doc_type)} size={18} />
+                  {plainDocType(document.doc_type)}
                 </h3>
                 <p className="tiny muted">
-                  {document.file_name} · sha256 {document.file_sha256.slice(0, 12)}… ·{" "}
-                  {new Date(document.uploaded_at).toLocaleString()}
+                  {document.file_name} · version {document.version} · uploaded{" "}
+                  {formatDateTime(document.uploaded_at)}
                 </p>
               </div>
-              <span className="badge">{document.status}</span>
+              <span className="pill">{humanize(document.status)}</span>
             </div>
 
             {document.fields.length === 0 && (
-              <p className="muted tiny">No extracted fields.</p>
+              <p className="muted tiny">No details were read from this file.</p>
             )}
-            {document.fields.length > 0 && (
-              <table className="grid compact">
-                <thead>
-                  <tr>
-                    <th>Field</th>
-                    <th>Value</th>
-                    <th>Source</th>
-                    <th>Confidence</th>
-                    <th>Verification</th>
-                    {canVerify && <th>Action</th>}
-                  </tr>
-                </thead>
-                <tbody>
-                  {document.fields.map((field) => (
-                    <tr key={field.id}>
-                      <td className="rule-key">{field.field_name}</td>
-                      <td>{formatValue(field.value)}</td>
-                      <td className="tiny">
-                        page {field.source_page ?? "—"} · {field.method}
-                      </td>
-                      <td className="tiny">{Math.round(field.confidence * 100)}%</td>
-                      <td>
-                        <span className={`badge outcome-${field.verification_status === "verified" ? "pass" : field.verification_status === "rejected" ? "fail" : "needs_review"}`}>
-                          {field.verification_status}
-                        </span>
-                      </td>
-                      {canVerify && (
-                        <td>
-                          <div className="row">
-                            <button
-                              type="button"
-                              className="small"
-                              disabled={busy || field.verification_status === "verified"}
-                              onClick={() => void verify(document, field.id, "verified")}
-                            >
-                              Verify
-                            </button>
-                            <button
-                              type="button"
-                              className="small secondary"
-                              disabled={busy || field.verification_status === "rejected"}
-                              onClick={() => void verify(document, field.id, "rejected")}
-                            >
-                              Reject
-                            </button>
-                          </div>
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            )}
+
+            {document.fields.map((field) => (
+              <div className="field-card" key={field.id}>
+                <div className="field-main">
+                  <span className="field-name">{humanize(field.field_name)}</span>
+                  <span className="field-value">{formatValue(field.value)}</span>
+                  <span className="tiny muted">
+                    Read from page {field.source_page ?? "?"} ·{" "}
+                    {Math.round(field.confidence * 100)}% sure
+                  </span>
+                </div>
+                <div className="field-actions">
+                  <span className={`pill ${verificationTone(field.verification_status)}`}>
+                    {plainVerification(field.verification_status)}
+                  </span>
+                  {canVerify && (
+                    <>
+                      <button
+                        type="button"
+                        className="small good"
+                        disabled={busy || field.verification_status === "verified"}
+                        onClick={() => void verify(document, field.id, "verified")}
+                      >
+                        <Icon name="check" size={14} /> Correct
+                      </button>
+                      <button
+                        type="button"
+                        className="small danger"
+                        disabled={busy || field.verification_status === "rejected"}
+                        onClick={() => void verify(document, field.id, "rejected")}
+                      >
+                        <Icon name="x" size={14} /> Wrong
+                      </button>
+                    </>
+                  )}
+                </div>
+              </div>
+            ))}
           </article>
         ))}
       </div>

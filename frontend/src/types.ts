@@ -153,7 +153,9 @@ export interface AlertRow {
 export interface SessionUser {
   id: string;
   email: string;
-  name: string;
+  /** The API sends `full_name`; older payloads used `name`. Read via `displayName()`. */
+  name?: string;
+  full_name?: string;
   roles: string[];
   permissions: string[];
   scope: Record<string, unknown>;

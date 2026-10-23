@@ -2,6 +2,7 @@ import { useState } from "react";
 import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
 import type { ApplicationSummary, Institution, WorkflowRoute } from "../types";
+import { Icon } from "./Icon";
 
 export function NewApplicationForm({
   institutions,
@@ -33,7 +34,9 @@ export function NewApplicationForm({
       });
       onCreated(created);
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Could not create the draft");
+      setError(
+        cause instanceof ApiError ? cause.message : "Could not create the draft",
+      );
     } finally {
       setBusy(false);
     }
@@ -41,10 +44,12 @@ export function NewApplicationForm({
 
   return (
     <details className="new-application">
-      <summary>Create a draft application</summary>
+      <summary className="summary-row">
+        <Icon name="plus" size={16} /> Start a brand-new application
+      </summary>
       <form className="new-application-form" onSubmit={submit}>
         <label className="field">
-          <span>Institution in your scope</span>
+          <span>Which college is this for?</span>
           <select
             value={institutionId}
             onChange={(event) => setInstitutionId(event.target.value)}
@@ -52,13 +57,13 @@ export function NewApplicationForm({
           >
             {institutions.map((institution) => (
               <option key={institution.id} value={institution.id}>
-                {institution.name} ({institution.aicte_id})
+                {institution.name}
               </option>
             ))}
           </select>
         </label>
         <label className="field">
-          <span>Approval route</span>
+          <span>What kind of application is it?</span>
           <select value={routeKey} onChange={(event) => setRouteKey(event.target.value)}>
             {routes.map((route) => (
               <option key={route.key} value={route.key}>
@@ -67,13 +72,17 @@ export function NewApplicationForm({
             ))}
           </select>
         </label>
-        <div className="row wrap">
-          <label className="field">
-            <span>Cycle</span>
-            <input value={cycle} onChange={(event) => setCycle(event.target.value)} required />
+        <div className="row">
+          <label className="field" style={{ flex: 1, minWidth: 160 }}>
+            <span>Academic year</span>
+            <input
+              value={cycle}
+              onChange={(event) => setCycle(event.target.value)}
+              required
+            />
           </label>
-          <label className="field">
-            <span>Cycle end</span>
+          <label className="field" style={{ flex: 1, minWidth: 160 }}>
+            <span>Ends on</span>
             <input
               type="date"
               value={cycleEnd}
@@ -82,7 +91,7 @@ export function NewApplicationForm({
           </label>
         </div>
         <button type="submit" disabled={busy || !institutionId}>
-          {busy ? "Creating…" : "Create draft"}
+          {busy ? "Creating…" : "Create this draft"}
         </button>
         {error && <p className="error">{error}</p>}
       </form>

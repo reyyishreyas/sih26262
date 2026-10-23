@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   api,
   ApiError,
@@ -10,8 +10,10 @@ import {
 import { AlertList } from "./components/AlertList";
 import { CaseView } from "./components/CaseView";
 import { DashboardView } from "./components/DashboardView";
+import { Icon } from "./components/Icon";
 import { Login } from "./components/Login";
 import { NewApplicationForm } from "./components/NewApplicationForm";
+import { plainRole, plainState, stateIcon, stateTone } from "./labels";
 import type {
   AlertRow,
   ApplicationSummary,
@@ -22,6 +24,29 @@ import type {
 } from "./types";
 
 type View = "cases" | "monitoring";
+
+/** The person's display name, falling back to the email handle. */
+function displayName(user: SessionUser): string {
+  const raw = (user.full_name ?? user.name ?? "").trim();
+  if (raw) return raw;
+  return user.email.split("@")[0] ?? "there";
+}
+
+/** "Demo Review Officer" → initials. Safe when the name is missing. */
+function initialsOf(name: string | undefined | null): string {
+  const value = (name ?? "").trim();
+  const parts = value.split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return "?";
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
+  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+}
+
+function greeting(): string {
+  const hour = new Date().getHours();
+  if (hour < 12) return "Good morning";
+  if (hour < 17) return "Good afternoon";
+  return "Good evening";
+}
 
 export default function App() {
   const [user, setUser] = useState<SessionUser | null>(() =>
@@ -34,10 +59,34 @@ export default function App() {
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
   const [routes, setRoutes] = useState<WorkflowRoute[]>([]);
+  const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
 
   const canMonitor = user?.permissions.includes("monitoring.read") ?? false;
   const canCreate = user?.permissions.includes("application.create") ?? false;
+  const isCollege = useMemo(
+    () => user?.roles.includes("institution_representative") ?? false,
+    [user],
+  );
+
+  const institutionNames = useMemo(() => {
+    const map = new Map<string, string>();
+    for (const institution of institutions) map.set(institution.id, institution.name);
+    return map;
+  }, [institutions]);
+
+  const visibleApplications = useMemo(() => {
+    const needle = search.trim().toLowerCase();
+    if (!needle) return applications;
+    return applications.filter((application) => {
+      const name = institutionNames.get(application.institution_id) ?? "";
+      return (
+        name.toLowerCase().includes(needle) ||
+        application.id.toLowerCase().includes(needle) ||
+        plainState(application.current_state).toLowerCase().includes(needle)
+      );
+    });
+  }, [applications, institutionNames, search]);
 
   useEffect(() => {
     if (!user) return;
@@ -52,16 +101,22 @@ export default function App() {
       );
   }, [user]);
 
+  // Institution names make the case list readable. Failure is not fatal —
+  // the list simply falls back to showing the raw institution id.
+  useEffect(() => {
+    if (!user) return;
+    void api
+      .institutions()
+      .then(setInstitutions)
+      .catch(() => setInstitutions([]));
+  }, [user]);
+
   useEffect(() => {
     if (!user || !canCreate) return;
-    void Promise.all([api.institutions(), api.routes()])
-      .then(([institutionRows, routeRows]) => {
-        setInstitutions(institutionRows);
-        setRoutes(routeRows);
-      })
-      .catch((cause) =>
-        setError(cause instanceof ApiError ? cause.message : "Could not load form options"),
-      );
+    void api
+      .routes()
+      .then(setRoutes)
+      .catch(() => setRoutes([]));
   }, [canCreate, user]);
 
   useEffect(() => {
@@ -82,6 +137,10 @@ export default function App() {
     setApplications([]);
     setSelected(null);
     setDashboard(null);
+    setAlerts([]);
+    setInstitutions([]);
+    setRoutes([]);
+    setSearch("");
   }
 
   // The API rejected the stored token (expired, revoked, or the database was
@@ -95,7 +154,7 @@ export default function App() {
       setAlerts([]);
       setInstitutions([]);
       setRoutes([]);
-      setError("Your session was rejected by the server. Please sign in again.");
+      setError("Your session ended. Please sign in again.");
     }
     window.addEventListener(SESSION_EXPIRED_EVENT, onExpired);
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
@@ -106,18 +165,26 @@ export default function App() {
   return (
     <div className="shell">
       <aside className="sidebar">
-        <div>
-          <p className="eyebrow">SIH26262</p>
-          <h1 className="brand">AICTE Approval &amp; Compliance</h1>
+        <div className="sidebar-brand">
+          <div className="sidebar-logo" aria-hidden>
+            <Icon name="cap" size={24} />
+          </div>
+          <div>
+            <div className="brand">AICTE Approvals</div>
+            <span className={`pill sidebar-persona ${isCollege ? "good" : "active"}`}>
+              <Icon name={isCollege ? "building" : "userCheck"} size={13} />
+              {isCollege ? "College" : "Checker"}
+            </span>
+          </div>
         </div>
 
-        <nav aria-label="Primary">
+        <nav aria-label="Main menu">
           <button
             type="button"
             className={view === "cases" ? "nav active" : "nav"}
             onClick={() => setView("cases")}
           >
-            Cases
+            <Icon name="folder" size={18} /> My cases
           </button>
           {canMonitor && (
             <button
@@ -125,15 +192,23 @@ export default function App() {
               className={view === "monitoring" ? "nav active" : "nav"}
               onClick={() => setView("monitoring")}
             >
-              Monitoring
+              <Icon name="chart" size={18} /> Monitoring
             </button>
           )}
         </nav>
 
         <div className="who">
-          <div>{user.name}</div>
-          <div className="tiny muted">{user.email}</div>
-          <div className="tiny">{user.roles.join(", ")}</div>
+          <div className="who-row">
+            <span className="avatar" aria-hidden>
+              {initialsOf(displayName(user))}
+            </span>
+            <span>
+              <strong className="who-name">{displayName(user)}</strong>
+              <span className="tiny muted who-role">
+                {user.roles.map(plainRole).join(" · ")}
+              </span>
+            </span>
+          </div>
           <button type="button" className="link" onClick={signOut}>
             Sign out
           </button>
@@ -145,12 +220,29 @@ export default function App() {
 
         {view === "cases" && (
           <>
-            <section className="panel">
-              <h2>Cases in your scope</h2>
+            <div className="hello">
+              <h2>
+                {greeting()}, {displayName(user).split(" ")[0]}
+              </h2>
               <p className="muted">
-                The list is filtered by the server. Hiding a case in this UI would not
-                be access control.
+                {isCollege
+                  ? "Track your applications and send anything that is still missing."
+                  : "Here are the cases you can work on today."}
               </p>
+            </div>
+
+            <section className="panel">
+              <div className="panel-head">
+                <div>
+                  <h2>My cases</h2>
+                  <p className="muted">
+                    {isCollege
+                      ? "Your college's applications. Tap one to open it."
+                      : "Applications you are allowed to see. Tap one to open it."}
+                  </p>
+                </div>
+              </div>
+
               {canCreate && institutions.length > 0 && routes.length > 0 && (
                 <NewApplicationForm
                   institutions={institutions}
@@ -161,20 +253,56 @@ export default function App() {
                   }}
                 />
               )}
-              <div className="case-list">
-                {applications.length === 0 && <p className="muted">No cases.</p>}
-                {applications.map((application) => (
+
+              {applications.length > 3 && (
+                <label className="field search-box">
+                  <span className="label-row">
+                    <Icon name="search" size={16} /> Search by college name or status
+                  </span>
+                  <input
+                    value={search}
+                    onChange={(event) => setSearch(event.target.value)}
+                    placeholder="Type a word…"
+                  />
+                </label>
+              )}
+
+              {applications.length === 0 && (
+                <p className="muted">
+                  No cases yet.
+                  {canCreate && " Use “Start a brand-new application” above."}
+                </p>
+              )}
+              {applications.length > 0 && visibleApplications.length === 0 && (
+                <p className="muted">Nothing matches “{search}”.</p>
+              )}
+
+              <div className="case-grid">
+                {visibleApplications.map((application) => (
                   <button
                     key={application.id}
                     type="button"
                     className={
-                      selected === application.id ? "case-chip selected" : "case-chip"
+                      selected === application.id ? "case-card selected" : "case-card"
                     }
                     onClick={() => setSelected(application.id)}
                   >
-                    <span className="rule-key">{application.id}</span>
-                    <span className="tiny">{application.category.replaceAll("_", " ")}</span>
-                    <span className="badge">{application.current_state}</span>
+                    <span className="case-name">
+                      {institutionNames.get(application.institution_id) ??
+                        application.institution_id}
+                    </span>
+                    <span className="case-id">
+                      Case {application.id} · {application.cycle}
+                    </span>
+                    <span>
+                      <span className={`pill ${stateTone(application.current_state)}`}>
+                        <Icon
+                          name={stateIcon(application.current_state)}
+                          size={13}
+                        />
+                        {plainState(application.current_state)}
+                      </span>
+                    </span>
                   </button>
                 ))}
               </div>
@@ -186,7 +314,19 @@ export default function App() {
 
         {view === "monitoring" && (
           <>
-            {dashboard && <DashboardView data={dashboard} />}
+            <div className="hello">
+              <h2 className="hello-title">
+                <Icon name="chart" size={26} /> Monitoring
+              </h2>
+              <p className="muted">Everything in your scope, at a glance.</p>
+            </div>
+            {dashboard ? (
+              <DashboardView data={dashboard} />
+            ) : (
+              <p className="loading">
+                <span className="spinner" /> Loading the numbers…
+              </p>
+            )}
             <AlertList alerts={alerts} />
           </>
         )}

@@ -1,17 +1,16 @@
 import type { Outcome } from "../types";
+import { outcomeIcon, plainOutcome } from "../labels";
+import { Icon } from "./Icon";
 
-const LABELS: Record<Outcome, string> = {
-  PASS: "Pass",
-  FAIL: "Fail",
-  NEEDS_REVIEW: "Needs review",
-  NOT_APPLICABLE: "Not applicable",
-  NOT_EVALUATED: "Not evaluated",
-};
-
+/** Plain-language pill for a compliance result. Colour + icon + word. */
 export function OutcomeBadge({ outcome }: { outcome: Outcome }) {
   return (
-    <span className={`badge outcome-${outcome.toLowerCase()}`} title={outcome}>
-      {LABELS[outcome] ?? outcome}
+    <span
+      className={`pill outcome-${outcome.toLowerCase()}`}
+      title={outcome.replaceAll("_", " ")}
+    >
+      <Icon name={outcomeIcon(outcome)} size={14} />
+      {plainOutcome(outcome)}
     </span>
   );
 }

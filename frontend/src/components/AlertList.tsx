@@ -1,58 +1,55 @@
 import type { AlertRow } from "../types";
+import { formatDate, plainAlertLevel, plainAlertStatus, plainAlertType } from "../labels";
+import { Icon } from "./Icon";
 
 export function AlertList({ alerts }: { alerts: AlertRow[] }) {
   return (
     <section aria-labelledby="alerts-heading" className="panel">
       <header className="panel-head">
         <div>
-          <h2 id="alerts-heading">Deadline alerts</h2>
+          <h2 id="alerts-heading" className="heading-row">
+            <Icon name="bell" size={20} /> Alerts &amp; reminders
+          </h2>
           <p className="muted">
-            Records are real; transport is a mock adapter and every delivery is marked
-            as simulated.
+            The system watches deadlines by itself and raises a flag here when something
+            needs attention.
           </p>
         </div>
-        <span className="badge">simulated delivery</span>
+        <span className="pill">Demo delivery</span>
       </header>
-      <table className="grid compact">
-        <thead>
-          <tr>
-            <th scope="col">Level</th>
-            <th scope="col">Type</th>
-            <th scope="col">Entity</th>
-            <th scope="col">Due</th>
-            <th scope="col">Status</th>
-            <th scope="col">Attempts</th>
-          </tr>
-        </thead>
-        <tbody>
-          {alerts.length === 0 && (
-            <tr>
-              <td colSpan={6} className="muted">
-                No alerts in scope.
-              </td>
-            </tr>
-          )}
-          {alerts.map((alert) => (
-            <tr key={alert.id}>
-              <td>{alert.level.replaceAll("_", " ")}</td>
-              <td>{alert.alert_type.replaceAll("_", " ")}</td>
-              <td>
-                <code>{alert.entity_type}</code>
-                <div className="tiny muted">{alert.entity_id}</div>
-              </td>
-              <td className="tiny">{new Date(alert.due_at).toLocaleDateString()}</td>
-              <td>{alert.status}</td>
-              <td className="tiny">
+
+      {alerts.length === 0 && (
+        <p className="muted">
+          Nothing needs attention right now.
+        </p>
+      )}
+
+      <div className="alert-list">
+        {alerts.map((alert) => {
+          const { label, icon } = plainAlertLevel(alert.level);
+          const urgent = label === "Urgent" || label === "Overdue";
+          return (
+            <div className="alert-row" key={alert.id}>
+              <span className={`alert-icon ${urgent ? "bad" : "warn"}`} aria-hidden>
+                <Icon name={icon} size={18} />
+              </span>
+              <span className="alert-main">
+                <span className="alert-type">{plainAlertType(alert.alert_type)}</span>
+                <span className="tiny muted">
+                  About {alert.entity_id} · due {formatDate(alert.due_at)}
+                </span>
+              </span>
+              <span className={`pill ${urgent ? "bad" : "warn"}`}>{label}</span>
+              <span className="pill">{plainAlertStatus(alert.status)}</span>
+              <span className="tiny muted">
                 {alert.deliveries.length === 0
-                  ? "not attempted"
-                  : alert.deliveries
-                      .map((delivery) => `#${delivery.attempt} ${delivery.status}`)
-                      .join(", ")}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+                  ? "No message sent yet"
+                  : `Tried ${alert.deliveries.length}× (last: ${alert.deliveries[alert.deliveries.length - 1].status})`}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </section>
   );
 }

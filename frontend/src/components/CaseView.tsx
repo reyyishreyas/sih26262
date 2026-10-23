@@ -1,16 +1,35 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { api, ApiError } from "../api";
 import type {
   AuditEvent,
   CaseDetail,
   ComplianceBatch,
   SessionUser,
+  TransitionOption,
 } from "../types";
+import {
+  actionIcon,
+  formatDateTime,
+  plainAction,
+  plainBlocked,
+  plainState,
+  stateIcon,
+  stateTone,
+} from "../labels";
 import { AuditTimeline } from "./AuditTimeline";
 import { EvidencePanel } from "./EvidencePanel";
 import { FindingsTable } from "./FindingsTable";
+import { Icon } from "./Icon";
 import { RehearsalPanel } from "./RehearsalPanel";
 import { UndertakingList } from "./UndertakingList";
+import type { IconName } from "./Icon";
+
+type StepKey = "checks" | "documents" | "decision" | "tasks" | "trywhat" | "history";
+
+interface Step {
+  key: StepKey;
+  label: string;
+}
 
 export function CaseView({
   applicationId,
@@ -28,6 +47,7 @@ export function CaseView({
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  const [step, setStep] = useState<StepKey>("checks");
 
   const canEvaluate = user.permissions.includes("compliance.evaluate");
   const canRehearse = user.permissions.includes("rehearsal.run");
@@ -39,60 +59,146 @@ export function CaseView({
   const load = useCallback(async () => {
     setError(null);
     try {
-      const loadedDetail = await api.application(applicationId);
+      const [loadedDetail, loadedBatch] = await Promise.all([
+        api.application(applicationId),
+        api.compliance(applicationId),
+      ]);
       setDetail(loadedDetail);
-      setBatch(await api.compliance(applicationId));
+      setBatch(loadedBatch);
       if (canAudit) {
-        const timeline = await api.audit(applicationId);
+        const [timeline, verification] = await Promise.all([
+          api.audit(applicationId),
+          api.verifyAudit(),
+        ]);
         setEvents(timeline.events);
         setAuditNote(timeline.note);
-        const verification = await api.verifyAudit();
         setChainOk(verification.ok);
       }
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not load the case");
     }
-  }, [applicationId, canAudit, canEvaluate]);
+  }, [applicationId, canAudit]);
 
   useEffect(() => {
+    setDetail(null);
+    setBatch(null);
+    setReason("");
+    setMessage(null);
+    setStep("checks");
     void load();
   }, [load]);
 
   async function evaluate() {
     setBusy(true);
     setError(null);
+    setMessage(null);
     try {
       setBatch(await api.evaluate(applicationId));
+      setMessage("All rules checked again with the latest information.");
+      setStep("checks");
       await load();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Evaluation failed");
+      setError(cause instanceof ApiError ? cause.message : "Checking the rules failed");
     } finally {
       setBusy(false);
     }
   }
 
-  async function applyTransition(action: string) {
+  async function applyTransition(option: TransitionOption) {
+    if (option.requires_reason && reason.trim() === "") {
+      setError(`Please type a short reason before you press “${plainAction(option.action)}”.`);
+      return;
+    }
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
-      const decision = await api.transition(applicationId, action, reason);
+      const decision = await api.transition(applicationId, option.action, reason);
       setMessage(
         decision.accepted
-          ? `${action}: ${decision.from_state} → ${decision.to_state}`
-          : `${action} was refused: ${decision.reasons.join(" · ")}`,
+          ? `Done! The case is now “${plainState(decision.to_state)}”.`
+          : `That was not allowed: ${decision.reasons.join("; ")}`,
       );
       setReason("");
       await load();
     } catch (cause) {
-      setError(cause instanceof ApiError ? cause.message : "Transition failed");
+      setError(cause instanceof ApiError ? cause.message : "That action failed");
     } finally {
       setBusy(false);
     }
   }
 
+  const steps: Step[] = useMemo(() => {
+    const list: Step[] = [
+      { key: "checks", label: "Check-up" },
+      { key: "documents", label: "Documents" },
+      { key: "decision", label: "Take a decision" },
+      { key: "tasks", label: "Follow-up tasks" },
+    ];
+    if (canRehearse) list.push({ key: "trywhat", label: "Try “what if”" });
+    if (canAudit) list.push({ key: "history", label: "History" });
+    return list;
+  }, [canRehearse, canAudit]);
+
+  // Plain-language "what should I do next?" advice.
+  const guidance = useMemo(() => {
+    if (!detail || !batch) return null;
+    const fails = batch.findings.filter((f) => f.outcome === "FAIL").length;
+    const reviews = batch.findings.filter((f) => f.outcome === "NEEDS_REVIEW").length;
+    const notChecked = batch.findings.filter(
+      (f) => f.outcome === "NOT_EVALUATED",
+    ).length;
+    const state = detail.application.current_state;
+    const canMove = detail.available_transitions.some((t) => t.available);
+
+    if (fails > 0) {
+      return {
+        icon: "alertTriangle" as IconName,
+        tone: "warn",
+        text: `${fails} ${fails === 1 ? "problem needs" : "problems need"} fixing before this case can move forward. Open the Check-up step to see them.`,
+        target: "checks" as StepKey,
+      };
+    }
+    if (reviews > 0 || notChecked > 0) {
+      const total = reviews + notChecked;
+      return {
+        icon: "eye" as IconName,
+        tone: "warn",
+        text: `${total} ${total === 1 ? "item needs" : "items need"} a person to look at them by hand in the Check-up step. Nothing is wrong yet — just unconfirmed.`,
+        target: "checks" as StepKey,
+      };
+    }
+    if (state === "draft") {
+      return {
+        icon: "send" as IconName,
+        tone: "info",
+        text: "This application is still a draft. When you are ready, open “Take a decision” and send it.",
+        target: "decision" as StepKey,
+      };
+    }
+    if (canMove) {
+      return {
+        icon: "checkCircle" as IconName,
+        tone: "good",
+        text: "Everything looks good so far. You can take the next step in “Take a decision”.",
+        target: "decision" as StepKey,
+      };
+    }
+    return {
+      icon: "clock" as IconName,
+      tone: "info",
+      text: "Nothing is needed from you right now. This case is waiting for someone else.",
+      target: null,
+    };
+  }, [batch, detail]);
+
   if (error && !detail) return <p className="error">{error}</p>;
-  if (!detail) return <p className="muted">Loading case…</p>;
+  if (!detail)
+    return (
+      <p className="loading">
+        <span className="spinner" /> Opening the case…
+      </p>
+    );
 
   const { application, institution, available_transitions } = detail;
 
@@ -100,92 +206,167 @@ export function CaseView({
     <div className="stack">
       <section className="panel case-header">
         <div>
-          <p className="eyebrow">
-            {application.route_key.replaceAll("_", " ")} · {application.cycle}
-          </p>
           <h1>{institution?.name ?? application.institution_id}</h1>
           <p className="muted">
-            Case <code>{application.id}</code> · state{" "}
-            <strong>{application.current_state}</strong> since{" "}
-            {new Date(detail.state_since).toLocaleString()} · baseline version{" "}
-            {application.baseline_version}
+            Case <code>{application.id}</code> · {application.cycle}
+          </p>
+          <p>
+            <span className={`pill ${stateTone(application.current_state)}`}>
+              <Icon name={stateIcon(application.current_state)} size={13} />
+              {plainState(application.current_state)}
+            </span>{" "}
+            <span className="tiny muted">
+              since {formatDateTime(detail.state_since)}
+            </span>
           </p>
         </div>
-        <div className="row">
-          {canEvaluate && (
-            <button type="button" onClick={evaluate} disabled={busy}>
-              {busy ? "Working…" : "Evaluate compliance"}
+        {canEvaluate && (
+          <button type="button" onClick={() => void evaluate()} disabled={busy}>
+            <Icon name="refresh" size={17} /> Check the rules again
+          </button>
+        )}
+      </section>
+
+      {guidance && (
+        <div className={`guide guide-${guidance.tone}`}>
+          <span className="guide-icon" aria-hidden>
+            <Icon name={guidance.icon} size={22} />
+          </span>
+          <span className="guide-text">{guidance.text}</span>
+          {guidance.target && (
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => setStep(guidance.target as StepKey)}
+            >
+              Go there <Icon name="arrowRight" size={15} />
             </button>
           )}
         </div>
-      </section>
+      )}
 
       {error && <p className="error">{error}</p>}
       {message && <p className="message">{message}</p>}
 
-      {batch && <FindingsTable batch={batch} />}
+      <div className="steps" role="tablist" aria-label="Case steps">
+        {steps.map((item, index) => (
+          <button
+            key={item.key}
+            type="button"
+            role="tab"
+            aria-selected={step === item.key}
+            className={step === item.key ? "step active" : "step"}
+            onClick={() => setStep(item.key)}
+          >
+            <span className="step-num">{index + 1}.</span>
+            {item.label}
+          </button>
+        ))}
+      </div>
 
-      <EvidencePanel
-        applicationId={applicationId}
-        canUpload={canUpload}
-        canVerify={canVerify}
-        onEvidenceChanged={() => void load()}
-      />
+      {step === "checks" && batch && (
+        <FindingsTable batch={batch} onGoToDocuments={() => setStep("documents")} />
+      )}
 
-      <section className="panel">
-        <h2>Available transitions</h2>
-        <p className="muted">
-          Guards are evaluated server-side. A refused transition is audited too.
-        </p>
-        <label className="field">
-          <span>Reason (required for some transitions; always recorded)</span>
-          <input
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            placeholder="Why are you taking this action?"
-          />
-        </label>
-        <div className="row wrap">
-          {available_transitions.length === 0 && (
-            <p className="muted">No transitions are defined from this state.</p>
-          )}
-          {available_transitions.map((option) => (
-            <button
-              key={option.action}
-              type="button"
-              className={option.available ? "" : "secondary"}
-              disabled={busy}
-              title={option.blocked_by.join(" · ")}
-              onClick={() => void applyTransition(option.action)}
-            >
-              {option.action.replaceAll("_", " ")}
-              {!option.available && " (blocked)"}
-            </button>
-          ))}
-        </div>
-        <ul className="tiny">
-          {available_transitions
-            .filter((option) => !option.available)
-            .map((option) => (
-              <li key={option.action}>
-                <code>{option.action}</code>: {option.blocked_by.join(" · ")}
-              </li>
+      {step === "documents" && (
+        <EvidencePanel
+          applicationId={applicationId}
+          canUpload={canUpload}
+          canVerify={canVerify}
+          onEvidenceChanged={() => void load()}
+        />
+      )}
+
+      {step === "decision" && (
+        <section className="panel">
+          <h2>Take a decision</h2>
+          <p className="muted">
+            Pick what happens next. The system checks every rule by itself — if
+            something is not allowed, it will tell you why.
+          </p>
+
+          <label className="field">
+            <span>Why? (some steps need a short reason — it is saved in the records)</span>
+            <input
+              value={reason}
+              onChange={(event) => setReason(event.target.value)}
+              placeholder="For example: lease dates do not match the ownership record"
+            />
+          </label>
+
+          <div className="decision-list">
+            {available_transitions.length === 0 && (
+              <p className="muted">There is nothing you can do with this case right now.</p>
+            )}
+            {available_transitions.map((option) => (
+              <div
+                key={option.action}
+                className={option.available ? "decision" : "decision locked"}
+              >
+                <div className="decision-top">
+                  <span className="decision-label">
+                    <Icon
+                      name={
+                        option.available
+                          ? actionIcon(option.action)
+                          : "lock"
+                      }
+                      size={19}
+                    />
+                    {plainAction(option.action)}
+                  </span>
+                  <button
+                    type="button"
+                    className={
+                      option.available
+                        ? option.action === "reject" ||
+                          option.action === "return_for_clarification"
+                          ? "danger"
+                          : option.action === "approve"
+                            ? "good"
+                            : ""
+                        : "secondary"
+                    }
+                    disabled={busy || !option.available}
+                    onClick={() => void applyTransition(option)}
+                  >
+                    {option.available ? "Press here" : "Not allowed yet"}
+                  </button>
+                </div>
+                {!option.available && option.blocked_by.length > 0 && (
+                  <ul className="blocked-list">
+                    {option.blocked_by.map((item) => (
+                      <li key={item}>{plainBlocked(item)}</li>
+                    ))}
+                  </ul>
+                )}
+                {!option.available && option.blocked_by.length === 0 && (
+                  <p className="tiny muted">
+                    You cannot do this from the current stage.
+                  </p>
+                )}
+              </div>
             ))}
-        </ul>
-      </section>
+          </div>
+        </section>
+      )}
 
-      <UndertakingList
-        applicationId={applicationId}
-        canSubmit={canSubmitUndertaking}
-        canVerify={canVerify}
-        onChanged={() => void load()}
-      />
+      {step === "tasks" && (
+        <UndertakingList
+          applicationId={applicationId}
+          canSubmit={canSubmitUndertaking}
+          canVerify={canVerify}
+          onChanged={() => void load()}
+        />
+      )}
 
-      {canRehearse && <RehearsalPanel applicationId={applicationId} />}
-      {canAudit && (
+      {step === "trywhat" && canRehearse && (
+        <RehearsalPanel applicationId={applicationId} />
+      )}
+
+      {step === "history" && canAudit && (
         <AuditTimeline events={events} note={auditNote} chainOk={chainOk} />
       )}
     </div>
   );
-
 }
