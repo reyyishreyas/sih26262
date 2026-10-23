@@ -276,6 +276,11 @@ def request_transition(
     )
     db.commit()
 
+    # Keep the EVC scheduling records in step with the workflow: when the
+    # committee records the visit, the live appointment stops being pending.
+    if action == "complete_evc":
+        _complete_evc_visits(db, application.id)
+
     return TransitionDecision(
         accepted=True,
         action=action,
@@ -296,6 +301,24 @@ def _missing_documents(snapshot, doc_types: list[str]) -> list[str]:
         if value is MISSING or value is None:
             missing.append(doc_type)
     return missing
+
+
+def _complete_evc_visits(db: Session, application_id: str) -> None:
+    """Mark the live appointment completed once the visit outcome is recorded."""
+    from ..models import EvcVisit
+
+    now = get_clock().now()
+    visits = db.scalars(
+        select(EvcVisit).where(
+            EvcVisit.application_id == application_id,
+            EvcVisit.status == "scheduled",
+        )
+    ).all()
+    for visit in visits:
+        visit.status = "completed"
+        visit.completed_at = now
+    if visits:
+        db.commit()
 
 
 def available_transitions(

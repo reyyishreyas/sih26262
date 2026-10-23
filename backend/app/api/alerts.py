@@ -88,6 +88,11 @@ def _application_for(db: Session, alert: Alert) -> str | None:
     if alert.entity_type == "document":
         document = db.get(Document, alert.entity_id)
         return document.application_id if document else None
+    if alert.entity_type == "evc_visit":
+        from ..models import EvcVisit
+
+        visit = db.get(EvcVisit, alert.entity_id)
+        return visit.application_id if visit else None
     return None
 
 

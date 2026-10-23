@@ -18,13 +18,21 @@ import {
 } from "../labels";
 import { AuditTimeline } from "./AuditTimeline";
 import { EvidencePanel } from "./EvidencePanel";
+import { EvcPanel } from "./EvcPanel";
 import { FindingsTable } from "./FindingsTable";
 import { Icon } from "./Icon";
 import { RehearsalPanel } from "./RehearsalPanel";
 import { UndertakingList } from "./UndertakingList";
 import type { IconName } from "./Icon";
 
-type StepKey = "checks" | "documents" | "decision" | "tasks" | "trywhat" | "history";
+type StepKey =
+  | "checks"
+  | "documents"
+  | "evc"
+  | "decision"
+  | "tasks"
+  | "trywhat"
+  | "history";
 
 interface Step {
   key: StepKey;
@@ -48,6 +56,7 @@ export function CaseView({
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState<StepKey>("checks");
+  const [hasVisits, setHasVisits] = useState(false);
 
   const canEvaluate = user.permissions.includes("compliance.evaluate");
   const canRehearse = user.permissions.includes("rehearsal.run");
@@ -55,6 +64,7 @@ export function CaseView({
   const canUpload = user.permissions.includes("document.upload");
   const canVerify = user.permissions.includes("document.verify");
   const canSubmitUndertaking = user.permissions.includes("undertaking.submit");
+  const canScheduleVisit = user.permissions.includes("case.transition");
 
   const load = useCallback(async () => {
     setError(null);
@@ -65,6 +75,12 @@ export function CaseView({
       ]);
       setDetail(loadedDetail);
       setBatch(loadedBatch);
+      // The visit list is cheap and tells us whether to show the visit step even
+      // when the case has moved on from an EVC stage.
+      api
+        .evcVisits(applicationId)
+        .then((visits) => setHasVisits(visits.length > 0))
+        .catch(() => setHasVisits(false));
       if (canAudit) {
         const [timeline, verification] = await Promise.all([
           api.audit(applicationId),
@@ -135,10 +151,20 @@ export function CaseView({
       { key: "decision", label: "Take a decision" },
       { key: "tasks", label: "Follow-up tasks" },
     ];
+    // A visit step only makes sense on routes that actually prescribe an EVC,
+    // or when a visit has already been booked for this case.
+    const evcStage =
+      hasVisits ||
+      (detail?.available_transitions.some(
+        (option) =>
+          option.from_state.includes("evc") || option.to_state.includes("evc"),
+      ) ??
+        false);
+    if (evcStage) list.splice(2, 0, { key: "evc", label: "Committee visit" });
     if (canRehearse) list.push({ key: "trywhat", label: "Try “what if”" });
     if (canAudit) list.push({ key: "history", label: "History" });
     return list;
-  }, [canRehearse, canAudit]);
+  }, [canRehearse, canAudit, detail, hasVisits]);
 
   // Plain-language "what should I do next?" advice.
   const guidance = useMemo(() => {
@@ -275,6 +301,10 @@ export function CaseView({
           canVerify={canVerify}
           onEvidenceChanged={() => void load()}
         />
+      )}
+
+      {step === "evc" && (
+        <EvcPanel applicationId={applicationId} canSchedule={canScheduleVisit} />
       )}
 
       {step === "decision" && (

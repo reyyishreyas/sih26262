@@ -19,6 +19,7 @@ from ..models import (
     Application,
     CaseAssignment,
     Document,
+    EvcVisit,
     Institution,
     Region,
     RuleEvaluation,
@@ -132,6 +133,11 @@ def dashboard(db: Session, access: EffectiveAccess) -> dict[str, Any]:
             select(Document.id).where(Document.application_id.in_(app_ids))
         ).all()
     ) if app_ids else set()
+    scoped_visit_ids = set(
+        db.scalars(
+            select(EvcVisit.id).where(EvcVisit.application_id.in_(app_ids))
+        ).all()
+    ) if app_ids else set()
 
     open_alerts = [
         alert
@@ -141,6 +147,7 @@ def dashboard(db: Session, access: EffectiveAccess) -> dict[str, Any]:
             (alert.entity_type == "application" and alert.entity_id in set(app_ids))
             or (alert.entity_type == "undertaking" and alert.entity_id in scoped_undertaking_ids)
             or (alert.entity_type == "document" and alert.entity_id in scoped_document_ids)
+            or (alert.entity_type == "evc_visit" and alert.entity_id in scoped_visit_ids)
         )
     ]
 
@@ -243,6 +250,11 @@ def escalations(db: Session, access: EffectiveAccess, limit: int = 100) -> list[
         elif alert.entity_type == "document":
             document = db.get(Document, alert.entity_id)
             application_id = document.application_id if document else None
+        elif alert.entity_type == "evc_visit":
+            from ..models import EvcVisit
+
+            visit = db.get(EvcVisit, alert.entity_id)
+            application_id = visit.application_id if visit else None
         if application_id not in scoped_ids:
             continue
         out.append(

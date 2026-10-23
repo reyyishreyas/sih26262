@@ -5,6 +5,9 @@ import type {
   CaseDetail,
   ComplianceBatch,
   DocumentRow,
+  EvcCommittee,
+  EvcQueue,
+  EvcVisit,
   Institution,
   OfficerDashboard,
   RehearsalReport,
@@ -184,6 +187,24 @@ export const api = {
   dashboard: () => request<OfficerDashboard>("/officer/dashboard"),
   alerts: () =>
     request<{ simulated: boolean; note: string; alerts: AlertRow[] }>("/alerts"),
+
+  // --- Expert Visit Committee scheduling ---
+  evcCommittees: () => request<EvcCommittee[]>("/evc/committees"),
+  evcQueue: () => request<EvcQueue>("/evc/queue"),
+  evcVisits: (id: string) => request<EvcVisit[]>(`/applications/${id}/evc/visits`),
+  scheduleEvcVisit: (
+    id: string,
+    payload: {
+      scheduled_date: string;
+      venue?: string;
+      committee_id?: string | null;
+      notes?: string;
+    },
+  ) =>
+    request<EvcVisit>(`/applications/${id}/evc/visits`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
 };
 
 export { BASE as API_BASE };

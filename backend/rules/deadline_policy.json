@@ -16,5 +16,10 @@
     { "level": "due_soon", "offset_days": -2, "severity": "info" },
     { "level": "overdue", "offset_days": 0, "severity": "critical" },
     { "level": "escalated", "offset_days": 5, "severity": "escalated" }
+  ],
+  "evc_visit": [
+    { "level": "visit_due_soon", "offset_days": -7, "severity": "warning" },
+    { "level": "visit_overdue", "offset_days": 1, "severity": "critical" },
+    { "level": "visit_escalated", "offset_days": 10, "severity": "escalated" }
   ]
 }

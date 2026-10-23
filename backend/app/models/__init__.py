@@ -1,4 +1,12 @@
-from .application import Application, Committee, Document, ExtractedField, Institution, Region
+from .application import (
+    Application,
+    Committee,
+    Document,
+    EvcVisit,
+    ExtractedField,
+    Institution,
+    Region,
+)
 from .audit import AuditChainHead, AuditEvent
 from .base import Base, canonical_json, new_id, sha256_hex, utcnow
 from .compliance import Alert, AlertDelivery, RuleEvaluation, Undertaking
@@ -26,6 +34,7 @@ __all__ = [
     "CaseAssignment",
     "Committee",
     "Document",
+    "EvcVisit",
     "ExtractedField",
     "Institution",
     "JurisdictionAssignment",

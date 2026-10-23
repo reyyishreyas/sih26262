@@ -226,3 +226,46 @@ export interface Undertaking {
   verified_at: string | null;
   reminder_policy: Record<string, unknown>;
 }
+
+export interface EvcVisit {
+  id: string;
+  application_id: string;
+  committee_id: string | null;
+  committee_name: string | null;
+  scheduled_date: string;
+  venue: string;
+  status: "scheduled" | "completed" | "rescheduled" | "cancelled";
+  notes: string;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export interface EvcCommittee {
+  id: string;
+  name: string;
+  kind: string;
+  region_code: string | null;
+}
+
+export interface EvcQueueRow {
+  application_id: string;
+  institution: string | null;
+  region_code: string | null;
+  state: string;
+  days_in_stage: number;
+  sla_days: number | null;
+  stage_overdue: boolean;
+  visit: EvcVisit | null;
+  latest_visit: EvcVisit | null;
+  visit_state: "not_scheduled" | "visit_scheduled" | "visit_due_soon" | "visit_overdue";
+  days_until_visit: number | null;
+}
+
+export interface EvcQueue {
+  generated_at: string;
+  count: number;
+  not_scheduled: number;
+  visit_due_soon: number;
+  visit_overdue: number;
+  rows: EvcQueueRow[];
+}

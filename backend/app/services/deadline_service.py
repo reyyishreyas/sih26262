@@ -17,7 +17,7 @@ from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock, to_utc
 from ..core.config import get_settings
-from ..models import Alert, Application, Document, ExtractedField, Undertaking
+from ..models import Alert, Application, Document, EvcVisit, ExtractedField, Undertaking
 from . import alert_service, policy
 
 TERMINAL_STATES = ("approved", "rejected", "draft")
@@ -130,7 +130,28 @@ def collect_items(db: Session, now: datetime) -> list[DeadlineItem]:
             )
         )
 
-    # 3. Stage ageing against the configured SLA for the route.
+    # 3. Scheduled EVC visits: remind before, escalate after the visit date.
+    visits = db.scalars(
+        select(EvcVisit).where(EvcVisit.status == "scheduled")
+    ).all()
+    for visit in visits:
+        due_at = end_of_day(visit.scheduled_date)
+        items.append(
+            DeadlineItem(
+                entity_type="evc_visit",
+                entity_id=visit.id,
+                alert_type="evc_visit",
+                due_at=due_at,
+                cycle_key=visit.id,
+                application_id=visit.application_id,
+                payload={
+                    "scheduled_date": visit.scheduled_date.isoformat(),
+                    "venue": visit.venue,
+                },
+            )
+        )
+
+    # 4. Stage ageing against the configured SLA for the route.
     applications = db.scalars(
         select(Application).where(Application.current_state.notin_(TERMINAL_STATES))
     ).all()
@@ -164,6 +185,7 @@ def eligible_thresholds(alert_type: str, due_at: datetime, now: datetime):
         "undertaking_due": "undertaking",
         "document_expiry": "document_expiry",
         "stage_ageing": "stage_ageing",
+        "evc_visit": "evc_visit",
     }[alert_type]
     for threshold in policy.thresholds(kind):
         if now >= due_at + timedelta(days=threshold.offset_days):

@@ -142,3 +142,32 @@ class Committee(Base):
     kind: Mapped[str] = mapped_column(String(16), default="EVC")
     name: Mapped[str] = mapped_column(String(255))
     region_id: Mapped[str] = mapped_column(ForeignKey("regions.id"), index=True)
+
+
+class EvcVisit(Base):
+    """One scheduled Expert Visit Committee visit for a case.
+
+    A case may be rescheduled any number of times; only the latest visit in
+    `scheduled` status is the live appointment. Completion is recorded here when
+    the `complete_evc` workflow transition is accepted, so the queue report and
+    the timeline always agree with the workflow state.
+    """
+
+    __tablename__ = "evc_visits"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    application_id: Mapped[str] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    )
+    committee_id: Mapped[str | None] = mapped_column(
+        ForeignKey("committees.id"), nullable=True
+    )
+    scheduled_date: Mapped[date] = mapped_column(Date)
+    venue: Mapped[str] = mapped_column(String(255), default="")
+    status: Mapped[str] = mapped_column(String(24), default="scheduled", index=True)
+    notes: Mapped[str] = mapped_column(String(1024), default="")
+    scheduled_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    completed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
