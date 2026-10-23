@@ -26,6 +26,25 @@ import type {
 
 type View = "cases" | "monitoring" | "reports";
 
+/**
+ * The URL is the source of truth for where you are, so a case can be shared as
+ * a link and survives a refresh or the browser's back button. Two shapes:
+ *   #/monitoring, #/reports
+ *   #/cases/app-main-0001   (a specific case, opened directly)
+ */
+function routeFromHash(): { view: View; selected: string | null } {
+  const match = window.location.hash.match(
+    /^#\/(cases|monitoring|reports)(?:\/(.+))?$/,
+  );
+  if (!match) return { view: "cases", selected: null };
+  const view = match[1] as View;
+  return { view, selected: match[2] ?? null };
+}
+
+function hashFor(view: View, selected: string | null): string {
+  return view === "cases" && selected ? `#/cases/${selected}` : `#/${view}`;
+}
+
 /** The person's display name, falling back to the email handle. */
 function displayName(user: SessionUser): string {
   const raw = (user.full_name ?? user.name ?? "").trim();
@@ -53,9 +72,11 @@ export default function App() {
   const [user, setUser] = useState<SessionUser | null>(() =>
     storedToken() ? storedUser() : null,
   );
-  const [view, setView] = useState<View>("cases");
+  const [view, setView] = useState<View>(() => routeFromHash().view);
   const [applications, setApplications] = useState<ApplicationSummary[]>([]);
-  const [selected, setSelected] = useState<string | null>(null);
+  const [selected, setSelected] = useState<string | null>(
+    () => routeFromHash().selected,
+  );
   const [dashboard, setDashboard] = useState<OfficerDashboard | null>(null);
   const [alerts, setAlerts] = useState<AlertRow[]>([]);
   const [institutions, setInstitutions] = useState<Institution[]>([]);
@@ -111,6 +132,25 @@ export default function App() {
       .then(setInstitutions)
       .catch(() => setInstitutions([]));
   }, [user]);
+
+  // Keep the URL in step with where the user is, so the current case can be
+  // shared as a link and the back button works. Writing the same hash we
+  // already have is a no-op, so this cannot loop.
+  useEffect(() => {
+    const hash = hashFor(view, selected);
+    if (window.location.hash !== hash) window.location.hash = hash;
+  }, [view, selected]);
+
+  // And the reverse: honour a back/forward or hand-edited URL.
+  useEffect(() => {
+    const onHashChange = () => {
+      const next = routeFromHash();
+      setView(next.view);
+      setSelected(next.selected);
+    };
+    window.addEventListener("hashchange", onHashChange);
+    return () => window.removeEventListener("hashchange", onHashChange);
+  }, []);
 
   useEffect(() => {
     if (!user || !canCreate) return;
