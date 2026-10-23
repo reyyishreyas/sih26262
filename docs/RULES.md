@@ -130,7 +130,7 @@ hardening would add a database trigger; that is listed in
 
 ## Rule set in this prototype
 
-Six rules. All are labelled **"clause mapping pending verification"**: the APH
+Seven rules. All are labelled **"clause mapping pending verification"**: the APH
 2024–2027 clause, applicability and effective date must be confirmed by a rule owner
 before any production use. The prototype does not invent clause numbers.
 
@@ -142,8 +142,15 @@ before any production use. The prototype does not invent clause numbers.
 | `LEASE_DATE_CONSISTENCY` | lease deed expiry = ownership record expiry | no | `NOT_EVALUATED` | `NEEDS_REVIEW` |
 | `INSTITUTION_IDENTITY_MATCH` | lessee name = applicant institution name | yes | `NEEDS_REVIEW` | `FAIL` |
 | `EXISTING_INSTITUTION_FACULTY_RATIO` | faculty count ≥ 60, only for `existing_technical` | no | `NOT_EVALUATED` | `FAIL` |
+| `UNDERTAKING_NO_OVERDUE` | no outstanding undertaking is past its due date | yes | `NOT_EVALUATED` | `FAIL` |
 
 All set `unverified_outcome: NEEDS_REVIEW`.
+
+`UNDERTAKING_NO_OVERDUE` reads `undertakings_summary.overdue`, a computed,
+system-of-record count (open undertakings past due; waived/verified/closed do
+not count). It is wired into every route's `approve` transition, so a college
+with a late follow-up promise cannot be approved until the condition is met or
+formally waived with a recorded reason.
 
 The rule set is intentionally small. Breadth without verified clause mapping would
 be fake coverage.

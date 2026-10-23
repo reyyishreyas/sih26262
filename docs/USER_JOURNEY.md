@@ -205,5 +205,5 @@ immutability.
 - No automatic approval. The competent authority records the decision.
 - No separate database for rehearsals. On PostgreSQL the simulation lives in its own
   schema with its own roles, in the same instance.
-- No claim that the six rules are the complete APH rule set; clause mapping is
+- No claim that the seven rules are the complete APH rule set; clause mapping is
   pending verification.

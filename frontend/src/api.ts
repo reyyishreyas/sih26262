@@ -210,6 +210,29 @@ export const api = {
       `/applications/${id}/undertakings/${undertakingId}/verify`,
       { method: "POST" },
     ),
+  /** An officer imposes a follow-up condition on the college. */
+  createUndertaking: (
+    id: string,
+    payload: {
+      title: string;
+      condition_text?: string;
+      evidence_required?: string;
+      due_at: string;
+    },
+  ) =>
+    request<Undertaking>(`/applications/${id}/undertakings`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  /** An officer lets a condition go, with the reason recorded. */
+  waiveUndertaking: (id: string, undertakingId: string, reason: string) =>
+    request<Undertaking>(
+      `/applications/${id}/undertakings/${undertakingId}/waive`,
+      {
+        method: "POST",
+        body: JSON.stringify({ reason }),
+      },
+    ),
   compliance: (id: string) => request<ComplianceBatch>(`/applications/${id}/compliance`),
   evaluate: (id: string) =>
     request<ComplianceBatch>(`/applications/${id}/compliance/evaluate`, { method: "POST" }),

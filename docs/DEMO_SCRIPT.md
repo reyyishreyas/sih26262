@@ -201,7 +201,7 @@ Three sentences:
    share one deterministic rule engine and one clock.
 2. **The crash-test** — finding-level diff against the same immutable rule versions,
    with `production_modified: false` and no invented Load Factor.
-3. **Honest boundaries** — mock OCR and notifications, synthetic data, six rules
+3. **Honest boundaries** — mock OCR and notifications, synthetic data, seven rules
    pending clause verification, no historical replay, no production deployment.
 
 ---

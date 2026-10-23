@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
+import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
 import type { Undertaking } from "../types";
 import { Icon } from "./Icon";
@@ -38,11 +39,14 @@ export function UndertakingList({
   applicationId,
   canSubmit,
   canVerify,
+  canImpose,
   onChanged,
 }: {
   applicationId: string;
   canSubmit: boolean;
   canVerify: boolean;
+  /** Officers with case.transition may add a condition or let one go. */
+  canImpose: boolean;
   onChanged: () => void;
 }) {
   const [items, setItems] = useState<Undertaking[]>([]);
@@ -50,6 +54,14 @@ export function UndertakingList({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
+
+  // The officer's "add a condition" form.
+  const [adding, setAdding] = useState(false);
+  const [newTitle, setNewTitle] = useState("");
+  const [newCondition, setNewCondition] = useState("");
+  const [newEvidence, setNewEvidence] = useState("");
+  const [newDue, setNewDue] = useState("");
+  const [waiveReasons, setWaiveReasons] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     try {
@@ -90,14 +102,71 @@ export function UndertakingList({
     }
   }
 
+  async function addCondition(event: FormEvent) {
+    event.preventDefault();
+    if (newTitle.trim() === "" || newDue === "") {
+      setError("Please give the promise a short title and a due date.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.createUndertaking(applicationId, {
+        title: newTitle.trim(),
+        condition_text: newCondition.trim(),
+        evidence_required: newEvidence.trim(),
+        due_at: newDue,
+      });
+      setMessage(`“${newTitle.trim()}” is now a promise on this case.`);
+      setNewTitle("");
+      setNewCondition("");
+      setNewEvidence("");
+      setNewDue("");
+      setAdding(false);
+      await load();
+      onChanged();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "That did not work");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function waive(item: Undertaking) {
+    const reason = (waiveReasons[item.id] ?? "").trim();
+    if (reason === "") {
+      setError(
+        "Please type why the promise is being let go — it is saved in the records.",
+      );
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.waiveUndertaking(applicationId, item.id, reason);
+      setMessage(`“${item.title}” is let go. The reason is saved in this case's History.`);
+      setWaiveReasons((current) => ({ ...current, [item.id]: "" }));
+      await load();
+      onChanged();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "That did not work");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   return (
     <section className="panel">
       <div className="panel-head">
         <div>
           <h2>Follow-up tasks</h2>
           <p className="muted">
-            After a case is approved, the college still has promises to keep. These are
-            watched automatically and reminders are created when something is late.
+            These are promises the college has to keep — an officer can add one at any
+            point, and they are often attached to an approval. They are watched
+            automatically, reminders go out before the due date, and a late promise
+            blocks approval until it is done or formally let go.
           </p>
         </div>
       </div>
@@ -105,6 +174,67 @@ export function UndertakingList({
       {error && <p className="error">{error}</p>}
       {message && <p className="message">{message}</p>}
       {items.length === 0 && <p className="muted">This case has no follow-up tasks.</p>}
+
+      {canImpose && !adding && (
+        <button type="button" className="secondary" onClick={() => setAdding(true)}>
+          <Icon name="plus" size={16} /> Add a follow-up promise
+        </button>
+      )}
+
+      {canImpose && adding && (
+        <form className="form" onSubmit={(event) => void addCondition(event)}>
+          <h3>Add a follow-up promise</h3>
+          <p className="muted">
+            The college must keep this by the due date. Reminders go out before it is
+            due, and an approval is blocked while one is late.
+          </p>
+          <label className="field">
+            <span>What must be done?</span>
+            <input
+              value={newTitle}
+              onChange={(event) => setNewTitle(event.target.value)}
+              placeholder="For example: install fire safety equipment"
+            />
+          </label>
+          <label className="field">
+            <span>What does the college have to do exactly?</span>
+            <input
+              value={newCondition}
+              onChange={(event) => setNewCondition(event.target.value)}
+              placeholder="For example: third-party fire NOC and equipment invoices"
+            />
+          </label>
+          <label className="field">
+            <span>What proof is needed?</span>
+            <input
+              value={newEvidence}
+              onChange={(event) => setNewEvidence(event.target.value)}
+              placeholder="For example: fire NOC plus invoices"
+            />
+          </label>
+          <label className="field">
+            <span>By when?</span>
+            <input
+              type="date"
+              value={newDue}
+              onChange={(event) => setNewDue(event.target.value)}
+            />
+          </label>
+          <div className="task-actions">
+            <button type="submit" disabled={busy}>
+              <Icon name="checkCircle" size={16} /> Add it
+            </button>
+            <button
+              type="button"
+              className="secondary"
+              disabled={busy}
+              onClick={() => setAdding(false)}
+            >
+              Cancel
+            </button>
+          </div>
+        </form>
+      )}
 
       <div className="document-list">
         {items.map((item) => (
@@ -152,6 +282,28 @@ export function UndertakingList({
                   onClick={() => void act(item, "verify")}
                 >
                   <Icon name="checkCircle" size={16} /> Check the proof and confirm
+                </button>
+              </div>
+            )}
+            {canImpose && ["pending", "submitted"].includes(item.status) && (
+              <div className="task-actions">
+                <input
+                  value={waiveReasons[item.id] ?? ""}
+                  onChange={(event) =>
+                    setWaiveReasons((current) => ({
+                      ...current,
+                      [item.id]: event.target.value,
+                    }))
+                  }
+                  placeholder="Why is this promise being let go? (saved in the records)"
+                />
+                <button
+                  type="button"
+                  className="secondary"
+                  disabled={busy}
+                  onClick={() => void waive(item)}
+                >
+                  <Icon name="undo" size={16} /> Let it go
                 </button>
               </div>
             )}

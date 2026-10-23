@@ -133,7 +133,7 @@ def _ensure_rules(db: Session, admin: User) -> None:
 def _ensure_routes(db: Session) -> None:
     for route_key, route in workflow_routes()["routes"].items():
         for transition in route["transitions"]:
-            _get_or_create(
+            definition, created = _get_or_create(
                 db,
                 WorkflowTransitionDefinition,
                 {
@@ -149,6 +149,19 @@ def _ensure_routes(db: Session) -> None:
                 route_key=route_key,
                 action=transition["action"],
             )
+            if not created:
+                # Route definitions are policy-as-data: an edited JSON must
+                # reach an existing database on the next seed, not only new
+                # rows. Only the mutable guard fields are refreshed — the
+                # route_key/action identity is the row's key.
+                definition.from_state = transition["from_state"]
+                definition.to_state = transition["to_state"]
+                definition.required_permission = transition["required_permission"]
+                definition.allowed_roles = transition["allowed_roles"]
+                definition.required_rules = transition.get("required_rules", [])
+                definition.required_documents = transition.get("required_documents", [])
+                definition.requires_reason = transition.get("requires_reason", False)
+                definition.description = transition.get("description", "")
     db.flush()
 
 

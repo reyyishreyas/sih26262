@@ -2,7 +2,7 @@
   "note": "Prototype route table. The four routes mirror the four approval paths named in the problem statement: scrutiny only, scrutiny + EVC, EVC only, and EVC + SAC/SHC. The transitions, guards and SLAs are illustrative configuration and must be verified against the APH before production use.",
   "routes": {
     "new_technical": {
-      "label": "New technical institution — Scrutiny + EVC",
+      "label": "New technical institution \u2014 Scrutiny + EVC",
       "stage_sla_days": {
         "submitted": 5,
         "scrutiny": 15,
@@ -15,7 +15,9 @@
           "from_state": "draft",
           "to_state": "submitted",
           "required_permission": "application.submit",
-          "allowed_roles": ["institution_representative"],
+          "allowed_roles": [
+            "institution_representative"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -26,7 +28,9 @@
           "from_state": "submitted",
           "to_state": "scrutiny",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer"],
+          "allowed_roles": [
+            "scrutiny_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -37,7 +41,9 @@
           "from_state": "scrutiny",
           "to_state": "returned",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer"],
+          "allowed_roles": [
+            "scrutiny_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
@@ -48,7 +54,9 @@
           "from_state": "returned",
           "to_state": "submitted",
           "required_permission": "application.submit",
-          "allowed_roles": ["institution_representative"],
+          "allowed_roles": [
+            "institution_representative"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -59,14 +67,18 @@
           "from_state": "scrutiny",
           "to_state": "evc_scheduled",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer"],
+          "allowed_roles": [
+            "scrutiny_officer"
+          ],
           "required_rules": [
             "LEASE_VALID_COVERS_PERIOD",
             "LEASE_ISSUING_AUTHORITY",
             "REQUIRED_DOC_AFFIDAVIT",
             "INSTITUTION_IDENTITY_MATCH"
           ],
-          "required_documents": ["affidavit"],
+          "required_documents": [
+            "affidavit"
+          ],
           "requires_reason": false,
           "description": "Scrutiny complete; expert committee visit required"
         },
@@ -75,7 +87,9 @@
           "from_state": "evc_scheduled",
           "to_state": "evc_completed",
           "required_permission": "case.decide",
-          "allowed_roles": ["evc_member"],
+          "allowed_roles": [
+            "evc_member"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -86,12 +100,18 @@
           "from_state": "evc_completed",
           "to_state": "approved",
           "required_permission": "case.decide",
-          "allowed_roles": ["evc_member", "regional_officer"],
+          "allowed_roles": [
+            "evc_member",
+            "regional_officer"
+          ],
           "required_rules": [
             "LEASE_VALID_COVERS_PERIOD",
-            "REQUIRED_DOC_AFFIDAVIT"
+            "REQUIRED_DOC_AFFIDAVIT",
+            "UNDERTAKING_NO_OVERDUE"
           ],
-          "required_documents": ["affidavit"],
+          "required_documents": [
+            "affidavit"
+          ],
           "requires_reason": false,
           "description": "Approval recorded by the competent authority"
         },
@@ -100,7 +120,9 @@
           "from_state": "scrutiny",
           "to_state": "rejected",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer"],
+          "allowed_roles": [
+            "scrutiny_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
@@ -109,7 +131,7 @@
       ]
     },
     "existing_technical": {
-      "label": "Existing technical institution — Scrutiny only",
+      "label": "Existing technical institution \u2014 Scrutiny only",
       "stage_sla_days": {
         "submitted": 5,
         "scrutiny": 10
@@ -120,7 +142,9 @@
           "from_state": "draft",
           "to_state": "submitted",
           "required_permission": "application.submit",
-          "allowed_roles": ["institution_representative"],
+          "allowed_roles": [
+            "institution_representative"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -131,7 +155,9 @@
           "from_state": "submitted",
           "to_state": "scrutiny",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer"],
+          "allowed_roles": [
+            "scrutiny_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -142,9 +168,18 @@
           "from_state": "scrutiny",
           "to_state": "approved",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer", "regional_officer"],
-          "required_rules": ["LEASE_VALID_COVERS_PERIOD", "REQUIRED_DOC_AFFIDAVIT"],
-          "required_documents": ["affidavit"],
+          "allowed_roles": [
+            "scrutiny_officer",
+            "regional_officer"
+          ],
+          "required_rules": [
+            "LEASE_VALID_COVERS_PERIOD",
+            "REQUIRED_DOC_AFFIDAVIT",
+            "UNDERTAKING_NO_OVERDUE"
+          ],
+          "required_documents": [
+            "affidavit"
+          ],
           "requires_reason": false,
           "description": "Scrutiny-only route approval"
         },
@@ -153,7 +188,9 @@
           "from_state": "scrutiny",
           "to_state": "rejected",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer"],
+          "allowed_roles": [
+            "scrutiny_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
@@ -174,7 +211,9 @@
           "from_state": "draft",
           "to_state": "submitted",
           "required_permission": "application.submit",
-          "allowed_roles": ["institution_representative"],
+          "allowed_roles": [
+            "institution_representative"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -185,7 +224,10 @@
           "from_state": "submitted",
           "to_state": "evc_scheduled",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer", "regional_officer"],
+          "allowed_roles": [
+            "scrutiny_officer",
+            "regional_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -196,7 +238,10 @@
           "from_state": "submitted",
           "to_state": "returned",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer", "regional_officer"],
+          "allowed_roles": [
+            "scrutiny_officer",
+            "regional_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
@@ -207,7 +252,9 @@
           "from_state": "returned",
           "to_state": "submitted",
           "required_permission": "application.submit",
-          "allowed_roles": ["institution_representative"],
+          "allowed_roles": [
+            "institution_representative"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -218,7 +265,9 @@
           "from_state": "evc_scheduled",
           "to_state": "evc_completed",
           "required_permission": "case.decide",
-          "allowed_roles": ["evc_member"],
+          "allowed_roles": [
+            "evc_member"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -229,12 +278,18 @@
           "from_state": "evc_completed",
           "to_state": "approved",
           "required_permission": "case.decide",
-          "allowed_roles": ["evc_member", "regional_officer"],
+          "allowed_roles": [
+            "evc_member",
+            "regional_officer"
+          ],
           "required_rules": [
             "LEASE_VALID_COVERS_PERIOD",
-            "REQUIRED_DOC_AFFIDAVIT"
+            "REQUIRED_DOC_AFFIDAVIT",
+            "UNDERTAKING_NO_OVERDUE"
           ],
-          "required_documents": ["affidavit"],
+          "required_documents": [
+            "affidavit"
+          ],
           "requires_reason": false,
           "description": "Approval recorded after the visit, by the competent authority"
         },
@@ -243,7 +298,10 @@
           "from_state": "evc_completed",
           "to_state": "rejected",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer", "regional_officer"],
+          "allowed_roles": [
+            "scrutiny_officer",
+            "regional_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
@@ -266,7 +324,9 @@
           "from_state": "draft",
           "to_state": "submitted",
           "required_permission": "application.submit",
-          "allowed_roles": ["institution_representative"],
+          "allowed_roles": [
+            "institution_representative"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -277,7 +337,9 @@
           "from_state": "submitted",
           "to_state": "scrutiny",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer"],
+          "allowed_roles": [
+            "scrutiny_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -288,7 +350,9 @@
           "from_state": "scrutiny",
           "to_state": "returned",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer"],
+          "allowed_roles": [
+            "scrutiny_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
@@ -299,7 +363,9 @@
           "from_state": "returned",
           "to_state": "submitted",
           "required_permission": "application.submit",
-          "allowed_roles": ["institution_representative"],
+          "allowed_roles": [
+            "institution_representative"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -310,14 +376,19 @@
           "from_state": "scrutiny",
           "to_state": "evc_scheduled",
           "required_permission": "case.transition",
-          "allowed_roles": ["scrutiny_officer", "regional_officer"],
+          "allowed_roles": [
+            "scrutiny_officer",
+            "regional_officer"
+          ],
           "required_rules": [
             "LEASE_VALID_COVERS_PERIOD",
             "LEASE_ISSUING_AUTHORITY",
             "REQUIRED_DOC_AFFIDAVIT",
             "INSTITUTION_IDENTITY_MATCH"
           ],
-          "required_documents": ["affidavit"],
+          "required_documents": [
+            "affidavit"
+          ],
           "requires_reason": false,
           "description": "Scrutiny complete; expert committee visit required"
         },
@@ -326,7 +397,9 @@
           "from_state": "evc_scheduled",
           "to_state": "evc_completed",
           "required_permission": "case.decide",
-          "allowed_roles": ["evc_member"],
+          "allowed_roles": [
+            "evc_member"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -337,7 +410,9 @@
           "from_state": "evc_completed",
           "to_state": "sac_review",
           "required_permission": "case.transition",
-          "allowed_roles": ["regional_officer"],
+          "allowed_roles": [
+            "regional_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": false,
@@ -348,12 +423,17 @@
           "from_state": "sac_review",
           "to_state": "approved",
           "required_permission": "case.transition",
-          "allowed_roles": ["regional_officer"],
+          "allowed_roles": [
+            "regional_officer"
+          ],
           "required_rules": [
             "LEASE_VALID_COVERS_PERIOD",
-            "REQUIRED_DOC_AFFIDAVIT"
+            "REQUIRED_DOC_AFFIDAVIT",
+            "UNDERTAKING_NO_OVERDUE"
           ],
-          "required_documents": ["affidavit"],
+          "required_documents": [
+            "affidavit"
+          ],
           "requires_reason": false,
           "description": "SAC/SHC approval recorded by the competent authority"
         },
@@ -362,7 +442,9 @@
           "from_state": "sac_review",
           "to_state": "rejected",
           "required_permission": "case.transition",
-          "allowed_roles": ["regional_officer"],
+          "allowed_roles": [
+            "regional_officer"
+          ],
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,

@@ -86,6 +86,39 @@ const ACTION_ICONS: Record<string, IconName> = {
 };
 
 /**
+ * Some action tails are generic ("created", "waived", "submitted") on their
+ * own. Prefixed with their namespace they say what actually happened — so for
+ * those we label the full "namespace.action" string instead of just the tail.
+ */
+const NAMESPACE_ACTION_LABELS: Record<string, string> = {
+  "undertaking.created": "added a follow-up promise",
+  "undertaking.waived": "let a follow-up promise go",
+  "undertaking.submitted": "sent proof for a follow-up promise",
+  "undertaking.verified": "confirmed a follow-up promise",
+  "document.uploaded": "uploaded a document",
+  "document.verified": "verified a document",
+  "evc.visit_scheduled": "scheduled the committee visit",
+  "evc.visit_cancelled": "cancelled the committee visit",
+  "evc.visit_completed": "recorded the committee visit",
+  "alert.acknowledged": "acknowledged an alert",
+  "alert.closed": "closed an alert",
+};
+
+const NAMESPACE_ACTION_ICONS: Record<string, IconName> = {
+  "undertaking.created": "plus",
+  "undertaking.waived": "undo",
+  "undertaking.submitted": "send",
+  "undertaking.verified": "checkCircle",
+  "document.uploaded": "upload",
+  "document.verified": "badgeCheck",
+  "evc.visit_scheduled": "calendar",
+  "evc.visit_cancelled": "xCircle",
+  "evc.visit_completed": "clipboardCheck",
+  "alert.acknowledged": "bell",
+  "alert.closed": "checkCircle",
+};
+
+/**
  * Audit events name actions with a namespace prefix (e.g. "workflow.submit")
  * while transition options use the bare key ("submit"). Normalise both to the
  * bare key so the dictionaries above always hit.
@@ -95,11 +128,15 @@ function actionKey(action: string): string {
 }
 
 export function plainAction(action: string): string {
+  const qualified = NAMESPACE_ACTION_LABELS[action];
+  if (qualified) return qualified;
   const key = actionKey(action);
   return ACTION_LABELS[key] ?? humanize(key);
 }
 
 export function actionIcon(action: string): IconName {
+  const qualified = NAMESPACE_ACTION_ICONS[action];
+  if (qualified) return qualified;
   return ACTION_ICONS[actionKey(action)] ?? "arrowRight";
 }
 
@@ -142,6 +179,7 @@ const RULE_TITLES: Record<string, string> = {
   LEASE_DATE_CONSISTENCY: "The lease dates agree across all documents",
   INSTITUTION_IDENTITY_MATCH: "The institution name matches everywhere",
   EXISTING_INSTITUTION_FACULTY_RATIO: "Enough teachers are on the faculty list",
+  UNDERTAKING_NO_OVERDUE: "No follow-up promise is late",
 };
 
 export function plainRule(ruleKey: string): string {

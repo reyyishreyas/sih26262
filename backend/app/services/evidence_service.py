@@ -12,7 +12,7 @@ from datetime import UTC, date, datetime
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..core.clock import get_clock
+from ..core.clock import get_clock, to_utc
 from ..models import Application, Document, ExtractedField, Institution, Undertaking
 from .rule_engine import Snapshot
 
@@ -105,6 +105,25 @@ def build_snapshot(db: Session, application: Application) -> Snapshot:
             for item in undertakings
         }
 
+    # A computed summary so rules can say "nothing is late" without knowing
+    # every obligation key up front. Derived from system-of-record rows only
+    # (status + due date), never from extracted evidence, so it counts as
+    # verified by construction.
+    open_count = 0
+    overdue_count = 0
+    for item in undertakings:
+        if item.status in ("verified", "closed", "waived"):
+            continue
+        open_count += 1
+        due = to_utc(item.due_at)
+        if due is not None and due < now:
+            overdue_count += 1
+    values["undertakings_summary"] = {
+        "total": len(undertakings),
+        "open": open_count,
+        "overdue": overdue_count,
+    }
+
     verified: dict[str, bool] = {}
     sources: dict[str, str] = {}
 
@@ -131,5 +150,11 @@ def build_snapshot(db: Session, application: Application) -> Snapshot:
         path = f"undertakings.{item.obligation_key}.due_at"
         verified[path] = True
         sources[path] = f"undertaking:{item.id}"
+
+    # The summary is computed from the same system-of-record rows, so it is
+    # verified by construction — no human confirmation is needed for it.
+    for leaf in ("total", "open", "overdue"):
+        verified[f"undertakings_summary.{leaf}"] = True
+        sources[f"undertakings_summary.{leaf}"] = "system:undertakings"
 
     return Snapshot(values=values, verified=verified, sources=sources)

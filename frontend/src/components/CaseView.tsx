@@ -434,6 +434,7 @@ export function CaseView({
           applicationId={applicationId}
           canSubmit={canSubmitUndertaking}
           canVerify={canVerify}
+          canImpose={canScheduleVisit}
           onChanged={() => void load()}
         />
       )}

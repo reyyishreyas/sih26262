@@ -140,6 +140,11 @@ textarea { font-family: ui-monospace, Menlo, monospace; font-size: 0.86rem; }
 .field { display: grid; gap: 0.35rem; margin: 0.7rem 0; }
 .field > span { font-weight: 600; font-size: 0.95rem; }
 
+/* An inline action form (schedule a visit, add a promise): fields stacked
+   with breathing room, actions row at the end. */
+.form { display: grid; gap: 0.2rem; margin-top: 0.8rem; }
+.form .task-actions { margin-top: 0.6rem; }
+
 .row { display: flex; gap: 0.6rem; align-items: center; flex-wrap: wrap; }
 
 /* --------------------------------------------------------------------------

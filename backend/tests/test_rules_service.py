@@ -13,7 +13,8 @@ def test_seeded_rule_set_loads_only_approved_versions(db):
     specs = compliance_service.load_rule_specs(db)
     keys = {spec.key for spec in specs}
     assert "REQUIRED_DOC_AFFIDAVIT" in keys
-    assert len(specs) == 6
+    assert "UNDERTAKING_NO_OVERDUE" in keys
+    assert len(specs) == 7
     assert all(spec.version == 1 for spec in specs)
 
 
