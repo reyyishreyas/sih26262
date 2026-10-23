@@ -236,7 +236,8 @@ export default function App() {
             className={view === "cases" ? "nav active" : "nav"}
             onClick={() => setView("cases")}
           >
-            <Icon name="folder" size={18} /> My cases
+            <Icon name="folder" size={18} />
+            {isCollege ? "My application" : "My cases"}
           </button>
           {canMonitor && (
             <button
@@ -287,7 +288,7 @@ export default function App() {
               </h2>
               <p className="muted">
                 {isCollege
-                  ? "Track your applications and send anything that is still missing."
+                  ? "Track your application, send documents, and see exactly what is needed — no phone calls."
                   : "Here are the cases you can work on today."}
               </p>
             </div>
@@ -295,10 +296,10 @@ export default function App() {
             <section className="panel">
               <div className="panel-head">
                 <div>
-                  <h2>My cases</h2>
+                  <h2>{isCollege ? "Your applications" : "My cases"}</h2>
                   <p className="muted">
                     {isCollege
-                      ? "Your college's applications. Tap one to open it."
+                      ? "Tap one to see where it stands and what to do next."
                       : "Applications you are allowed to see. Tap one to open it."}
                   </p>
                 </div>

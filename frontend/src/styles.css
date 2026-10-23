@@ -602,6 +602,110 @@ button.step.done svg { vertical-align: -2px; margin-right: 0.3rem; }
 .doc-help-body p:last-child { margin-bottom: 0; }
 
 /* --------------------------------------------------------------------------
+   College status tracker — the "where does my application stand" journey
+   -------------------------------------------------------------------------- */
+.tracker {
+  list-style: none;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.5rem;
+  margin: 1rem 0 0.9rem;
+  padding: 0;
+}
+.tracker-stage {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 0.3rem;
+  padding: 0.75rem 0.5rem;
+  border: 1.5px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-2, #f8fafc);
+  color: var(--muted);
+}
+.tracker-stage .stage-dot {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: #eef2f7;
+  border: 1.5px solid var(--line);
+  color: var(--muted);
+}
+.tracker-stage .stage-label {
+  font-weight: 700;
+  font-size: 0.92rem;
+  color: var(--text);
+}
+.tracker-stage .stage-hint { font-size: 0.78rem; }
+
+/* Done: green tick so progress is legible at a glance (icon + text + colour). */
+.tracker-stage.done {
+  background: var(--good-soft, #e7f6ee);
+  border-color: rgba(20, 125, 72, 0.3);
+}
+.tracker-stage.done .stage-dot {
+  background: var(--good);
+  border-color: var(--good);
+  color: #ffffff;
+}
+.tracker-stage.done .stage-hint { color: var(--good); font-weight: 600; }
+
+/* Current: the one that matters now, highlighted in the accent colour. */
+.tracker-stage.current {
+  background: var(--accent-soft, #e8f0fe);
+  border-color: var(--accent);
+  box-shadow: 0 3px 12px rgba(18, 87, 196, 0.18);
+}
+.tracker-stage.current .stage-dot {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #ffffff;
+}
+.tracker-stage.current .stage-hint {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+/* The plain-English "what happens next / what you must do" line. */
+.tracker-note {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.6rem;
+  padding: 0.8rem 0.95rem;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--panel-2, #f8fafc);
+  font-size: 0.95rem;
+  line-height: 1.55;
+}
+.tracker-note.note-warn {
+  background: var(--warn-soft);
+  border-color: rgba(163, 90, 0, 0.3);
+}
+.tracker-note.note-warn .guide-icon { color: var(--warn); }
+.tracker-note.note-good {
+  background: var(--good-soft, #e7f6ee);
+  border-color: rgba(20, 125, 72, 0.3);
+}
+.tracker-note.note-good .guide-icon { color: var(--good); }
+.tracker-note.note-info .guide-icon { color: var(--accent); }
+
+.tracker-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 0.9rem;
+}
+
+@media (max-width: 760px) {
+  .tracker { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+
+/* --------------------------------------------------------------------------
    Findings (check-up) cards
    -------------------------------------------------------------------------- */
 

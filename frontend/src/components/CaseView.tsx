@@ -22,10 +22,26 @@ import { EvcPanel } from "./EvcPanel";
 import { FindingsTable } from "./FindingsTable";
 import { Icon } from "./Icon";
 import { RehearsalPanel } from "./RehearsalPanel";
+import { StatusTracker } from "./StatusTracker";
 import { UndertakingList } from "./UndertakingList";
 import type { IconName } from "./Icon";
 
+/**
+ * Two genuinely different workspaces share this file, chosen by role rather
+ * than by hiding buttons:
+ *
+ *   College  — a submitter's journey: where my application stands, send
+ *              documents, my promises. No rule tables, no decision machinery.
+ *   Checker  — the reviewer's workstation: check-up results, decisions,
+ *              "what if" rehearsal, audit history.
+ *
+ * The split is by role on purpose. Gating the officer UI by permission flags
+ * left the College looking at the same seven steps with most of them locked,
+ * which read as "broken" rather than "not mine".
+ */
 type StepKey =
+  | "status"
+  | "send"
   | "checks"
   | "documents"
   | "evc"
@@ -66,6 +82,11 @@ export function CaseView({
   const canSubmitUndertaking = user.permissions.includes("undertaking.submit");
   const canScheduleVisit = user.permissions.includes("case.transition");
 
+  // Role, not permission flags, decides which workspace this is. A College rep
+  // holds application.submit but never case.transition — gating on the latter
+  // is what previously showed them a wall of locked officer buttons.
+  const isCollege = user.roles.includes("institution_representative");
+
   const load = useCallback(async () => {
     setError(null);
     try {
@@ -95,14 +116,18 @@ export function CaseView({
     }
   }, [applicationId, canAudit]);
 
+  // Where the workspace opens. The College lands on plain-English status; the
+  // Checker lands on the rule check-up they are here to do.
+  const defaultStep: StepKey = isCollege ? "status" : "checks";
+
   useEffect(() => {
     setDetail(null);
     setBatch(null);
     setReason("");
     setMessage(null);
-    setStep("checks");
+    setStep(defaultStep);
     void load();
-  }, [load]);
+  }, [load, defaultStep]);
 
   async function evaluate() {
     setBusy(true);
@@ -170,12 +195,6 @@ export function CaseView({
   }
 
   const steps: Step[] = useMemo(() => {
-    const list: Step[] = [
-      { key: "checks", label: "Check-up" },
-      { key: "documents", label: "Documents" },
-      { key: "decision", label: "Take a decision" },
-      { key: "tasks", label: "Follow-up tasks" },
-    ];
     // A visit step only makes sense on routes that actually prescribe an EVC,
     // or when a visit has already been booked for this case.
     const evcStage =
@@ -185,11 +204,39 @@ export function CaseView({
           option.from_state.includes("evc") || option.to_state.includes("evc"),
       ) ??
         false);
+
+    if (isCollege) {
+      // The submitter's journey: status first, then send, then promises.
+      const list: Step[] = [{ key: "status", label: "Where it stands" }];
+      // Only offer "Send it in" when there is actually a send waiting — a
+      // submitted case has nothing to press, and a dead button reads as broken.
+      if (
+        detail?.available_transitions.some(
+          (option) =>
+            option.available &&
+            (option.action === "submit" || option.action === "resubmit"),
+        )
+      ) {
+        list.push({ key: "send", label: "Send it in" });
+      }
+      list.push({ key: "documents", label: "Send documents" });
+      if (evcStage) list.push({ key: "evc", label: "Committee visit" });
+      list.push({ key: "tasks", label: "My promises" });
+      if (canAudit) list.push({ key: "history", label: "History" });
+      return list;
+    }
+
+    const list: Step[] = [
+      { key: "checks", label: "Check-up" },
+      { key: "documents", label: "Documents" },
+      { key: "decision", label: "Take a decision" },
+      { key: "tasks", label: "Follow-up tasks" },
+    ];
     if (evcStage) list.splice(2, 0, { key: "evc", label: "Committee visit" });
     if (canRehearse) list.push({ key: "trywhat", label: "Try “what if”" });
     if (canAudit) list.push({ key: "history", label: "History" });
     return list;
-  }, [canRehearse, canAudit, detail, hasVisits]);
+  }, [isCollege, canRehearse, canAudit, detail, hasVisits]);
 
   // Which steps are already "done", so the stepper reads like a progress bar
   // with a satisfying tick rather than a flat row of tabs. Derived from data we
@@ -204,8 +251,21 @@ export function CaseView({
       detail &&
       (detail.application.current_state === "approved" ||
         detail.application.current_state === "rejected")
-    )
+    ) {
       done.add("decision");
+      done.add("status");
+    }
+    // "Where it stands" is a live status view, not a task to finish — ticking
+    // it would suggest the College has completed something they have not.
+    done.delete("status");
+    // Likewise "Send it in" only counts as done once the case actually left
+    // draft/returned, which is exactly when the step disappears anyway.
+    if (
+      detail &&
+      detail.application.current_state !== "draft" &&
+      detail.application.current_state !== "returned"
+    )
+      done.add("send");
     return done;
   }, [batch, detail, hasVisits]);
 
@@ -219,7 +279,9 @@ export function CaseView({
     return null;
   }, [steps, step, stepDone]);
 
-  // Plain-language "what should I do next?" advice.
+  // Plain-language "what should I do next?" advice, worded for the person who
+  // is actually reading it: the College is told what *they* must do, the
+  // Checker is told what *they* must review.
   const guidance = useMemo(() => {
     if (!detail || !batch) return null;
     const fails = batch.findings.filter((f) => f.outcome === "FAIL").length;
@@ -229,6 +291,58 @@ export function CaseView({
     ).length;
     const state = detail.application.current_state;
     const canMove = detail.available_transitions.some((t) => t.available);
+
+    if (isCollege) {
+      if (state === "returned") {
+        return {
+          icon: "undo" as IconName,
+          tone: "warn",
+          text: "An officer sent this back for changes. Open “Where it stands” to read what they asked for.",
+          target: "status" as StepKey,
+        };
+      }
+      if (fails > 0) {
+        return {
+          icon: "alertTriangle" as IconName,
+          tone: "warn",
+          text: `${fails} ${fails === 1 ? "thing needs" : "things need"} fixing before your application can move forward. Open “Where it stands” to see them.`,
+          target: "status" as StepKey,
+        };
+      }
+      if (state === "draft") {
+        return {
+          icon: "send" as IconName,
+          tone: "info",
+          text: "This application is still a draft. When your details are right, open “Send it in” and send it.",
+          target: (steps.some((s) => s.key === "send")
+            ? "send"
+            : "status") as StepKey,
+        };
+      }
+      if (canMove) {
+        return {
+          icon: "checkCircle" as IconName,
+          tone: "good",
+          text: "Everything looks good so far. You can send it now.",
+          target: "send" as StepKey,
+        };
+      }
+      if (reviews > 0 || notChecked > 0) {
+        const total = reviews + notChecked;
+        return {
+          icon: "eye" as IconName,
+          tone: "warn",
+          text: `${total} ${total === 1 ? "item still needs" : "items still need"} a person to confirm. Nothing is wrong — just waiting on a check.`,
+          target: "status" as StepKey,
+        };
+      }
+      return {
+        icon: "clock" as IconName,
+        tone: "info",
+        text: "Nothing is needed from you right now. We will update this page as soon as anything changes.",
+        target: null,
+      };
+    }
 
     if (fails > 0) {
       return {
@@ -269,7 +383,7 @@ export function CaseView({
       text: "Nothing is needed from you right now. This case is waiting for someone else.",
       target: null,
     };
-  }, [batch, detail]);
+  }, [batch, detail, isCollege, steps]);
 
   if (error && !detail) return <p className="error">{error}</p>;
   if (!detail)
@@ -301,7 +415,8 @@ export function CaseView({
         </div>
         {canEvaluate && (
           <button type="button" onClick={() => void evaluate()} disabled={busy}>
-            <Icon name="refresh" size={17} /> Check the rules again
+            <Icon name="refresh" size={17} />
+            {isCollege ? "Update my status" : "Check the rules again"}
           </button>
         )}
       </section>
@@ -365,6 +480,75 @@ export function CaseView({
             <Icon name="arrowRight" size={15} />
           </button>
         </div>
+      )}
+
+      {step === "status" && isCollege && (
+        <StatusTracker
+          state={application.current_state}
+          stateSince={detail.state_since}
+          batch={batch}
+          hasSendAction={available_transitions.some(
+            (option) =>
+              option.available &&
+              (option.action === "submit" || option.action === "resubmit"),
+          )}
+          onGoToDocuments={() => setStep("documents")}
+          onGoToSend={() => setStep("send")}
+        />
+      )}
+
+      {step === "send" && isCollege && (
+        <section className="panel">
+          <h2>Send it in</h2>
+          <p className="muted">
+            {application.current_state === "returned"
+              ? "Your fixes are ready to go back to the officer. Pressing this puts your case back in the review queue."
+              : "This sends your application to AICTE for review. You can still upload more documents afterwards."}
+          </p>
+
+          <div className="decision-list">
+            {available_transitions
+              .filter(
+                (option) =>
+                  option.action === "submit" || option.action === "resubmit",
+              )
+              .map((option) => (
+                <div
+                  key={option.action}
+                  className={option.available ? "decision" : "decision locked"}
+                >
+                  <div className="decision-top">
+                    <span className="decision-label">
+                      <Icon
+                        name={option.available ? actionIcon(option.action) : "lock"}
+                        size={19}
+                      />
+                      {plainAction(option.action)}
+                    </span>
+                    <button
+                      type="button"
+                      className={option.available ? "good" : "secondary"}
+                      disabled={busy || !option.available}
+                      onClick={() => void applyTransition(option)}
+                    >
+                      {option.available
+                        ? option.action === "resubmit"
+                          ? "Send it again"
+                          : "Send it now"
+                        : "Not yet"}
+                    </button>
+                  </div>
+                  {!option.available && option.blocked_by.length > 0 && (
+                    <ul className="blocked-list">
+                      {option.blocked_by.map((item) => (
+                        <li key={item}>{plainBlocked(item)}</li>
+                      ))}
+                    </ul>
+                  )}
+                </div>
+              ))}
+          </div>
+        </section>
       )}
 
       {step === "checks" && batch && (
