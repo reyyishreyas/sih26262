@@ -4,7 +4,16 @@ import hashlib
 import os
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from fastapi import (
+    APIRouter,
+    Depends,
+    File,
+    Form,
+    HTTPException,
+    Response,
+    UploadFile,
+    status,
+)
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -243,6 +252,91 @@ def upload_document(
             ),
         },
     }
+
+
+@router.get("/{document_id}/content")
+def download_document(
+    application_id: str,
+    document_id: str,
+    access: EffectiveAccess = Depends(require(DOCUMENT_READ)),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Serve the stored bytes for a document the caller is authorised to see.
+
+    Seeded demo rows point at ``seed://`` refs with no file on disk; for those a
+    one-page placeholder PDF is generated on the fly so the UI can always open
+    something real.
+    """
+    require_application(db, access, application_id)
+    document = db.get(Document, document_id)
+    if document is None or document.application_id != application_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found on this case")
+
+    storage_root = Path(get_settings().storage_dir).resolve()
+
+    if document.storage_ref.startswith("seed://"):
+        content = _placeholder_pdf(document)
+    else:
+        path = Path(document.storage_ref).resolve()
+        if storage_root not in path.parents:
+            raise HTTPException(status.HTTP_400_BAD_REQUEST, "invalid storage reference")
+        if not path.is_file():
+            raise HTTPException(
+                status.HTTP_410_GONE,
+                "the stored file is no longer available (retention may have removed it)",
+            )
+        content = path.read_bytes()
+
+    return Response(
+        content=content,
+        media_type=document.content_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": f'attachment; filename="{document.file_name}"',
+            "Content-Length": str(len(content)),
+            "X-Content-SHA256": document.file_sha256,
+        },
+    )
+
+
+def _placeholder_pdf(document: Document) -> bytes:
+    """A minimal valid single-page PDF used for seeded (non-file) demo documents."""
+    lines = [
+        "AICTE Approvals - demo document",
+        f"File: {document.file_name}",
+        f"Type: {document.doc_type}",
+        f"Version: {document.version}",
+        "This is placeholder evidence generated for the demo dataset.",
+        "Upload a real file on this case to replace it.",
+    ]
+    stream_lines = "BT /F1 12 Tf 50 780 Td 16 TL " + " ".join(
+        f"({line}) Tj T*" for line in lines
+    ) + " ET"
+    stream = stream_lines.encode("latin-1", "replace")
+
+    objects = [
+        b"<< /Type /Catalog /Pages 2 0 R >>",
+        b"<< /Type /Pages /Kids [3 0 R] /Count 1 >>",
+        b"<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] "
+        b"/Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>",
+        b"<< /Length " + str(len(stream)).encode() + b" >>\nstream\n" + stream + b"\nendstream",
+        b"<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>",
+    ]
+
+    out = bytearray(b"%PDF-1.4\n")
+    offsets = []
+    for index, body in enumerate(objects, start=1):
+        offsets.append(len(out))
+        out += f"{index} 0 obj\n".encode() + body + b"\nendobj\n"
+    xref_at = len(out)
+    out += f"xref\n0 {len(objects) + 1}\n".encode()
+    out += b"0000000000 65535 f \n"
+    for offset in offsets:
+        out += f"{offset:010d} 00000 n \n".encode()
+    out += (
+        f"trailer\n<< /Size {len(objects) + 1} /Root 1 0 R >>\n"
+        f"startxref\n{xref_at}\n%%EOF\n"
+    ).encode()
+    return bytes(out)
 
 
 @router.post("/{document_id}/fields/{field_id}/verify")

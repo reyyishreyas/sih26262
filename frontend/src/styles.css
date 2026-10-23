@@ -801,6 +801,10 @@ button.step .step-num {
 .doc-title { display: flex; align-items: center; gap: 0.45rem; }
 .doc-title svg { color: var(--accent); flex-shrink: 0; }
 
+/* View / Download buttons beside the document status pill */
+.doc-head-actions { display: flex; align-items: center; gap: 0.5rem; flex-shrink: 0; }
+.doc-head-actions .pill { margin-left: 0.25rem; }
+
 /* Blocking note + the missing/unverified input chips */
 .finding-block { display: flex; align-items: center; gap: 0.4rem; color: var(--bad); font-weight: 600; }
 .finding-inputs-grid { display: flex; flex-wrap: wrap; gap: 0.7rem; }
