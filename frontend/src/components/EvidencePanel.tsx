@@ -2,8 +2,11 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
 import type { DocumentRow } from "../types";
+import { useFileCheck } from "../useFileCheck";
+import { ACCEPT_ATTRIBUTE, MAX_UPLOAD_BYTES, formatBytes } from "../uploadCheck";
 import { Icon } from "./Icon";
 import {
+  docHelp,
   docTypeIcon,
   formatDateTime,
   humanize,
@@ -40,12 +43,16 @@ export function EvidencePanel({
 }) {
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [docType, setDocType] = useState<string>("lease_deed");
-  const [file, setFile] = useState<File | null>(null);
+  // Validates the chosen file from its head bytes the moment it is picked, so
+  // an oversized or unreadable file is caught before any upload starts.
+  const fileCheck = useFileCheck();
+  const { file } = fileCheck;
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [message, setMessage] = useState<string | null>(null);
   const [warning, setWarning] = useState<string | null>(null);
   const [busyDocId, setBusyDocId] = useState<string | null>(null);
+  const [showHelp, setShowHelp] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Open the stored file in a new tab, or save it locally. The bytes come from
@@ -101,6 +108,13 @@ export function EvidencePanel({
       setError("Please choose a file first.");
       return;
     }
+    // Never start an upload the browser already knows will be rejected — on a
+    // slow connection this is the difference between a 2-second warning and a
+    // 5-minute wait that ends in a server error.
+    if (fileCheck.check && !fileCheck.check.ok) {
+      setError(fileCheck.check.message ?? "This file cannot be uploaded.");
+      return;
+    }
     setBusy(true);
     setError(null);
     setMessage(null);
@@ -118,7 +132,7 @@ export function EvidencePanel({
           `Please check each one below and mark it correct or wrong.`,
       );
       formRef.current?.reset();
-      setFile(null);
+      fileCheck.clear();
       await load();
       onEvidenceChanged();
     } catch (cause) {
@@ -174,7 +188,13 @@ export function EvidencePanel({
         <form ref={formRef} className="upload-box" onSubmit={upload}>
           <label className="field">
             <span>1. What kind of document is it?</span>
-            <select value={docType} onChange={(event) => setDocType(event.target.value)}>
+            <select
+              value={docType}
+              onChange={(event) => {
+                setDocType(event.target.value);
+                setShowHelp(false);
+              }}
+            >
               {DOC_TYPES.map(([value, label]) => (
                 <option key={value} value={value}>
                   {label}
@@ -182,21 +202,81 @@ export function EvidencePanel({
               ))}
             </select>
           </label>
+
+          {(() => {
+            const help = docHelp(docType);
+            if (!help) return null;
+            return (
+              <div className="doc-help">
+                <button
+                  type="button"
+                  className="doc-help-toggle"
+                  aria-expanded={showHelp}
+                  onClick={() => setShowHelp((v) => !v)}
+                >
+                  <Icon name="info" size={15} />
+                  {showHelp
+                    ? "Hide what this document needs"
+                    : "What does this document need to show?"}
+                </button>
+                {showHelp && (
+                  <div className="doc-help-body">
+                    <p>
+                      <strong>What it is:</strong> {help.what}
+                    </p>
+                    <p>
+                      <strong>What it must show:</strong> {help.must}
+                    </p>
+                    <p>
+                      <strong>Most common reason it is sent back:</strong>{" "}
+                      {help.watch}
+                    </p>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
           <label className="field">
             <span>2. Choose the file from your computer</span>
             <input
               type="file"
-              accept="application/pdf,image/png,image/jpeg"
-              onChange={(event) => setFile(event.target.files?.[0] ?? null)}
+              accept={ACCEPT_ATTRIBUTE}
+              onChange={(event) => fileCheck.pick(event.target.files?.[0] ?? null)}
             />
           </label>
-          <button type="submit" disabled={busy || !file}>
+
+          {fileCheck.reading && (
+            <p className="tiny muted">
+              <span className="spinner" /> Checking the file…
+            </p>
+          )}
+
+          {!fileCheck.reading && fileCheck.check && (
+            <p
+              className={fileCheck.check.ok ? "message" : "warning"}
+              role={fileCheck.check.ok ? "status" : "alert"}
+            >
+              <Icon
+                name={fileCheck.check.ok ? "checkCircle" : "alertTriangle"}
+                size={16}
+              />
+              {fileCheck.check.ok && file
+                ? `Ready to upload — ${file.name} (${formatBytes(file.size)}).`
+                : (fileCheck.check.message ?? "")}
+            </p>
+          )}
+
+          <button
+            type="submit"
+            disabled={busy || !file || (fileCheck.check !== null && !fileCheck.check.ok)}
+          >
             <Icon name="upload" size={17} />
             {busy ? "Uploading…" : "Upload this file"}
           </button>
           <p className="tiny muted">
-            This demo does not really read the file — it shows example details so you
-            can try the checking process.
+            PDF, PNG or JPEG up to {formatBytes(MAX_UPLOAD_BYTES)}. The file is
+            checked in your browser first, so a wrong or oversized file is caught
+            straight away — nothing is sent until it passes.
           </p>
         </form>
       )}

@@ -191,6 +191,34 @@ export function CaseView({
     return list;
   }, [canRehearse, canAudit, detail, hasVisits]);
 
+  // Which steps are already "done", so the stepper reads like a progress bar
+  // with a satisfying tick rather than a flat row of tabs. Derived from data we
+  // already have — no extra requests.
+  const stepDone = useMemo(() => {
+    const done = new Set<StepKey>();
+    if (batch && batch.findings.every((f) => f.outcome !== "NOT_EVALUATED"))
+      done.add("checks");
+    if ((detail?.evidence_paths.length ?? 0) > 0) done.add("documents");
+    if (hasVisits) done.add("evc");
+    if (
+      detail &&
+      (detail.application.current_state === "approved" ||
+        detail.application.current_state === "rejected")
+    )
+      done.add("decision");
+    return done;
+  }, [batch, detail, hasVisits]);
+
+  // The next step a person should visit, used for the "Continue" affordance
+  // that nudges a nervous user forward one step at a time.
+  const nextStep = useMemo<StepKey | null>(() => {
+    const index = steps.findIndex((s) => s.key === step);
+    for (let i = index + 1; i < steps.length; i += 1) {
+      if (!stepDone.has(steps[i].key)) return steps[i].key;
+    }
+    return null;
+  }, [steps, step, stepDone]);
+
   // Plain-language "what should I do next?" advice.
   const guidance = useMemo(() => {
     if (!detail || !batch) return null;
@@ -300,20 +328,44 @@ export function CaseView({
       {message && <p className="message">{message}</p>}
 
       <div className="steps" role="tablist" aria-label="Case steps">
-        {steps.map((item, index) => (
-          <button
-            key={item.key}
-            type="button"
-            role="tab"
-            aria-selected={step === item.key}
-            className={step === item.key ? "step active" : "step"}
-            onClick={() => setStep(item.key)}
-          >
-            <span className="step-num">{index + 1}.</span>
-            {item.label}
-          </button>
-        ))}
+        {steps.map((item, index) => {
+          const done = stepDone.has(item.key);
+          const isActive = step === item.key;
+          return (
+            <button
+              key={item.key}
+              type="button"
+              role="tab"
+              aria-selected={isActive}
+              aria-label={`${item.label}${done ? " — done" : ""}`}
+              className={
+                isActive ? "step active" : done ? "step done" : "step"
+              }
+              onClick={() => setStep(item.key)}
+            >
+              {done && !isActive ? (
+                <Icon name="checkCircle" size={15} />
+              ) : (
+                <span className="step-num">{index + 1}.</span>
+              )}
+              {item.label}
+            </button>
+          );
+        })}
       </div>
+
+      {nextStep && (
+        <div className="step-next">
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => setStep(nextStep)}
+          >
+            Continue to “{steps.find((s) => s.key === nextStep)?.label}”{" "}
+            <Icon name="arrowRight" size={15} />
+          </button>
+        </div>
+      )}
 
       {step === "checks" && batch && (
         <FindingsTable batch={batch} onGoToDocuments={() => setStep("documents")} />

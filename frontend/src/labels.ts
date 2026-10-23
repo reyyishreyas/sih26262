@@ -245,6 +245,52 @@ export function docTypeIcon(docType: string): IconName {
   return "fileText";
 }
 
+/**
+ * Plain-language help for each document type, written for a college clerk who
+ * has never read the Approval Process Handbook. Each entry answers the three
+ * questions a nervous uploader actually has: what is it, what must it show, and
+ * what usually goes wrong.
+ */
+const DOC_HELP: Record<string, { what: string; must: string; watch: string }> = {
+  lease_deed: {
+    what: "The written agreement that the college rents its campus or building.",
+    must: "It must be registered, name the college as the tenant, and stay valid for the whole academic year you are applying for.",
+    watch: "A lease that ends mid-year, or one that is only notarised and not registered, will be sent back.",
+  },
+  ownership_record: {
+    what: "The document that proves who owns the land or building.",
+    must: "It must name the same person or body that signed the lease, and give the total land area.",
+    watch: "If the owner's name differs from the lease, the two cannot be matched and the case is held.",
+  },
+  affidavit: {
+    what: "A signed declaration by the college head confirming the details are true.",
+    must: "It must be signed, dated, and on stamp paper where your state requires it.",
+    watch: "An unsigned or undated affidavit is treated as missing.",
+  },
+  fire_safety_certificate: {
+    what: "The fire department's certificate that the building is safe.",
+    must: "It must be issued by the local fire authority and still be within its validity period.",
+    watch: "An expired certificate, or one from a private body instead of the fire department, is not accepted.",
+  },
+  faculty_list: {
+    what: "The list of teachers currently working at the college.",
+    must: "It must show each teacher's name, subject, and qualification.",
+    watch: "A list without qualifications, or with posts listed but no names, will be queried.",
+  },
+  other: {
+    what: "Any supporting paper that does not fit the categories above.",
+    must: "It should be clear, complete, and directly related to your application.",
+    watch: "Blurry scans and half-pages are the most common reason a document is sent back.",
+  },
+};
+
+/** Returns the plain-language help card for a document type, if we have one. */
+export function docHelp(
+  docType: string,
+): { what: string; must: string; watch: string } | null {
+  return DOC_HELP[docType] ?? null;
+}
+
 // ---------------------------------------------------------------------------
 // Verification / task / alert statuses
 // ---------------------------------------------------------------------------
