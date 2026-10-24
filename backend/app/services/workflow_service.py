@@ -33,6 +33,7 @@ from ..models import (
 )
 from . import audit_service, compliance_service
 from .authorization_service import EffectiveAccess, can_access_application
+from .case_assignment_service import assign_next_actors
 from .evidence_service import build_snapshot
 from .rule_engine import RuleEvaluationResult, RuleOutcome
 
@@ -262,6 +263,11 @@ def request_transition(
             created_at=now,
         )
     )
+    # Hand the case to whoever the route says acts from the new state, in the
+    # same transaction as the move itself. Without this a case is in nobody's
+    # queue, and an officer whose scope is "assigned cases" cannot see it at
+    # all — the College would submit and the reviewer would see nothing.
+    assign_next_actors(db, application)
     event = audit_service.AuditService(db).append(
         action=f"workflow.{action}",
         entity_type="application",
