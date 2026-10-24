@@ -44,8 +44,8 @@ The **Evidence & extraction** panel shows, for every document version:
 
 Each extracted field carries its value, the page it came from, the extraction
 method, a confidence figure and its verification status. The panel is labelled
-**mock OCR**: the extractor does not read the uploaded bytes, it returns canned
-values for the chosen document type and marks the result `simulated: true`.
+**Reads your file**: the extractor opens the PDF (or OCRs it when it is a scan),
+reads only the values the document states and marks every one `unverified`.
 
 **Expected:** the evidence response marks field verification status, and the source
 page is carried through to findings.
@@ -198,7 +198,10 @@ immutability.
 
 ## What the journey deliberately does not claim
 
-- No real OCR. Uploaded bytes are not read; values are canned and marked simulated.
+- No *trusted* OCR. The bytes are really read (pypdf text layer, Tesseract OCR for
+  scans and photos), but a read is a first guess: every value is `unverified` until a
+  person confirms it, dates that cannot be normalised are dropped rather than
+  guessed, and confidence never decides an outcome.
 - No real notification. A JSON line is appended to `storage/notifications.log`.
 - No Load Factor. The field is null.
 - No historical replay. The timeline is chronological, not a reconstruction.

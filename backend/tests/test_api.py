@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from pdf_factory import lease_deed_pdf
+
 
 def test_login_returns_token_roles_and_scope(client):
     response = client.post(
@@ -136,24 +138,48 @@ def test_accepted_transition_through_the_api(client, as_user):
     assert case["application"]["current_state"] == "approved"
 
 
-def test_document_upload_marks_extraction_as_simulated(client, as_user):
+def test_document_upload_reads_values_from_the_uploaded_file(client, as_user):
     headers = as_user("institution@demo.local")
     response = client.post(
         "/api/v1/applications/app-draft-0004/documents",
         headers=headers,
         data={"doc_type": "lease_deed"},
-        files={"file": ("lease.pdf", b"%PDF-1.4 fake demo bytes", "application/pdf")},
+        files={"file": ("lease.pdf", lease_deed_pdf(), "application/pdf")},
     )
     assert response.status_code == 201
     body = response.json()
-    assert body["extraction"]["simulated"] is True
-    assert body["extraction"]["fields_extracted"] > 0
+    assert body["extraction"]["simulated"] is False
+    assert body["extraction"]["fields_extracted"] == 5
+
+    values = {
+        field["field_name"]: field["value"] for field in body["document"]["fields"]
+    }
+    # Dates are normalised to ISO because the rule engine compares them as
+    # plain strings against application.cycle_end.
+    assert values["valid_to"] == "2028-03-31"
+    assert values["valid_from"] == "2026-04-01"
+    assert values["lessee_name"] == "Example Institute of Technology"
     assert body["document"]["fields"][0]["verification_status"] == "unverified"
 
     documents = client.get(
         "/api/v1/applications/app-draft-0004/documents", headers=headers
     ).json()
     assert len(documents) == 1
+
+
+def test_an_unreadable_file_is_accepted_with_an_honest_warning(client, as_user):
+    """A corrupt PDF must not 500: the file is stored and nothing is claimed."""
+    response = client.post(
+        "/api/v1/applications/app-draft-0004/documents",
+        headers=as_user("institution@demo.local"),
+        data={"doc_type": "lease_deed"},
+        files={"file": ("broken.pdf", b"%PDF-1.4 fake demo bytes", "application/pdf")},
+    )
+    assert response.status_code == 201
+    body = response.json()
+    assert body["extraction"]["fields_extracted"] == 0
+    assert body["document"]["fields"] == []
+    assert any("could not be opened" in w for w in body["extraction"]["warnings"])
 
 
 def test_document_upload_rejects_unsupported_types(client, as_user):

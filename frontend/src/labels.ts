@@ -307,6 +307,25 @@ export function verificationTone(status: string): string {
   return "warn";
 }
 
+/**
+ * How a value was read, in plain words. A value read out of the file's own
+ * text is far more reliable than one read by OCR off a scan, and a checker
+ * should be able to see that difference before deciding.
+ */
+export function plainMethod(method: string): string {
+  if (method === "pdf_text") return "Read from the file's own text";
+  if (method === "ocr") return "Scanned from the picture";
+  if (method === "mock_ocr") return "Demo reader — not read from the file";
+  if (method === "seed") return "Made up for the demo";
+  return humanize(method);
+}
+
+export function methodTone(method: string): string {
+  if (method === "pdf_text") return "good";
+  if (method === "ocr") return "active";
+  return "warn";
+}
+
 export function plainUndertakingStatus(status: string): string {
   if (status === "pending") return "Waiting";
   if (status === "submitted") return "Submitted — needs a check";

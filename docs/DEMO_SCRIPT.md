@@ -86,11 +86,17 @@ be `NEEDS_REVIEW`, never a pass.
 Switch to **`institution@demo.local`**, open `app-main-0001`, and use the **Evidence
 & extraction** panel:
 
-- **Upload new version**, document type `Affidavit`, pick any small PDF.
-- The panel says *mock OCR*: the extractor does not read the file, it returns canned
-  fields for the chosen type and marks the result `simulated: true`.
-- Each extracted row shows value, source page, method, confidence and
-  `unverified`.
+- **Upload new version**, document type `Affidavit`, pick any small PDF that really
+  contains an institution name, an AICTE id and a swearing date.
+- The panel says *Reads your file*: the extractor opens the PDF, reads its text (or
+  OCRs it when it is a scan) and returns only the values the document actually
+  states, each marked `unverified`.
+- Each extracted row shows value, source page, method ("Read from the file's own
+  text" or "Scanned from the picture"), confidence and `unverified`.
+
+**Stronger still:** upload a photo of a printed page. The pages are rendered and read
+with Tesseract, and the noise in the read is exactly why the values stay unverified
+until a person confirms them.
 
 Switch back to **`scrutiny@demo.local`** and click **Verify** on a field.
 
@@ -201,8 +207,10 @@ Three sentences:
    share one deterministic rule engine and one clock.
 2. **The crash-test** — finding-level diff against the same immutable rule versions,
    with `production_modified: false` and no invented Load Factor.
-3. **Honest boundaries** — mock OCR and notifications, synthetic data, seven rules
-   pending clause verification, no historical replay, no production deployment.
+3. **Honest boundaries** — notifications are delivered to a log file, synthetic data,
+   seven rules pending clause verification, no historical replay, no production
+   deployment. Documents *are* really read (pypdf + Tesseract OCR), but a read is
+   never evidence until a person confirms it.
 
 ---
 

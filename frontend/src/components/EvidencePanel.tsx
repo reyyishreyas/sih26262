@@ -10,7 +10,9 @@ import {
   docTypeIcon,
   formatDateTime,
   humanize,
+  methodTone,
   plainDocType,
+  plainMethod,
   plainVerification,
   verificationTone,
 } from "../labels";
@@ -53,6 +55,10 @@ export function EvidencePanel({
   const [warning, setWarning] = useState<string | null>(null);
   const [busyDocId, setBusyDocId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  // Which reader the server actually used on the last upload. "Demo reader"
+  // returns canned values and never opens the file, so it must never be
+  // presented as if the file had been read.
+  const [lastReader, setLastReader] = useState<"real" | "demo" | null>(null);
   const formRef = useRef<HTMLFormElement>(null);
 
   // Open the stored file in a new tab, or save it locally. The bytes come from
@@ -122,14 +128,20 @@ export function EvidencePanel({
     try {
       const result = await api.uploadDocument(applicationId, docType, file);
       const duplicate = result.duplicate_of_another_institution;
+      setLastReader(result.extraction.simulated ? "demo" : "real");
       setWarning(
         duplicate.found
           ? `Careful — the exact same file was already used by another college (${duplicate.institution_id}). ${duplicate.note ?? ""}`
-          : null,
+          : (result.extraction.warnings.join(" ") || null),
       );
       setMessage(
-        `Uploaded! I found ${result.extraction.fields_extracted} detail(s) in the file. ` +
-          `Please check each one below and mark it correct or wrong.`,
+        result.extraction.fields_extracted > 0
+          ? `Uploaded! I read ${result.extraction.fields_extracted} detail(s) ` +
+              `straight out of your file. Please check each one below and mark it ` +
+              `correct or wrong — until you do, they are only a first guess.`
+          : "Uploaded, but I could not read any details out of this file. " +
+              "A checker will read it by hand. If it is a photo or a scan, a " +
+              "clearer copy usually helps.",
       );
       formRef.current?.reset();
       fileCheck.clear();
@@ -177,7 +189,18 @@ export function EvidencePanel({
             <strong>wrong</strong>.
           </p>
         </div>
-        <span className="pill">Demo reader</span>
+        <span
+          className={
+            lastReader === "demo" ? "pill warn" : "pill active"
+          }
+          title={
+            lastReader === "demo"
+              ? "The demo reader returns canned values and never opens the file."
+              : "Values are read out of the uploaded file itself."
+          }
+        >
+          {lastReader === "demo" ? "Demo reader — file not read" : "Reads your file"}
+        </span>
       </div>
 
       {error && <p className="error">{error}</p>}
@@ -334,6 +357,11 @@ export function EvidencePanel({
                   <span className="tiny muted">
                     Read from page {field.source_page ?? "?"} ·{" "}
                     {Math.round(field.confidence * 100)}% sure
+                  </span>
+                  <span className="tiny">
+                    <span className={`pill small ${methodTone(field.method)}`}>
+                      {plainMethod(field.method)}
+                    </span>
                   </span>
                 </div>
                 <div className="field-actions">

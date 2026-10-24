@@ -18,7 +18,6 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..adapters.malware import MalwareDetected, MalwareScannerError
-from ..adapters.ocr.mock import MockOCRExtractor
 from ..core.clock import get_clock
 from ..core.config import get_settings
 from ..core.context import current_request_id
@@ -26,7 +25,7 @@ from ..core.db import get_db
 from ..core.permissions import DOCUMENT_READ, DOCUMENT_UPLOAD, DOCUMENT_VERIFY
 from ..models import Document, ExtractedField
 from ..schemas.api import DocumentOut, VerifyFieldRequest
-from ..services import malware_service
+from ..services import malware_service, ocr_service
 from ..services.audit_service import AuditService
 from ..services.authorization_service import (
     EffectiveAccess,
@@ -43,7 +42,6 @@ from ..services.upload_validation import (
 from .deps import require
 
 router = APIRouter(prefix="/applications/{application_id}/documents", tags=["documents"])
-_ocr = MockOCRExtractor()
 
 
 @router.get("", response_model=list[DocumentOut])
@@ -159,7 +157,7 @@ def upload_document(
         or 0
     ) + 1
 
-    extraction = _ocr.extract(
+    extraction = ocr_service.get_ocr_extractor().extract(
         doc_type=doc_type, content=content, file_name=filename
     )
 
@@ -230,7 +228,17 @@ def upload_document(
             "simulated": extraction.simulated,
             "warnings": extraction.warnings,
             "fields_extracted": len(extraction.fields),
-            "note": "Mock extractor: values are canned per document type, not read from the file.",
+            "note": (
+                "Demo reader: values are canned per document type, not read "
+                "from the file."
+                if extraction.simulated
+                else (
+                    "Values were read from the uploaded file. Every one is "
+                    "unverified until a checker confirms it."
+                    if extraction.fields
+                    else "Nothing readable was found in this file."
+                )
+            ),
         },
         "malware_scan": {
             "engine": malware_result.engine,
