@@ -79,9 +79,12 @@ async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
       body && typeof body === "object" && "code" in body
         ? String((body as { code: unknown }).code)
         : undefined;
-    // A rejected token means the session cannot be used any more. Drop it and let
-    // the app fall back to the sign-in screen instead of showing an empty case list.
-    if (response.status === 401) {
+    // A rejected *stored token* means the session cannot be used any more.
+    // Drop it and let the app fall back to the sign-in screen instead of
+    // showing an empty case list. A 401 on the login request itself has no
+    // token attached — that is a wrong email/password, not an expired
+    // session, and saying "your session ended" there would confuse people.
+    if (response.status === 401 && token) {
       clearSession();
       window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
     }

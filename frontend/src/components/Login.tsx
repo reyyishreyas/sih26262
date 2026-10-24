@@ -8,7 +8,9 @@ import type { IconName } from "./Icon";
  * Two kinds of people use this system:
  *   1. The college (the "user") — submits applications and paperwork.
  *   2. The checker (the officer) — reviews, checks and decides.
- * The sign-in screen asks only that one question.
+ * The sign-in screen asks only that one question. Both logins are real
+ * forms: nothing is signed in until the email and password are typed and
+ * the server accepts them.
  */
 
 const OFFICERS = [
@@ -46,23 +48,31 @@ const OFFICERS = [
 
 export const DEMO_PASSWORD = "DemoPassw0rd!";
 
-/** The two doors into the system, with the demo login shown on each card. */
+/** The two doors into the system, each with its own login form. */
 const PERSONAS = [
   {
     key: "college",
-    email: "institution@demo.local",
     icon: "building" as IconName,
     name: "College",
     desc: "I send in my application and documents",
+    hintEmail: "institution@demo.local",
   },
   {
     key: "checker",
-    email: "scrutiny@demo.local",
     icon: "userCheck" as IconName,
     name: "Checker",
     desc: "I review, verify and approve applications",
+    hintEmail: "scrutiny@demo.local",
   },
 ] as const;
+
+type PersonaKey = (typeof PERSONAS)[number]["key"];
+type Credentials = { email: string; password: string };
+
+const EMPTY_FORMS: Record<PersonaKey, Credentials> = {
+  college: { email: "", password: "" },
+  checker: { email: "", password: "" },
+};
 
 export function Login({
   onSignedIn,
@@ -71,24 +81,112 @@ export function Login({
   onSignedIn: (user: SessionUser) => void;
   notice?: string | null;
 }) {
-  // "roles" opens the secondary list of checker roles; the main screen itself
-  // is always the two cards below, credentials and all.
+  // "roles" lets a checker pick which officer account they are; it fills the
+  // email field of the checker form rather than signing in on its own.
   const [view, setView] = useState<"main" | "roles">("main");
+  const [forms, setForms] = useState<Record<PersonaKey, Credentials>>(EMPTY_FORMS);
   const [error, setError] = useState<string | null>(null);
-  const [busy, setBusy] = useState<string | null>(null);
+  const [busy, setBusy] = useState<PersonaKey | null>(null);
 
-  async function pick(email: string, who: string) {
-    setBusy(who);
+  function update(key: PersonaKey, field: keyof Credentials, value: string) {
+    setForms((current) => ({
+      ...current,
+      [key]: { ...current[key], [field]: value },
+    }));
+    // The message belongs to what was typed before; typing clears it.
+    setError(null);
+  }
+
+  async function signIn(key: PersonaKey) {
+    const { email, password } = forms[key];
+    const trimmedEmail = email.trim();
+
+    // Empty fields never reach the server — the form has to be filled in.
+    if (!trimmedEmail || !password) {
+      setError("Fill in both the email and the password to sign in.");
+      return;
+    }
+
+    setBusy(key);
     setError(null);
     try {
-      onSignedIn(await login(email, DEMO_PASSWORD));
+      onSignedIn(await login(trimmedEmail, password));
     } catch (cause) {
-      setError(
-        cause instanceof ApiError ? cause.message : "Sign-in failed. Please try again.",
-      );
+      if (cause instanceof ApiError && cause.status === 401) {
+        setError("That email and password do not match. Check them and try again.");
+      } else {
+        setError(
+          cause instanceof ApiError
+            ? cause.message
+            : "Sign-in failed. Please try again.",
+        );
+      }
     } finally {
       setBusy(null);
     }
+  }
+
+  function formFor(key: PersonaKey, persona: (typeof PERSONAS)[number]) {
+    const { email, password } = forms[key];
+    const ready = email.trim().length > 0 && password.length > 0;
+    const busyHere = busy === key;
+
+    return (
+      <form
+        key={key}
+        className={`persona-card persona-${key}`}
+        onSubmit={(event) => {
+          event.preventDefault();
+          void signIn(key);
+        }}
+      >
+        <span className="persona-icon" aria-hidden>
+          <Icon name={persona.icon} size={30} />
+        </span>
+        <span className="persona-name">I am the {persona.name}</span>
+        <span className="persona-desc">{persona.desc}</span>
+
+        <label className="login-field">
+          <span className="credential-label">Email</span>
+          <input
+            type="email"
+            name="email"
+            autoComplete="username"
+            placeholder={persona.hintEmail}
+            value={email}
+            disabled={busy !== null}
+            onChange={(event) => update(key, "email", event.target.value)}
+          />
+        </label>
+
+        <label className="login-field">
+          <span className="credential-label">Password</span>
+          <input
+            type="password"
+            name="password"
+            autoComplete="current-password"
+            placeholder="Your password"
+            value={password}
+            disabled={busy !== null}
+            onChange={(event) => update(key, "password", event.target.value)}
+          />
+        </label>
+
+        <button
+          type="submit"
+          className="persona-cta"
+          disabled={busy !== null || !ready}
+          title={
+            ready
+              ? `Sign in as ${persona.name}`
+              : "Type the email and password first"
+          }
+        >
+          {busyHere ? "Signing in…" : `Sign in as ${persona.name}`}
+          {!busyHere && ready && <Icon name="arrowRight" size={16} />}
+        </button>
+      </form>
+    );
   }
 
   return (
@@ -102,46 +200,22 @@ export function Login({
         {view === "main" && (
           <>
             <p className="login-sub">
-              Who are you? Tap your panel — the demo login is on it, so one tap
-              signs you in.
+              Who are you? Type your email and password, then sign in.
             </p>
 
             {notice && <p className="message">{notice}</p>}
-            {error && <p className="error">{error}</p>}
+            {error && <p className="error" role="alert">{error}</p>}
 
             <div className="persona-grid">
-              {PERSONAS.map((persona) => (
-                <button
-                  key={persona.key}
-                  type="button"
-                  className={`persona-card persona-${persona.key}`}
-                  disabled={busy !== null}
-                  onClick={() => void pick(persona.email, persona.key)}
-                >
-                  <span className="persona-icon" aria-hidden>
-                    <Icon name={persona.icon} size={30} />
-                  </span>
-                  <span className="persona-name">I am the {persona.name}</span>
-                  <span className="persona-desc">{persona.desc}</span>
-                  <span className="persona-credentials" title="Demo login — one tap signs you in">
-                    <span className="credential-row">
-                      <span className="credential-label">Email</span>
-                      <span className="credential-value">{persona.email}</span>
-                    </span>
-                    <span className="credential-row">
-                      <span className="credential-label">Password</span>
-                      <span className="credential-value">{DEMO_PASSWORD}</span>
-                    </span>
-                  </span>
-                  <span className="persona-cta">
-                    {busy === persona.key
-                      ? "Signing in…"
-                      : `Sign in as ${persona.name}`}
-                    {busy !== persona.key && <Icon name="arrowRight" size={16} />}
-                  </span>
-                </button>
-              ))}
+              {PERSONAS.map((persona) => formFor(persona.key, persona))}
             </div>
+
+            <p className="note demo-credentials">
+              Demo accounts — College:{" "}
+              <code>institution@demo.local</code> · Checker:{" "}
+              <code>scrutiny@demo.local</code> · password{" "}
+              <code>{DEMO_PASSWORD}</code>
+            </p>
 
             <button
               type="button"
@@ -157,7 +231,7 @@ export function Login({
         {view === "roles" && (
           <>
             <p className="login-sub">Which checker are you?</p>
-            {error && <p className="error">{error}</p>}
+            {error && <p className="error" role="alert">{error}</p>}
             <div className="role-grid">
               {OFFICERS.map((role) => (
                 <button
@@ -165,19 +239,22 @@ export function Login({
                   type="button"
                   className="role-card"
                   disabled={busy !== null}
-                  onClick={() => void pick(role.email, role.email)}
+                  onClick={() => {
+                    // Fill the checker form with this role's email and send
+                    // the person back to type the password themselves.
+                    setForms((current) => ({
+                      ...current,
+                      checker: { email: role.email, password: "" },
+                    }));
+                    setError(null);
+                    setView("main");
+                  }}
                 >
                   <span className="role-icon" aria-hidden>
-                    {busy === role.email ? (
-                      <span className="spinner" />
-                    ) : (
-                      <Icon name={role.icon} size={24} />
-                    )}
+                    <Icon name={role.icon} size={24} />
                   </span>
                   <span className="role-name">{role.name}</span>
-                  <span className="role-desc">
-                    {busy === role.email ? "Signing in…" : role.desc}
-                  </span>
+                  <span className="role-desc">{role.desc}</span>
                   <span className="role-email">{role.email}</span>
                 </button>
               ))}
@@ -187,7 +264,7 @@ export function Login({
               className="link back-link"
               onClick={() => setView("main")}
             >
-              <Icon name="arrowLeft" size={14} /> Back to the two panels
+              <Icon name="arrowLeft" size={14} /> Back to the login forms
             </button>
           </>
         )}

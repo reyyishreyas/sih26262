@@ -348,31 +348,60 @@ details.tech[open] summary { margin-bottom: 0.4rem; }
 .persona-cta {
   display: inline-flex;
   align-items: center;
+  justify-content: center;
   gap: 0.35rem;
   font-size: 0.9rem;
   font-weight: 700;
   margin-top: 0.5rem;
   color: var(--accent);
+  /* It is a real submit button now, so reset the browser chrome. */
+  border: none;
+  border-radius: 10px;
+  padding: 0.6rem 0.9rem;
+  background: var(--accent-soft);
+  cursor: pointer;
+  transition: filter 0.15s ease, opacity 0.15s ease;
 }
-.persona-college .persona-cta { color: var(--good); }
+.persona-cta:hover:not(:disabled) { filter: brightness(0.96); }
+.persona-cta:disabled { cursor: not-allowed; opacity: 0.55; }
+.persona-cta:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+.persona-college .persona-cta { color: var(--good); background: var(--good-soft); }
+.persona-college .persona-cta:hover:not(:disabled) { filter: brightness(0.96); }
+.persona-college .persona-cta:focus-visible { outline-color: var(--good); }
 
 /* The demo login printed on each panel — no typing needed, one tap signs in. */
-.persona-credentials {
+.login-field {
   display: grid;
   gap: 0.25rem;
   width: 100%;
-  margin-top: 0.55rem;
-  padding: 0.55rem 0.6rem;
-  border-radius: 12px;
-  background: var(--bg);
-  border: 1px dashed var(--line);
   text-align: left;
 }
-.credential-row {
-  display: flex;
-  align-items: baseline;
-  justify-content: space-between;
-  gap: 0.5rem;
+.login-field input {
+  width: 100%;
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  border: 1.5px solid var(--line);
+  background: var(--bg);
+  color: var(--text);
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.login-field input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.login-field input:disabled { opacity: 0.6; }
+.persona-college .login-field input:focus { border-color: var(--good); }
+.demo-credentials code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.8rem;
+  background: var(--bg);
+  border: 1px dashed var(--line);
+  border-radius: 6px;
+  padding: 0.05rem 0.3rem;
 }
 .credential-label {
   font-size: 0.68rem;
@@ -380,13 +409,6 @@ details.tech[open] summary { margin-bottom: 0.4rem; }
   text-transform: uppercase;
   letter-spacing: 0.04em;
   color: var(--muted);
-}
-.credential-value {
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
-  font-size: 0.78rem;
-  color: var(--text);
-  word-break: break-all;
-  text-align: right;
 }
 
 .role-grid {
