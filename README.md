@@ -25,7 +25,7 @@ application being written to.
 | Approval Rehearsal Engine | **Implemented (prototype)** | Read-only baseline, copied snapshot, simulation-only writes, explicit `production_modified: false` |
 | Rehearsal isolation in PostgreSQL | **Implemented and verified** | Four least-privilege roles; simulation tables in their own schema; proved by `make verify-isolation` |
 | Rehearsal Load Factor | **Deliberately null** | Formula, units, edge cases and test matrix are not validated |
-| Document upload + extraction | **Implemented with a mock adapter** | The mock does not read the file; values are canned and marked `simulated: true` |
+| Document upload + extraction | **Implemented** | Real reader: pypdf text layer, Tesseract OCR for scans and photos. Values are unverified until a human confirms them; a mock reader stays selectable for tests |
 | Evidence verification | **Implemented** | Per-field verify/reject, audited, bumps the baseline version and invalidates stale batches |
 | Undertakings | **Implemented** | Submit and verify, due dates, overdue flag, feeds the alert scheduler |
 | LLM evidence explanations | **Not wired** | Interface exists (`app/adapters/llm`); no model is called |

@@ -212,6 +212,14 @@ textarea { font-family: ui-monospace, Menlo, monospace; font-size: 0.86rem; }
 .pill.warn { background: var(--warn-soft); color: var(--warn); border-color: rgba(163, 90, 0, 0.3); }
 .pill.active { background: var(--accent-soft); color: var(--accent); border-color: rgba(18, 87, 196, 0.3); }
 .pill.waiting { background: var(--neutral-soft); color: var(--neutral); }
+/* A quieter pill for inline provenance labels ("read from the file's own
+   text"), which sit inside small print and must not shout. */
+.pill.small {
+  font-size: 0.72rem;
+  font-weight: 600;
+  padding: 0.1rem 0.5rem;
+  border-width: 1px;
+}
 .pill.draft { background: var(--neutral-soft); color: var(--neutral); border-style: dashed; border-color: var(--neutral); }
 
 /* Outcome pills (compliance results) */

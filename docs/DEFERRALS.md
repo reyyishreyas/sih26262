@@ -49,7 +49,7 @@ exercised**.
 | Audit chain | SHA-256 chain, head lock, verification endpoint, tamper tests | Tamper-evident, not tamper-proof against full DB access; no external anchor |
 | Deadlines | Deterministic clock, idempotent sweep, dedupe keys, retries, escalation ladder | Worker polls; no broker; no back-pressure |
 | Monitoring | Server-enforced scope shared with drill-downs, live counts | No scheduler-driven SLA forecasting; no capacity model |
-| Evidence | Source page/span, confidence, verification status, audited verification, versioned uploads | Extraction is canned; confidence does not decide anything |
+| Evidence | Source page/span, confidence, verification status, audited verification, versioned uploads | Real pypdf/Tesseract extraction with per-label provenance, but a narrow label grammar — unlabelled values are not read; confidence does not decide anything |
 | Rules | Allowlisted grammar, three-valued logic, immutable approved versions, seven rules | Clause mapping pending; no full APH coverage |
 | Security | Server-side RBAC + scope, 404 for out-of-scope, PBKDF2 passwords, JWT issuer/audience, persisted login throttling, password-change token invalidation, least-privilege database roles, upload signature checks, security headers | No MFA/SSO, no password reset, no penetration test, no malware scan, no external secret manager integration; the development secret must be replaced |
 

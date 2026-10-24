@@ -27,20 +27,35 @@ upload ──► extractor ──► field candidates ──► human verificati
    produce `NEEDS_REVIEW`; absent values produce the rule's declared missing
    outcome.
 
-## The mock, stated plainly
+## The reader, stated plainly
 
-`backend/app/adapters/ocr/mock.py`:
+`backend/app/adapters/ocr/real.py` (the default, `SIH_OCR_ENGINE=real`):
+
+- reads a PDF's own text layer with **pypdf** when one exists — the reliable path;
+- when a PDF has no text layer (a scan), renders each page with **pypdfium2** and
+  reads it with **Tesseract OCR**; uploaded PNG/JPEG/TIFF/BMP photos go straight to
+  OCR;
+- emits a field only when a labelled pattern in the document's own text supports it,
+  and records the page and the label it came from;
+- normalises dates to ISO `YYYY-MM-DD`, because the rule engine compares dates as
+  plain strings. A date it cannot normalise is **dropped with a warning**, never
+  guessed — a half-read date must not reach the engine;
+- never fails an upload: a corrupt PDF, an unknown file type or a missing Tesseract
+  binary produces zero fields and an honest warning.
+
+Every value arrives with `verification_status: "unverified"`. Reading a file is not
+evidence; a human confirming it is.
+
+`backend/app/adapters/ocr/mock.py` (`SIH_OCR_ENGINE=mock`, for tests only):
 
 - returns canned fields by document type (`lease_deed`, `ownership_record`,
   `affidavit`, `faculty_list`);
 - ignores the uploaded bytes entirely;
-- sets `simulated: true` on every result;
-- adds the warning "mock extraction — values are canned, not read from the file";
-- the upload API surfaces both the flag and the warning.
-
-The UI and docs must never present these as extracted from the file. Uploading a
-random PDF will still yield the canned lease fields — that is a property of the mock,
-not a capability.
+- sets `simulated: true` on every result and adds the warning "mock extraction —
+  values are canned, not read from the file";
+- the UI labels these "Demo reader — not read from the file" and the upload API
+  surfaces both the flag and the warning. Production configuration refuses to start
+  with the mock selected.
 
 The LLM adapter (`app/adapters/llm`) is an interface with a mock implementation. It
 refuses to answer without supplied context and invents no citations. **It is not
@@ -64,9 +79,14 @@ confidence + ordered path — while keeping the verdict deterministic and rule-d
 Each extracted field keeps:
 
 - **source page and span** — so an officer can look at the page;
-- **method** — `mock_ocr`, `seed`, or a future real extractor;
-- **confidence** — stored for triage, but **not used to decide an outcome**. A 0.99
-  OCR confidence does not make a field verified; a human action does.
+- **method** — `pdf_text`, `ocr`, `seed`, or `mock_ocr` when the demo reader was
+  selected. The UI spells each one out: "Read from the file's own text", "Scanned
+  from the picture", "Made up for the demo", "Demo reader — not read from the file";
+- **confidence** — derived from the engine: 0.9 for a text layer, and for OCR the
+  mean Tesseract word confidence for the page (digit-bearing values are discounted,
+  because that is where OCR fails). Stored for triage, but **not used to decide an
+  outcome**. A 0.99 OCR confidence does not make a field verified; a human action
+  does.
 
 Findings carry `evidence_refs` (e.g. `document:<id>#page=7`) and, when relevant,
 `missing_inputs` and `unverified_inputs` as explicit field paths. The frontend shows
@@ -76,8 +96,9 @@ them. "Why did this fail?" always has an answer that points at evidence.
 
 The **Evidence & extraction** panel on a case is the whole pipeline in one place:
 
-- upload a new version (document type + file), with the panel labelled *mock OCR* and
-  the mock's own note shown after the upload;
+- upload a new version (document type + file), with the panel labelled *Reads your
+  file* (or *Demo reader — file not read* if the mock engine is selected) and the
+  engine's own note and warnings shown after the upload;
 - per document version: file name, SHA-256 prefix, version, upload time;
 - per extracted field: value, source page, extraction method, confidence percentage,
   verification badge;

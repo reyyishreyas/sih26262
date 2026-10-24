@@ -117,6 +117,12 @@ class Settings(BaseSettings):
     clamav_port: int = 3310
     clamav_timeout_seconds: float = 5.0
 
+    # Document extraction. "real" reads the uploaded bytes (pypdf text layer,
+    # Tesseract OCR for scans and images); "mock" returns canned values per
+    # document type and never reads the file — only for tests or a demo that
+    # must not depend on the OCR binary.
+    ocr_engine: str = "real"
+
     # Bounded retention for transient operational rows. Audit events are retained
     # indefinitely because deleting a middle event would break the hash chain.
     retention_login_attempt_days: int = 30
@@ -249,6 +255,8 @@ class Settings(BaseSettings):
             problems.append(
                 "SIH_MALWARE_SCANNER must be 'clamav' in production"
             )
+        if self.ocr_engine != "real":
+            problems.append("SIH_OCR_ENGINE must be 'real' in production")
         if problems:
             raise ValueError(
                 "unsafe production configuration: " + "; ".join(problems)

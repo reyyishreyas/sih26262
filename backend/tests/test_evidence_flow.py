@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+from pdf_factory import affidavit_pdf
+
 
 def _pdf(name: str = "upload.pdf") -> tuple[str, bytes, str]:
-    return (name, b"%PDF-1.4\n% synthetic test file\n", "application/pdf")
+    return (name, affidavit_pdf(), "application/pdf")
 
 
 def test_institution_scope_is_enforced_on_the_institution_endpoint(client, as_user):
@@ -58,9 +60,23 @@ def test_institution_can_create_a_draft_and_upload_evidence(client, as_user):
     )
     assert upload.status_code == 201
     body = upload.json()
-    assert body["extraction"]["simulated"] is True
-    assert body["extraction"]["fields_extracted"] == 3
+    # The file really is read: the affidavit PDF above states an institution
+    # name, an AICTE id, a document id and a swearing date, and all four come
+    # back out of the file rather than out of a canned table.
+    assert body["extraction"]["simulated"] is False
+    assert body["extraction"]["fields_extracted"] == 4
+    read_back = {
+        field["field_name"]: field["value"] for field in body["document"]["fields"]
+    }
+    assert read_back == {
+        "institution_name": "Example Institute of Technology",
+        "aicte_id": "1-12345678",
+        "document_id": "AFF-2026-0007",
+        "notary_date": "2026-04-12",
+    }
+    # Values read by a machine are not evidence until a human confirms them.
     assert body["document"]["fields"][0]["verification_status"] == "unverified"
+    assert {field["method"] for field in body["document"]["fields"]} == {"pdf_text"}
 
     documents = client.get(
         f"/api/v1/applications/{application_id}/documents", headers=headers

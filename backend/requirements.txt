@@ -8,3 +8,12 @@ python-jose[cryptography]==3.5.0
 python-multipart==0.0.32
 psycopg[binary]>=3.2,<4
 prometheus-client==0.26.0
+
+# Document extraction: text layer for PDFs, Tesseract OCR for scans/images.
+# `pytesseract` also needs the Tesseract binary on the host
+# (brew install tesseract / apt-get install tesseract-ocr); the app degrades
+# to an honest warning when it is missing rather than failing the upload.
+pypdf==6.21.2
+pypdfium2==5.14.0
+pillow==13.0.0
+pytesseract==0.3.13
