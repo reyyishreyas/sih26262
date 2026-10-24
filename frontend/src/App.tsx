@@ -206,6 +206,7 @@ export default function App() {
     setInstitutions([]);
     setRoutes([]);
     setSearch("");
+    setError(null);
   }
 
   // The API rejected the stored token (expired, revoked, or the database was
@@ -225,7 +226,19 @@ export default function App() {
     return () => window.removeEventListener(SESSION_EXPIRED_EVENT, onExpired);
   }, []);
 
-  if (!user) return <Login onSignedIn={setUser} notice={error} />;
+  // The notice shown on the login screen ("your session ended", "invalid
+  // token") belongs to the session that just failed. Signing in starts a new
+  // one, so it must not follow the user onto the dashboard.
+  if (!user)
+    return (
+      <Login
+        onSignedIn={(next) => {
+          setError(null);
+          setUser(next);
+        }}
+        notice={error}
+      />
+    );
 
   return (
     <div className="shell">
