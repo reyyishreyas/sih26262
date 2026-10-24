@@ -11,11 +11,11 @@ import shutil
 from io import BytesIO
 
 import pytest
+from pdf_factory import affidavit_pdf, lease_deed_pdf, text_pdf
 
 from app.adapters.ocr.mock import MockOCRExtractor
 from app.adapters.ocr.real import RealOCRExtractor
 from app.services import ocr_service
-from pdf_factory import affidavit_pdf, lease_deed_pdf, text_pdf
 
 TESSERACT_INSTALLED = shutil.which("tesseract") is not None
 requires_ocr = pytest.mark.skipif(
@@ -26,7 +26,7 @@ requires_ocr = pytest.mark.skipif(
 
 def _render(lines: list[str], *, font_size: int = 22):
     """Draws text onto a blank page, the way a phone photo of a page looks."""
-    from PIL import Image, ImageDraw, ImageFont
+    from PIL import Image, ImageDraw
 
     font = _font(font_size)
     image = Image.new("RGB", (1400, 200 + 60 * len(lines)), "white")

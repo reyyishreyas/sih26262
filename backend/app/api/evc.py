@@ -26,6 +26,7 @@ from ..core.permissions import (
     MONITORING_READ,
 )
 from ..models import Application, Committee, EvcVisit, Institution, Region
+from ..services import workflow_service
 from ..services.audit_service import AuditService
 from ..services.authorization_service import (
     EffectiveAccess,
@@ -33,7 +34,6 @@ from ..services.authorization_service import (
     require_permission,
 )
 from ..services.policy import stage_sla_days
-from ..services import workflow_service
 from .deps import require, require_any
 
 router = APIRouter(tags=["evc"])

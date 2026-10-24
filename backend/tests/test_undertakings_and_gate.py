@@ -2,13 +2,14 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
+
 from sqlalchemy import select
 
 from app.core.clock import get_clock
 from app.models import Application, AuditEvent, Undertaking
 from app.services import compliance_service, workflow_service
 from app.services.evidence_service import build_snapshot
-from datetime import timedelta
 
 
 def _undertakings(client, headers, app_id="app-main-0001"):

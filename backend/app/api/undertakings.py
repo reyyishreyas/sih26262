@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time, datetime, UTC
+from datetime import UTC, date, datetime, time
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field

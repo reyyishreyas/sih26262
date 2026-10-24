@@ -256,7 +256,11 @@ class RealOCRExtractor:
 
         confidences = [
             int(value)
-            for value, word in zip(data.get("conf", []), data.get("text", []))
+            # strict=False: a malformed OCR response with unequal lists should
+            # yield fewer values, not crash the extraction.
+            for value, word in zip(
+                data.get("conf", []), data.get("text", []), strict=False
+            )
             if str(value) != "-1" and word.strip()
         ]
         # Tesseract reports -1 for non-word blocks and 0-100 otherwise. When
