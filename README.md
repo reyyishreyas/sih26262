@@ -39,7 +39,7 @@ application being written to.
 | API hardening | **Implemented** | JSON logs, request ids, security headers, bounded pagination, upload signature checks, typed error envelope |
 | Sign-in protection | **Implemented** | PBKDF2-SHA256, JWT issuer/audience, persisted account/address throttling, password change revokes old tokens |
 | Health and readiness | **Implemented** | `/health/live`, `/health/ready`, database probes for all three roles |
-| CI | **Implemented and green** | GitHub Actions: Ruff, SQLite Alembic check, 99 tests, PostgreSQL role isolation, frontend production build ([verified run](https://github.com/reyyishreyas/sih26262/actions/runs/39810253186)) |
+| CI | **Implemented and green** | GitHub Actions: Ruff, SQLite Alembic check, the full test suite, PostgreSQL role isolation, frontend production build ([verified run](https://github.com/reyyishreyas/sih26262/actions)) |
 | Historical state replay | **Not implemented** | The UI says "audit timeline", not "replay" |
 
 All demo people, institutions, documents and outcomes are **synthetic**.
@@ -48,10 +48,58 @@ verification" until a rule owner maps them to an exact APH clause.
 
 ---
 
-## Quick start (the full stack, Docker)
+## Quick start — 5 minutes
+
+You need **Python 3.10+** and **Node 20+**. Nothing else — no Docker, no
+database server, no configuration to write.
 
 ```bash
-make up            # PostgreSQL 16 + API + worker + frontend
+git clone https://github.com/reyyishreyas/sih26262.git
+cd sih26262
+make setup    # ~1 min: packages, config, demo database (safe to re-run)
+make dev      # starts the API and the UI together
+```
+
+Then open **<http://localhost:5173>** and sign in. Both logins are printed
+on the sign-in panels — type the email and password shown there (they are
+the demo accounts below) and press **Sign in**.
+
+`make dev` prints `[ok] API` and `[ok] UI` when both are up, streams both
+logs in one terminal, and stops everything on **Ctrl-C**. If a port is
+already in use it says so instead of failing halfway.
+
+That is the whole loop: **setup once, `make dev` after that.**
+
+### Demo logins
+
+| Panel | Email | Password |
+|---|---|---|
+| I am the College | `institution@demo.local` | `DemoPassw0rd!` |
+| I am the Checker | `scrutiny@demo.local` | `DemoPassw0rd!` |
+
+Other checker roles (`regional@`, `evc@`, `supervisor@`, `admin@demo.local`)
+are behind **“Sign in as a different checker role”** — pick one, the form
+fills in its email, type the same password. These credentials are for the
+synthetic demo only.
+
+### If something is wrong
+
+| Symptom | Fix |
+|---|---|
+| `make: No rule to make target 'setup'` | You are in the wrong directory, or on an old checkout — `git pull` |
+| `Port 8000/5173 already in use` | A previous run is still up: `lsof -ti:8000 \| xargs kill` (same for 5173) |
+| Empty case list / stale data | Re-seed: `make seed` (idempotent, keeps nothing you would miss) |
+| Want a brand-new demo state | `rm backend/sih26262.db && make setup` |
+| `make dev` says setup is missing | Run `make setup` first |
+| Scanned PDFs are not OCR'd | Optional: `brew install tesseract` (macOS) / `apt install tesseract-ocr`. PDFs with a text layer work without it |
+| Tests fail after pulling | Re-run `make setup` — dependencies may have changed |
+
+### Other ways to run
+
+**Docker (full stack, PostgreSQL 16):**
+
+```bash
+make up            # PostgreSQL + API + worker + frontend
 # API    http://localhost:8000/docs
 # UI     http://localhost:5173
 ```
@@ -65,48 +113,16 @@ make smoke             # end-to-end API exercise against the running stack
 make verify-isolation  # prove the PostgreSQL role contract
 ```
 
-Sign in with any seeded demo account; password is **`DemoPassw0rd!`**.
+Sign in with any seeded demo account; password is **`DemoPassw0rd!`** (table above).
 
-| Email | Role | Scope |
-|---|---|---|
-| `institution@demo.local` | Institution representative | Own institution |
-| `scrutiny@demo.local` | Scrutiny officer | Assigned cases |
-| `regional@demo.local` | Regional officer | Northern Region |
-| `evc@demo.local` | EVC member | Assigned committee |
-| `supervisor@demo.local` | Supervisory officer | Northern Region (read-only monitoring) |
-| `admin@demo.local` | Administrator | Global |
-
-These credentials are for the synthetic demo only.
-
-## Quick start (SQLite, no Docker)
-
-```bash
-cd backend
-python3 -m venv ../.venv            # once
-../.venv/bin/pip install -r requirements-dev.txt   # runtime + pytest + ruff
-cp ../.env.example .env             # optional; defaults are safe for local use
-../.venv/bin/python -m app.services.seed
-../.venv/bin/python -m uvicorn app.main:app --reload --port 8000
-```
-
-Open <http://localhost:8000/docs> for the API and <http://localhost:8000/health>
-for the injected clock and database status.
+The API allows `http://localhost:5173` and `http://127.0.0.1:5173` by default.
 
 The demo clock is fixed by default to **2026-10-22T09:00:00Z** in `.env.example`
 (`SIH_CLOCK_MODE=fixed`), so alert thresholds and ageing are reproducible.
 
-Frontend:
-
-```bash
-cd frontend
-npm install
-npm run dev        # http://localhost:5173
-```
-
-The API allows `http://localhost:5173` and `http://127.0.0.1:5173` by default.
-
-> SQLite is fine for the UI walkthrough, but the rehearsal isolation is only
-> **database-enforced** on PostgreSQL. Use the Compose stack to show that.
+> SQLite (what `make setup` uses) is fine for the UI walkthrough, but the
+> rehearsal isolation is only **database-enforced** on PostgreSQL. Use the
+> Compose stack to show that.
 
 ### Seeded cases
 
@@ -136,7 +152,7 @@ The API allows `http://localhost:5173` and `http://127.0.0.1:5173` by default.
 ```bash
 make lint        # ruff check app tests migrations scripts
 make test        # cd backend && ../.venv/bin/python -m pytest -q
-# 99 passed
+# 155 passed
 ```
 
 The suite covers rule semantics and immutability, workflow guards, rejected-action
@@ -249,11 +265,11 @@ backend/
   migrations/     Alembic environment and revisions
   scripts/        verify_isolation.py (live PostgreSQL role proof)
   sql/            bootstrap_roles.sql, roles.sql (least-privilege grants)
-  tests/          99 tests
+  tests/          155 tests
 frontend/         React + TypeScript + Vite review UI; Dockerfile.prod + nginx.conf
-scripts/          smoke.sh (end-to-end API exercise)
+scripts/          setup.sh (one-time setup), dev.sh (start both servers), smoke.sh
 docs/             architecture, rules, rehearsal, roles, data model, tests, production
-Makefile          up / down / reset / lint / test / build / smoke / verify-isolation
+Makefile          setup / dev / up / down / reset / lint / test / build / smoke / verify-isolation
 ```
 
 ## Documentation
