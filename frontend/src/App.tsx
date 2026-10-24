@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   api,
   ApiError,
@@ -15,6 +15,7 @@ import { Login } from "./components/Login";
 import { NewApplicationForm } from "./components/NewApplicationForm";
 import { ReportsView } from "./components/ReportsView";
 import { plainRole, plainState, stateIcon, stateTone } from "./labels";
+import { useRefreshOnFocus } from "./useRefreshOnFocus";
 import type {
   AlertRow,
   ApplicationSummary,
@@ -83,6 +84,18 @@ export default function App() {
   const [routes, setRoutes] = useState<WorkflowRoute[]>([]);
   const [search, setSearch] = useState("");
   const [error, setError] = useState<string | null>(null);
+
+  // Re-read the case list whenever the tab comes back to the front. A
+  // reviewer acts in another window, the College switches tabs and returns —
+  // without this the list keeps whatever it fetched at sign-in.
+  const refreshCases = useCallback(async () => {
+    try {
+      setApplications(await api.applications());
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not load cases");
+    }
+  }, []);
+  useRefreshOnFocus(refreshCases);
 
   const canMonitor = user?.permissions.includes("monitoring.read") ?? false;
   const canCreate = user?.permissions.includes("application.create") ?? false;

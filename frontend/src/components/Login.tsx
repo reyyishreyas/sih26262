@@ -44,9 +44,25 @@ const OFFICERS = [
   },
 ] as const;
 
-const DEMO_PASSWORD = "DemoPassw0rd!";
+export const DEMO_PASSWORD = "DemoPassw0rd!";
 
-type Persona = null | "college" | "officer";
+/** The two doors into the system, with the demo login shown on each card. */
+const PERSONAS = [
+  {
+    key: "college",
+    email: "institution@demo.local",
+    icon: "building" as IconName,
+    name: "College",
+    desc: "I send in my application and documents",
+  },
+  {
+    key: "checker",
+    email: "scrutiny@demo.local",
+    icon: "userCheck" as IconName,
+    name: "Checker",
+    desc: "I review, verify and approve applications",
+  },
+] as const;
 
 export function Login({
   onSignedIn,
@@ -55,7 +71,9 @@ export function Login({
   onSignedIn: (user: SessionUser) => void;
   notice?: string | null;
 }) {
-  const [persona, setPersona] = useState<Persona>(null);
+  // "roles" opens the secondary list of checker roles; the main screen itself
+  // is always the two cards below, credentials and all.
+  const [view, setView] = useState<"main" | "roles">("main");
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
 
@@ -81,58 +99,62 @@ export function Login({
         </div>
         <h1>AICTE Approvals — Made Simple</h1>
 
-        {persona === null && (
+        {view === "main" && (
           <>
             <p className="login-sub">
-              Who are you? Tap the panel that matches you.
+              Who are you? Tap your panel — the demo login is on it, so one tap
+              signs you in.
             </p>
 
             {notice && <p className="message">{notice}</p>}
             {error && <p className="error">{error}</p>}
 
             <div className="persona-grid">
-              <button
-                type="button"
-                className="persona-card persona-college"
-                disabled={busy !== null}
-                onClick={() => void pick("institution@demo.local", "college")}
-              >
-                <span className="persona-icon" aria-hidden>
-                  <Icon name="building" size={30} />
-                </span>
-                <span className="persona-name">I am the College</span>
-                <span className="persona-desc">
-                  I send in my application and documents
-                </span>
-                <span className="persona-cta">
-                  {busy === "college" ? "Signing in…" : "Sign in as College"}
-                  {busy !== "college" && <Icon name="arrowRight" size={16} />}
-                </span>
-              </button>
-
-              <button
-                type="button"
-                className="persona-card persona-checker"
-                disabled={busy !== null}
-                onClick={() => setPersona("officer")}
-              >
-                <span className="persona-icon" aria-hidden>
-                  <Icon name="userCheck" size={30} />
-                </span>
-                <span className="persona-name">I am the Checker</span>
-                <span className="persona-desc">
-                  I review, verify and approve applications
-                </span>
-                <span className="persona-cta">
-                  Choose my role
-                  <Icon name="arrowRight" size={16} />
-                </span>
-              </button>
+              {PERSONAS.map((persona) => (
+                <button
+                  key={persona.key}
+                  type="button"
+                  className={`persona-card persona-${persona.key}`}
+                  disabled={busy !== null}
+                  onClick={() => void pick(persona.email, persona.key)}
+                >
+                  <span className="persona-icon" aria-hidden>
+                    <Icon name={persona.icon} size={30} />
+                  </span>
+                  <span className="persona-name">I am the {persona.name}</span>
+                  <span className="persona-desc">{persona.desc}</span>
+                  <span className="persona-credentials" title="Demo login — one tap signs you in">
+                    <span className="credential-row">
+                      <span className="credential-label">Email</span>
+                      <span className="credential-value">{persona.email}</span>
+                    </span>
+                    <span className="credential-row">
+                      <span className="credential-label">Password</span>
+                      <span className="credential-value">{DEMO_PASSWORD}</span>
+                    </span>
+                  </span>
+                  <span className="persona-cta">
+                    {busy === persona.key
+                      ? "Signing in…"
+                      : `Sign in as ${persona.name}`}
+                    {busy !== persona.key && <Icon name="arrowRight" size={16} />}
+                  </span>
+                </button>
+              ))}
             </div>
+
+            <button
+              type="button"
+              className="link back-link"
+              onClick={() => setView("roles")}
+            >
+              Sign in as a different checker role
+              <Icon name="arrowRight" size={14} />
+            </button>
           </>
         )}
 
-        {persona === "officer" && (
+        {view === "roles" && (
           <>
             <p className="login-sub">Which checker are you?</p>
             {error && <p className="error">{error}</p>}
@@ -156,15 +178,16 @@ export function Login({
                   <span className="role-desc">
                     {busy === role.email ? "Signing in…" : role.desc}
                   </span>
+                  <span className="role-email">{role.email}</span>
                 </button>
               ))}
             </div>
             <button
               type="button"
               className="link back-link"
-              onClick={() => setPersona(null)}
+              onClick={() => setView("main")}
             >
-              <Icon name="arrowLeft" size={14} /> I am not a checker
+              <Icon name="arrowLeft" size={14} /> Back to the two panels
             </button>
           </>
         )}

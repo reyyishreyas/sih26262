@@ -25,6 +25,7 @@ import { RehearsalPanel } from "./RehearsalPanel";
 import { StatusTracker } from "./StatusTracker";
 import { UndertakingList } from "./UndertakingList";
 import type { IconName } from "./Icon";
+import { useRefreshOnFocus } from "../useRefreshOnFocus";
 
 /**
  * Two genuinely different workspaces share this file, chosen by role rather
@@ -128,6 +129,11 @@ export function CaseView({
     setStep(defaultStep);
     void load();
   }, [load, defaultStep]);
+
+  // The other side can act while this tab is in the background — a reviewer
+  // transitions the case, the College uploads a file. Re-read on focus so the
+  // steps, timeline and document list are current, not sign-in snapshots.
+  useRefreshOnFocus(load);
 
   async function evaluate() {
     setBusy(true);

@@ -356,6 +356,39 @@ details.tech[open] summary { margin-bottom: 0.4rem; }
 }
 .persona-college .persona-cta { color: var(--good); }
 
+/* The demo login printed on each panel — no typing needed, one tap signs in. */
+.persona-credentials {
+  display: grid;
+  gap: 0.25rem;
+  width: 100%;
+  margin-top: 0.55rem;
+  padding: 0.55rem 0.6rem;
+  border-radius: 12px;
+  background: var(--bg);
+  border: 1px dashed var(--line);
+  text-align: left;
+}
+.credential-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+}
+.credential-label {
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+.credential-value {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.78rem;
+  color: var(--text);
+  word-break: break-all;
+  text-align: right;
+}
+
 .role-grid {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
@@ -385,6 +418,12 @@ details.tech[open] summary { margin-bottom: 0.4rem; }
 .role-card .role-icon { color: var(--accent); display: grid; place-items: center; min-height: 24px; }
 .role-card .role-name { font-weight: 700; font-size: 1rem; }
 .role-card .role-desc { font-size: 0.8rem; color: var(--muted); }
+.role-card .role-email {
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.7rem;
+  color: var(--muted);
+  word-break: break-all;
+}
 
 /* Spinner — a plain CSS ring, no emoji */
 .spinner {
