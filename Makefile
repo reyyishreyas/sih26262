@@ -2,10 +2,12 @@ SHELL := /bin/bash
 PYTHON ?= .venv/bin/python
 COMPOSE ?= docker compose
 
-.PHONY: help up down reset logs ps lint test build migrate seed smoke verify-isolation migrate-sqlite prod-config retention loadtest
+.PHONY: help setup dev up down reset logs ps lint test build migrate seed smoke verify-isolation migrate-sqlite prod-config retention loadtest
 
 help:
 	@echo "SIH26262 developer commands"
+	@echo "  make setup             one-time setup: packages, config, demo data (~5 min)"
+	@echo "  make dev               start the API and UI together (Ctrl-C stops both)"
 	@echo "  make up                build and start the full PostgreSQL stack"
 	@echo "  make down              stop the stack, keep volumes"
 	@echo "  make reset             stop and DELETE volumes, then start fresh"
@@ -20,6 +22,12 @@ help:
 	@echo "  make migrate-sqlite    run Alembic against a throwaway SQLite file"
 	@echo "  make retention         report retention-eligible transient rows (dry run)"
 	@echo "  make loadtest          run a bounded read-only load probe"
+
+setup:
+	./scripts/setup.sh
+
+dev:
+	./scripts/dev.sh
 
 up:
 	$(COMPOSE) up -d --build
