@@ -12,6 +12,11 @@ application being written to.
 > The workflow service controls real actions. The Rehearsal Engine tests
 > hypothetical changes without modifying the real application.
 
+**New here, or handing this to an AI agent? Read [`CONTEXT.md`](CONTEXT.md)
+first** — the full map of what is built, what is deliberately missing, the demo
+logins, the conventions, and the current build order. The next feature lives in
+[`things.md`](things.md).
+
 ---
 
 ## Status — what is real, what is mock
@@ -28,7 +33,7 @@ application being written to.
 | Document upload + extraction | **Implemented** | Real reader: pypdf text layer, Tesseract OCR for scans and photos. Values are unverified until a human confirms them; a mock reader stays selectable for tests |
 | Evidence verification | **Implemented** | Per-field verify/reject, audited, bumps the baseline version and invalidates stale batches |
 | Undertakings | **Implemented** | Submit and verify, due dates, overdue flag, feeds the alert scheduler |
-| LLM evidence explanations | **Not wired** | Interface exists (`app/adapters/llm`); no model is called |
+| LLM evidence explanations | **Interface not wired** | `app/adapters/llm` (Protocol + mock) is built but unused; the one live model call is `services/grounded_lease_extractor.py` for `lease_agreement` documents — Gemini when `SIH_GEMINI_API_KEY` is set, otherwise a deterministic parser that cites the document verbatim |
 | Notification delivery | **Mock** | Real alert rows and delivery attempts; a JSON line is written to `storage/notifications.log` |
 | Deadline scheduler | **Implemented** | Persistent worker, idempotent dedupe keys, retry path |
 | Officer monitoring | **Implemented** | Server-enforced scope; dashboard/drill-down reconcile |
