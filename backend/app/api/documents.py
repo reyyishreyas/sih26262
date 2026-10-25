@@ -23,7 +23,7 @@ from ..core.config import get_settings
 from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import DOCUMENT_READ, DOCUMENT_UPLOAD, DOCUMENT_VERIFY
-from ..models import Document, ExtractedField
+from ..models import Deficiency, Document, ExtractedField
 from ..schemas.api import DocumentOut, VerifyFieldRequest
 from ..services import malware_service, ocr_service
 from ..services.audit_service import AuditService
@@ -183,20 +183,73 @@ def upload_document(
         db.add(document)
         db.flush()
 
+        created_fields: list[ExtractedField] = []
         for candidate in extraction.fields:
-            db.add(
-                ExtractedField(
-                    document_id=document.id,
-                    document_version=document.version,
-                    field_name=candidate.field_name,
-                    value=candidate.value,
-                    source_page=candidate.source_page,
-                    source_span=candidate.source_span,
-                    method=candidate.method,
-                    confidence=candidate.confidence,
-                    verification_status="unverified",
-                )
+            field_obj = ExtractedField(
+                document_id=document.id,
+                document_version=document.version,
+                field_name=candidate.field_name,
+                value=candidate.value,
+                source_page=candidate.source_page,
+                source_span=candidate.source_span,
+                method=candidate.method,
+                confidence=candidate.confidence,
+                verification_status="unverified",
             )
+            db.add(field_obj)
+            created_fields.append(field_obj)
+        db.flush()
+
+        # Connect corrected document version to open/draft deficiencies for PRIOR versions of this doc_type
+        # Mark as 'addressed' (requires subsequent officer review to close).
+        open_deficiencies = db.scalars(
+            select(Deficiency).where(
+                Deficiency.application_id == application.id,
+                Deficiency.status.in_(("open", "draft")),
+                Deficiency.document_id != document.id,
+            )
+        ).all()
+        addressed_count = 0
+        for def_item in open_deficiencies:
+            match = False
+            if def_item.document_id:
+                old_doc = db.get(Document, def_item.document_id)
+                if old_doc and old_doc.doc_type == doc_type:
+                    match = True
+            elif def_item.category == doc_type or doc_type in (def_item.rule_key or ""):
+                match = True
+
+            if match:
+                def_item.status = "addressed"
+                def_item.corrective_document_id = document.id
+                addressed_count += 1
+                AuditService(db).append(
+                    action="deficiency.addressed",
+                    entity_type="deficiency",
+                    entity_id=def_item.id,
+                    outcome="accepted",
+                    actor_id=access.user_id,
+                    actor_role=access.primary_role,
+                    after={
+                        "application_id": application.id,
+                        "status": "addressed",
+                        "corrective_document_id": document.id,
+                        "doc_type": doc_type,
+                        "version": version,
+                    },
+                    request_id=current_request_id(),
+                )
+
+        # Run Deterministic AI Copilot Engine on lease agreements for the current document
+        from ..services.validation_service import validate_lease_document
+        validate_lease_document(
+            db,
+            application=application,
+            document=document,
+            fields=created_fields,
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+        )
 
         application.baseline_version += 1
         AuditService(db).append(
@@ -211,6 +264,7 @@ def upload_document(
                 "doc_type": doc_type,
                 "version": version,
                 "sha256": sha,
+                "deficiencies_addressed": addressed_count,
             },
             request_id=current_request_id(),
         )

@@ -1,17 +1,19 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
-import type { DocumentRow } from "../types";
+import type { DeficiencyRow, DocumentRow } from "../types";
 import { useFileCheck } from "../useFileCheck";
 import { useRefreshOnFocus } from "../useRefreshOnFocus";
 import { ACCEPT_ATTRIBUTE, MAX_UPLOAD_BYTES, formatBytes } from "../uploadCheck";
 import { Icon } from "./Icon";
 import {
+  deficiencyTone,
   docHelp,
   docTypeIcon,
   formatDateTime,
   humanize,
   methodTone,
+  plainDeficiencyStatus,
   plainDocType,
   plainMethod,
   plainVerification,
@@ -19,6 +21,7 @@ import {
 } from "../labels";
 
 const DOC_TYPES = [
+  ["lease_agreement", "Lease agreement (AI Copilot Grounded)"],
   ["lease_deed", "Lease document"],
   ["ownership_record", "Ownership record"],
   ["affidavit", "Affidavit (signed declaration)"],
@@ -29,7 +32,12 @@ const DOC_TYPES = [
 
 function formatValue(value: unknown): string {
   if (value === null || value === undefined) return "—";
-  if (typeof value === "object") return JSON.stringify(value);
+  if (typeof value === "object") {
+    if ("value" in (value as Record<string, unknown>)) {
+      return String((value as Record<string, unknown>).value ?? "—");
+    }
+    return JSON.stringify(value);
+  }
   return String(value);
 }
 
@@ -45,8 +53,20 @@ export function EvidencePanel({
   onEvidenceChanged: () => void;
 }) {
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
+  const [deficiencies, setDeficiencies] = useState<DeficiencyRow[]>([]);
   const [loading, setLoading] = useState(true);
-  const [docType, setDocType] = useState<string>("lease_deed");
+  const [docType, setDocType] = useState<string>("lease_agreement");
+  // Deficiencies modal / form state for when marking wrong or manual deficiency
+  const [rejectingField, setRejectingField] = useState<{
+    doc: DocumentRow;
+    field: { id: string; name: string; value: unknown };
+  } | null>(null);
+  const [deficiencyExplanation, setDeficiencyExplanation] = useState("");
+  const [deficiencyAction, setDeficiencyAction] = useState("");
+  const [showManualDeficiencyModal, setShowManualDeficiencyModal] = useState(false);
+  const [manualDocId, setManualDocId] = useState("");
+  const [manualExplanation, setManualExplanation] = useState("");
+  const [manualAction, setManualAction] = useState("");
   // Validates the chosen file from its head bytes the moment it is picked, so
   // an oversized or unreadable file is caught before any upload starts.
   const fileCheck = useFileCheck();
@@ -97,7 +117,12 @@ export function EvidencePanel({
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      setDocuments(await api.documents(applicationId));
+      const [docs, defs] = await Promise.all([
+        api.documents(applicationId),
+        api.deficiencies(applicationId).catch(() => []),
+      ]);
+      setDocuments(docs);
+      setDeficiencies(defs);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not load documents");
     } finally {
@@ -180,6 +205,91 @@ export function EvidencePanel({
       onEvidenceChanged();
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not save");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function startRejectField(doc: DocumentRow, field: { id: string; field_name: string; value: unknown }) {
+    setRejectingField({ doc, field: { id: field.id, name: field.field_name, value: field.value } });
+    setDeficiencyExplanation(`Incorrect ${humanize(field.field_name)} in ${plainDocType(doc.doc_type)}: ${formatValue(field.value)}`);
+    setDeficiencyAction(`Please upload an updated and valid ${plainDocType(doc.doc_type)} showing correct ${humanize(field.field_name)}.`);
+  }
+
+  async function submitFieldDeficiency() {
+    if (!rejectingField) return;
+    if (!deficiencyExplanation.trim() || !deficiencyAction.trim()) {
+      setError("Please provide both explanation and corrective action.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      // 1. Mark field as rejected
+      await api.verifyField(applicationId, rejectingField.doc.id, rejectingField.field.id, "rejected");
+      // 2. Create structured deficiency
+      await api.createDeficiency(applicationId, {
+        document_id: rejectingField.doc.id,
+        extracted_field_id: rejectingField.field.id,
+        category: rejectingField.doc.doc_type,
+        field_name: rejectingField.field.name,
+        extracted_value: rejectingField.field.value,
+        explanation: deficiencyExplanation.trim(),
+        corrective_action: deficiencyAction.trim(),
+        status: "open",
+      });
+      setMessage("Deficiency noted and field marked wrong. It is now listed in the Deficiency Notice.");
+      setRejectingField(null);
+      setDeficiencyExplanation("");
+      setDeficiencyAction("");
+      await load();
+      onEvidenceChanged();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not save deficiency");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function submitManualDeficiency() {
+    if (!manualExplanation.trim() || !manualAction.trim()) {
+      setError("Please provide both explanation and required action.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    try {
+      await api.createDeficiency(applicationId, {
+        document_id: manualDocId ? manualDocId : null,
+        category: manualDocId ? (documents.find((d) => d.id === manualDocId)?.doc_type ?? "document_deficiency") : "general_deficiency",
+        explanation: manualExplanation.trim(),
+        corrective_action: manualAction.trim(),
+        status: "open",
+      });
+      setMessage("Deficiency recorded and added to the official Deficiency Notice.");
+      setShowManualDeficiencyModal(false);
+      setManualDocId("");
+      setManualExplanation("");
+      setManualAction("");
+      await load();
+      onEvidenceChanged();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not record deficiency");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function handleCloseDeficiency(defId: string) {
+    setBusy(true);
+    setError(null);
+    try {
+      await api.closeDeficiency(applicationId, defId, "Accepted by officer after verification of corrective evidence");
+      setMessage("Deficiency confirmed resolved and closed.");
+      await load();
+      onEvidenceChanged();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not close deficiency");
     } finally {
       setBusy(false);
     }
@@ -362,21 +472,64 @@ export function EvidencePanel({
               <p className="muted tiny">No details were read from this file.</p>
             )}
 
-            {document.fields.map((field) => (
-              <div className="field-card" key={field.id}>
-                <div className="field-main">
-                  <span className="field-name">{humanize(field.field_name)}</span>
-                  <span className="field-value">{formatValue(field.value)}</span>
-                  <span className="tiny muted">
-                    Read from page {field.source_page ?? "?"} ·{" "}
-                    {Math.round(field.confidence * 100)}% sure
-                  </span>
-                  <span className="tiny">
-                    <span className={`pill small ${methodTone(field.method)}`}>
-                      {plainMethod(field.method)}
+            {document.fields.map((field) => {
+              const fieldObj = typeof field.value === "object" && field.value !== null ? (field.value as Record<string, unknown>) : null;
+              const sourceQuote = fieldObj?.source_quote ? String(fieldObj.source_quote) : null;
+              const aiReasoning = fieldObj?.ai_reasoning ? String(fieldObj.ai_reasoning) : null;
+
+              return (
+                <div className="field-card" key={field.id}>
+                  <div className="field-main">
+                    <span className="field-name">{humanize(field.field_name)}</span>
+                    <span className="field-value">{formatValue(field.value)}</span>
+
+                    {sourceQuote && (
+                      <blockquote
+                        style={{
+                          margin: "0.4rem 0 0.2rem",
+                          padding: "0.3rem 0.6rem",
+                          borderLeft: "3px solid var(--accent, #6366f1)",
+                          background: "rgba(99, 102, 241, 0.05)",
+                          fontSize: "0.82rem",
+                          fontStyle: "italic",
+                          color: "var(--text-muted, #4b5563)",
+                        }}
+                      >
+                        <strong style={{ fontStyle: "normal", color: "var(--accent, #6366f1)" }}>
+                          Evidence Quote:{" "}
+                        </strong>
+                        “{sourceQuote}”
+                      </blockquote>
+                    )}
+
+                    {aiReasoning && (
+                      <div
+                        style={{
+                          fontSize: "0.78rem",
+                          color: "var(--primary, #2563eb)",
+                          marginBottom: "0.25rem",
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "0.35rem",
+                        }}
+                      >
+                        <Icon name="search" size={13} />
+                        <span>
+                          <strong>AI Grounding:</strong> {aiReasoning}
+                        </span>
+                      </div>
+                    )}
+
+                    <span className="tiny muted">
+                      Read from page {field.source_page ?? "?"} ·{" "}
+                      {Math.round(field.confidence * 100)}% sure
                     </span>
-                  </span>
-                </div>
+                    <span className="tiny">
+                      <span className={`pill small ${methodTone(field.method)}`}>
+                        {plainMethod(field.method)}
+                      </span>
+                    </span>
+                  </div>
                 <div className="field-actions">
                   <span className={`pill ${verificationTone(field.verification_status)}`}>
                     {plainVerification(field.verification_status)}
@@ -395,18 +548,256 @@ export function EvidencePanel({
                         type="button"
                         className="small danger"
                         disabled={busy || field.verification_status === "rejected"}
-                        onClick={() => void verify(document, field.id, "rejected")}
+                        onClick={() => startRejectField(document, field)}
+                        title="Mark incorrect and specify deficiency notice"
                       >
-                        <Icon name="x" size={14} /> Wrong
+                        <Icon name="x" size={14} /> Wrong / Deficiency
                       </button>
                     </>
                   )}
                 </div>
               </div>
-            ))}
+            );
+          })}
           </article>
         ))}
       </div>
+      {/* Deficiency Notice & Action Tracking Card */}
+      <div className="panel" style={{ marginTop: "1.5rem" }}>
+        <div className="panel-head">
+          <div>
+            <h3>
+              <Icon name="alertTriangle" size={18} /> Official Deficiency Notice &amp; Rectification Tracking
+            </h3>
+            <p className="tiny muted">
+              Specific issues requiring institution correction. When returned, the institution must upload fresh evidence to address open items.
+            </p>
+          </div>
+          {canVerify && (
+            <button
+              type="button"
+              className="small secondary"
+              onClick={() => setShowManualDeficiencyModal(true)}
+            >
+              <Icon name="plus" size={14} /> Add Manual Deficiency
+            </button>
+          )}
+        </div>
+
+        {deficiencies.length === 0 ? (
+          <p className="tiny muted" style={{ padding: "0.5rem 0" }}>
+            No deficiencies recorded for this application.
+          </p>
+        ) : (
+          <div className="stack" style={{ gap: "0.75rem", marginTop: "0.5rem" }}>
+            {deficiencies.map((defItem) => (
+              <div
+                key={defItem.id}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  padding: "0.75rem 1rem",
+                  background: defItem.status === "open" ? "rgba(239, 68, 68, 0.04)" : "var(--card-bg, transparent)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.35rem" }}>
+                  <strong>
+                    {defItem.field_name ? humanize(defItem.field_name) : humanize(defItem.category)}
+                    {defItem.document_id && (
+                      <span className="tiny muted" style={{ marginLeft: "0.5rem", fontWeight: "normal" }}>
+                        (Document: {plainDocType(defItem.category)})
+                      </span>
+                    )}
+                  </strong>
+                  <span className={`pill small ${deficiencyTone(defItem.status)}`}>
+                    {plainDeficiencyStatus(defItem.status)}
+                  </span>
+                </div>
+                <div style={{ fontSize: "0.875rem", marginBottom: "0.25rem" }}>
+                  <strong>Reason / Finding:</strong> {defItem.explanation}
+                </div>
+                <div style={{ fontSize: "0.875rem", color: "var(--primary)", marginBottom: "0.35rem" }}>
+                  <strong>Corrective Action Required:</strong> {defItem.corrective_action}
+                </div>
+                {defItem.extracted_value !== null && defItem.extracted_value !== undefined && (
+                  <div className="tiny muted" style={{ marginBottom: "0.25rem" }}>
+                    Rejected Extracted Value: <code>{formatValue(defItem.extracted_value)}</code>
+                  </div>
+                )}
+                {defItem.corrective_document_id && (
+                  <div className="tiny" style={{ color: "var(--good)", marginBottom: "0.25rem" }}>
+                    <Icon name="check" size={13} /> Corrective document version uploaded.
+                  </div>
+                )}
+                {canVerify && defItem.status === "addressed" && (
+                  <div style={{ marginTop: "0.5rem" }}>
+                    <button
+                      type="button"
+                      className="small good"
+                      disabled={busy}
+                      onClick={() => void handleCloseDeficiency(defItem.id)}
+                    >
+                      <Icon name="checkCircle" size={14} /> Accept Correction &amp; Close Deficiency
+                    </button>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* Reject field modal */}
+      {rejectingField && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            className="panel"
+            style={{ width: "90%", maxWidth: "540px", background: "var(--bg, #fff)" }}
+          >
+            <h3>Record Field Deficiency &amp; Mark Incorrect</h3>
+            <p className="tiny muted">
+              Specify the exact issue for <strong>{humanize(rejectingField.field.name)}</strong> on{" "}
+              <strong>{plainDocType(rejectingField.doc.doc_type)}</strong>. This will be added to the official Deficiency Notice.
+            </p>
+
+            <label className="field" style={{ marginTop: "0.75rem" }}>
+              <span>Officer Explanation of Deficiency:</span>
+              <textarea
+                rows={3}
+                value={deficiencyExplanation}
+                onChange={(e) => setDeficiencyExplanation(e.target.value)}
+                placeholder="e.g. Lease expiry date in document (2025-05-01) does not cover mandatory 3-year term."
+              />
+            </label>
+
+            <label className="field" style={{ marginTop: "0.5rem" }}>
+              <span>Required Corrective Action from Institution:</span>
+              <textarea
+                rows={2}
+                value={deficiencyAction}
+                onChange={(e) => setDeficiencyAction(e.target.value)}
+                placeholder="e.g. Upload registered lease deed renewed for valid duration."
+              />
+            </label>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={() => setRejectingField(null)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="danger"
+                disabled={busy || !deficiencyExplanation.trim() || !deficiencyAction.trim()}
+                onClick={() => void submitFieldDeficiency()}
+              >
+                {busy ? "Recording…" : "Save Deficiency & Reject Field"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Manual deficiency modal */}
+      {showManualDeficiencyModal && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          style={{
+            position: "fixed",
+            top: 0,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            background: "rgba(0,0,0,0.5)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 1000,
+          }}
+        >
+          <div
+            className="panel"
+            style={{ width: "90%", maxWidth: "540px", background: "var(--bg, #fff)" }}
+          >
+            <h3>Add Manual Deficiency</h3>
+            <p className="tiny muted">
+              Record a specific document or procedural deficiency not captured by automated extraction.
+            </p>
+
+            <label className="field" style={{ marginTop: "0.75rem" }}>
+              <span>Related Document (optional):</span>
+              <select value={manualDocId} onChange={(e) => setManualDocId(e.target.value)}>
+                <option value="">General Application Deficiency</option>
+                {documents.map((d) => (
+                  <option key={d.id} value={d.id}>
+                    {plainDocType(d.doc_type)} ({d.file_name} v{d.version})
+                  </option>
+                ))}
+              </select>
+            </label>
+
+            <label className="field" style={{ marginTop: "0.5rem" }}>
+              <span>Explanation of Deficiency:</span>
+              <textarea
+                rows={3}
+                value={manualExplanation}
+                onChange={(e) => setManualExplanation(e.target.value)}
+                placeholder="Describe what is missing, incomplete or invalid..."
+              />
+            </label>
+
+            <label className="field" style={{ marginTop: "0.5rem" }}>
+              <span>Required Corrective Action:</span>
+              <textarea
+                rows={2}
+                value={manualAction}
+                onChange={(e) => setManualAction(e.target.value)}
+                placeholder="Specify the document or update the college must provide..."
+              />
+            </label>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "0.5rem", marginTop: "1rem" }}>
+              <button
+                type="button"
+                className="secondary"
+                disabled={busy}
+                onClick={() => setShowManualDeficiencyModal(false)}
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="good"
+                disabled={busy || !manualExplanation.trim() || !manualAction.trim()}
+                onClick={() => void submitManualDeficiency()}
+              >
+                {busy ? "Saving…" : "Add to Deficiency Notice"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
+

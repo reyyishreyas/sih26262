@@ -96,3 +96,49 @@ class AssignmentCreate(BaseModel):
     role_name: str
     scope_type: str = Field(pattern="^(global|region|institution|committee|assigned)$")
     scope_id: str | None = None
+
+
+class DeficiencyCreate(BaseModel):
+    document_id: str | None = None
+    extracted_field_id: str | None = None
+    category: str = "document_deficiency"
+    rule_key: str | None = None
+    field_name: str | None = None
+    extracted_value: Any = None
+    explanation: str = Field(min_length=1)
+    corrective_action: str = Field(min_length=1)
+    status: str = Field(default="open", pattern="^(draft|open)$")
+
+
+class DeficiencyUpdate(BaseModel):
+    explanation: str | None = None
+    corrective_action: str | None = None
+    status: str | None = Field(default=None, pattern="^(draft|open|addressed|closed)$")
+    resolution_note: str | None = None
+
+
+class DeficiencyCloseRequest(BaseModel):
+    resolution_note: str = ""
+
+
+class DeficiencyOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    application_id: str
+    document_id: str | None
+    extracted_field_id: str | None
+    category: str
+    rule_key: str | None
+    field_name: str | None
+    extracted_value: Any
+    explanation: str
+    corrective_action: str
+    status: str
+    created_by: str
+    created_at: Any
+    resolved_by: str | None
+    resolved_at: Any
+    resolution_note: str | None
+    corrective_document_id: str | None
+

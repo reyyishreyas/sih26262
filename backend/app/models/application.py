@@ -171,3 +171,48 @@ class EvcVisit(Base):
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class Deficiency(Base):
+    """A structured deficiency item recorded against an application or specific evidence.
+
+    Status lifecycle:
+    - 'draft': officer is noting the issue during scrutiny before returning
+    - 'open': finalized and issued to institution upon return_for_clarification
+    - 'addressed': institution has uploaded a corrective document version
+    - 'closed': officer has re-verified and accepted the resolution
+    """
+
+    __tablename__ = "deficiencies"
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    application_id: Mapped[str] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    )
+    document_id: Mapped[str | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    extracted_field_id: Mapped[str | None] = mapped_column(
+        ForeignKey("extracted_fields.id", ondelete="SET NULL"), nullable=True, index=True
+    )
+    category: Mapped[str] = mapped_column(String(64), default="document_deficiency")
+    rule_key: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    field_name: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    extracted_value: Mapped[object] = mapped_column(JSON, nullable=True)
+    explanation: Mapped[str] = mapped_column(Text)
+    corrective_action: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(32), default="open", index=True)
+    created_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    resolved_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    resolution_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    corrective_document_id: Mapped[str | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="SET NULL"), nullable=True
+    )
+
+    application: Mapped[Application] = relationship()
+    document: Mapped[Document | None] = relationship(foreign_keys=[document_id])
+    extracted_field: Mapped[ExtractedField | None] = relationship()
+    corrective_document: Mapped[Document | None] = relationship(foreign_keys=[corrective_document_id])
+

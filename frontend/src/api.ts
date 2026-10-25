@@ -5,6 +5,7 @@ import type {
   AuditEvent,
   CaseDetail,
   ComplianceBatch,
+  DeficiencyRow,
   DocumentRow,
   EvcCommittee,
   EvcQueue,
@@ -196,6 +197,51 @@ export const api = {
       {
         method: "POST",
         body: JSON.stringify({ verification_status: verificationStatus }),
+      },
+    ),
+  deficiencies: (id: string) =>
+    request<DeficiencyRow[]>(`/applications/${id}/deficiencies`),
+  createDeficiency: (
+    id: string,
+    payload: {
+      document_id?: string | null;
+      extracted_field_id?: string | null;
+      category?: string;
+      rule_key?: string | null;
+      field_name?: string | null;
+      extracted_value?: unknown;
+      explanation: string;
+      corrective_action: string;
+      status?: "draft" | "open";
+    },
+  ) =>
+    request<DeficiencyRow>(`/applications/${id}/deficiencies`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  updateDeficiency: (
+    id: string,
+    deficiencyId: string,
+    payload: {
+      explanation?: string;
+      corrective_action?: string;
+      status?: "draft" | "open" | "addressed" | "closed";
+      resolution_note?: string;
+    },
+  ) =>
+    request<DeficiencyRow>(
+      `/applications/${id}/deficiencies/${deficiencyId}`,
+      {
+        method: "PATCH",
+        body: JSON.stringify(payload),
+      },
+    ),
+  closeDeficiency: (id: string, deficiencyId: string, resolutionNote: string = "") =>
+    request<DeficiencyRow>(
+      `/applications/${id}/deficiencies/${deficiencyId}/close`,
+      {
+        method: "POST",
+        body: JSON.stringify({ resolution_note: resolutionNote }),
       },
     ),
   undertakings: (id: string) =>

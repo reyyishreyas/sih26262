@@ -225,6 +225,7 @@ export function plainBlocked(item: string): string {
 
 const DOC_TYPE_LABELS: Record<string, string> = {
   lease_deed: "Lease document",
+  lease_agreement: "Lease agreement",
   ownership_record: "Ownership record",
   affidavit: "Affidavit (signed declaration)",
   fire_safety_certificate: "Fire safety certificate",
@@ -238,7 +239,7 @@ export function plainDocType(docType: string): string {
 
 export function docTypeIcon(docType: string): IconName {
   if (docType === "affidavit") return "fileText";
-  if (docType === "lease_deed") return "home";
+  if (docType === "lease_deed" || docType === "lease_agreement") return "home";
   if (docType === "ownership_record") return "shieldCheck";
   if (docType === "fire_safety_certificate") return "alertTriangle";
   if (docType === "faculty_list") return "users";
@@ -313,6 +314,8 @@ export function verificationTone(status: string): string {
  * should be able to see that difference before deciding.
  */
 export function plainMethod(method: string): string {
+  if (method === "gemini_grounded_ai") return "Evidence-Grounded AI (Gemini)";
+  if (method === "grounded_ai") return "Evidence-Grounded AI Copilot";
   if (method === "pdf_text") return "Read from the file's own text";
   if (method === "ocr") return "Scanned from the picture";
   if (method === "mock_ocr") return "Demo reader — not read from the file";
@@ -321,6 +324,7 @@ export function plainMethod(method: string): string {
 }
 
 export function methodTone(method: string): string {
+  if (method === "gemini_grounded_ai" || method === "grounded_ai") return "good";
   if (method === "pdf_text") return "good";
   if (method === "ocr") return "active";
   return "warn";
@@ -332,6 +336,21 @@ export function plainUndertakingStatus(status: string): string {
   if (status === "verified") return "Done";
   if (status === "waived") return "Not required";
   return humanize(status);
+}
+
+export function plainDeficiencyStatus(status: string): string {
+  if (status === "draft") return "Draft (not issued)";
+  if (status === "open") return "Action required";
+  if (status === "addressed") return "Correction uploaded";
+  if (status === "closed") return "Resolved & Accepted";
+  return humanize(status);
+}
+
+export function deficiencyTone(status: string): string {
+  if (status === "closed") return "good";
+  if (status === "addressed") return "active";
+  if (status === "open") return "bad";
+  return "warn";
 }
 
 export function undertakingTone(status: string): string {

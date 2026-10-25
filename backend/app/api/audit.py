@@ -26,11 +26,16 @@ def case_timeline(
 ) -> dict:
     application = require_application(db, access, application_id)
     entity_ids = {application.id}
-    from ..models import Alert, Document, EvcVisit, Undertaking
+    from ..models import Alert, Deficiency, Document, EvcVisit, Undertaking
 
     entity_ids |= set(
         db.scalars(
             select(Document.id).where(Document.application_id == application.id)
+        ).all()
+    )
+    entity_ids |= set(
+        db.scalars(
+            select(Deficiency.id).where(Deficiency.application_id == application.id)
         ).all()
     )
     entity_ids |= set(

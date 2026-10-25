@@ -1,5 +1,16 @@
-import type { ComplianceBatch } from "../types";
-import { formatDateTime, plainState, stateIcon, stateTone } from "../labels";
+import { useEffect, useState } from "react";
+import { api } from "../api";
+import type { ComplianceBatch, DeficiencyRow } from "../types";
+import {
+  deficiencyTone,
+  formatDateTime,
+  humanize,
+  plainDeficiencyStatus,
+  plainDocType,
+  plainState,
+  stateIcon,
+  stateTone,
+} from "../labels";
 import { Icon } from "./Icon";
 import type { IconName } from "./Icon";
 
@@ -143,6 +154,7 @@ function readsAsCode(text: string): boolean {
 }
 
 export function StatusTracker({
+  applicationId,
   state,
   stateSince,
   batch,
@@ -150,6 +162,7 @@ export function StatusTracker({
   onGoToDocuments,
   onGoToSend,
 }: {
+  applicationId: string;
   state: string;
   stateSince: string;
   batch: ComplianceBatch | null;
@@ -157,6 +170,21 @@ export function StatusTracker({
   onGoToDocuments: () => void;
   onGoToSend: () => void;
 }) {
+  const [deficiencies, setDeficiencies] = useState<DeficiencyRow[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .deficiencies(applicationId)
+      .then((items) => {
+        if (!cancelled) setDeficiencies(items);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [applicationId]);
+
   const index = stageIndex(state);
   const finished = state === "approved" || state === "rejected";
   const step = nextStepFor(state);
@@ -258,6 +286,70 @@ export function StatusTracker({
           </button>
         </div>
       </section>
+
+      {/* Official Deficiency Notice (Visible when deficiencies exist) */}
+      {deficiencies.length > 0 && (
+        <section className="panel" aria-labelledby="deficiency-heading">
+          <header className="panel-head">
+            <div>
+              <h2 id="deficiency-heading">
+                <Icon name="alertTriangle" size={20} /> Official AICTE Deficiency Notice
+              </h2>
+              <p className="muted">
+                The reviewing officer identified these specific deficiencies. Upload fresh, corrected documents under “Send documents” to address each item before resubmitting.
+              </p>
+            </div>
+            <span className={`pill ${deficiencies.some((d) => d.status === "open") ? "bad" : "good"}`}>
+              {deficiencies.filter((d) => d.status === "open").length} open items
+            </span>
+          </header>
+
+          <div className="stack" style={{ gap: "0.75rem", marginTop: "0.5rem" }}>
+            {deficiencies.map((d) => (
+              <div
+                key={d.id}
+                style={{
+                  border: "1px solid var(--border)",
+                  borderRadius: "8px",
+                  padding: "0.75rem 1rem",
+                  background: d.status === "open" ? "rgba(239, 68, 68, 0.04)" : "var(--card-bg, transparent)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "0.35rem" }}>
+                  <strong>
+                    {d.field_name ? humanize(d.field_name) : humanize(d.category)}
+                    {d.document_id && (
+                      <span className="tiny muted" style={{ marginLeft: "0.5rem", fontWeight: "normal" }}>
+                        (Document: {plainDocType(d.category)})
+                      </span>
+                    )}
+                  </strong>
+                  <span className={`pill small ${deficiencyTone(d.status)}`}>
+                    {plainDeficiencyStatus(d.status)}
+                  </span>
+                </div>
+                <div style={{ fontSize: "0.875rem", marginBottom: "0.25rem" }}>
+                  <strong>Reason / Finding:</strong> {d.explanation}
+                </div>
+                <div style={{ fontSize: "0.875rem", color: "var(--primary)", marginBottom: "0.35rem" }}>
+                  <strong>Action Required:</strong> {d.corrective_action}
+                </div>
+                {d.corrective_document_id && (
+                  <div className="tiny" style={{ color: "var(--good)" }}>
+                    <Icon name="check" size={13} /> You uploaded a corrective document version. The scrutiny officer will re-verify.
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <div style={{ marginTop: "1rem" }}>
+            <button type="button" className="secondary small" onClick={onGoToDocuments}>
+              <Icon name="upload" size={14} /> Go to documents to upload fixes
+            </button>
+          </div>
+        </section>
+      )}
 
       <section className="panel" aria-labelledby="attention-heading">
         <header className="panel-head">

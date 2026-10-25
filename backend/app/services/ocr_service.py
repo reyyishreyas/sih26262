@@ -8,20 +8,37 @@ must not depend on the OCR binary can pin it explicitly.
 
 from __future__ import annotations
 
-from ..adapters.ocr.base import OCRExtractor
+from ..adapters.ocr.base import ExtractionResult, OCRExtractor
 from ..adapters.ocr.mock import MockOCRExtractor
 from ..adapters.ocr.real import RealOCRExtractor
 from ..core.config import Settings, get_settings
+from .grounded_lease_extractor import GroundedLeaseExtractor
 
 _extractor: OCRExtractor | None = None
 _extractor_configured = False
+_lease_extractor = GroundedLeaseExtractor()
+
+
+class DispatchingExtractor:
+    """Dispatches lease_agreement / lease_deed to GroundedLeaseExtractor when applicable."""
+
+    def __init__(self, delegate: OCRExtractor):
+        self.delegate = delegate
+        self.simulated = getattr(delegate, "simulated", False)
+
+    def extract(self, *, doc_type: str, content: bytes, file_name: str) -> ExtractionResult:
+        if doc_type == "lease_agreement":
+            grounded_res = _lease_extractor.extract(content=content, file_name=file_name)
+            grounded_res.doc_type = doc_type
+            return grounded_res
+        return self.delegate.extract(doc_type=doc_type, content=content, file_name=file_name)
 
 
 def build_extractor(settings: Settings) -> OCRExtractor:
     if settings.ocr_engine == "mock":
-        return MockOCRExtractor()
+        return DispatchingExtractor(MockOCRExtractor())
     if settings.ocr_engine == "real":
-        return RealOCRExtractor()
+        return DispatchingExtractor(RealOCRExtractor())
     raise ValueError(f"unknown OCR engine {settings.ocr_engine!r}")
 
 

@@ -323,6 +323,27 @@ export interface DocumentRow {
   fields: ExtractedField[];
 }
 
+export interface DeficiencyRow {
+  id: string;
+  application_id: string;
+  document_id: string | null;
+  extracted_field_id: string | null;
+  category: string;
+  rule_key: string | null;
+  field_name: string | null;
+  extracted_value: unknown;
+  explanation: string;
+  corrective_action: string;
+  status: "draft" | "open" | "addressed" | "closed";
+  created_by: string;
+  created_at: string;
+  resolved_by: string | null;
+  resolved_at: string | null;
+  resolution_note: string | null;
+  corrective_document_id: string | null;
+}
+
+
 export interface UploadResult {
   document: DocumentRow;
   extraction: {

@@ -28,6 +28,7 @@ from ..core.clock import get_clock
 from ..core.permissions import PermissionDenied
 from ..models import (
     Application,
+    Deficiency,
     WorkflowTransition,
     WorkflowTransitionDefinition,
 )
@@ -263,6 +264,30 @@ def request_transition(
             created_at=now,
         )
     )
+    # When returning for clarification, promote any 'draft' deficiencies to 'open'
+    # so they become visible to the institution.
+    if action == "return_for_clarification":
+        drafts = db.scalars(
+            select(Deficiency).where(
+                Deficiency.application_id == application.id,
+                Deficiency.status == "draft",
+            )
+        ).all()
+        for d in drafts:
+            d.status = "open"
+            audit_service.AuditService(db).append(
+                action="deficiency.finalized",
+                entity_type="deficiency",
+                entity_id=d.id,
+                outcome="accepted",
+                actor_id=access.user_id,
+                actor_role=access.primary_role,
+                reason="Finalized on application return for clarification",
+                before={"status": "draft"},
+                after={"status": "open"},
+                request_id=request_id,
+            )
+
     # Hand the case to whoever the route says acts from the new state, in the
     # same transaction as the move itself. Without this a case is in nobody's
     # queue, and an officer whose scope is "assigned cases" cannot see it at

@@ -1,6 +1,7 @@
 from .application import (
     Application,
     Committee,
+    Deficiency,
     Document,
     EvcVisit,
     ExtractedField,
@@ -33,6 +34,7 @@ __all__ = [
     "Base",
     "CaseAssignment",
     "Committee",
+    "Deficiency",
     "Document",
     "EvcVisit",
     "ExtractedField",

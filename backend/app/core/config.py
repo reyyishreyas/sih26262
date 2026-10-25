@@ -10,10 +10,17 @@ from __future__ import annotations
 
 import re
 from functools import lru_cache
+from pathlib import Path
 
+from dotenv import load_dotenv
 from pydantic import model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
+
+# Load .env whether running from repo root or backend/ directory
+for _p in (Path(".env"), Path("../.env"), Path("backend/.env")):
+    if _p.is_file():
+        load_dotenv(_p, override=False)
 
 _PRODUCTION_ENVS = {"prod", "production"}
 _INSECURE_SECRETS = {
@@ -31,7 +38,7 @@ _ALLOWED_JWT_ALGORITHMS = {"HS256", "HS384", "HS512"}
 
 class Settings(BaseSettings):
     model_config = SettingsConfigDict(
-        env_file=".env", env_prefix="SIH_", extra="ignore"
+        env_file=(".env", "../.env", "backend/.env"), env_prefix="SIH_", extra="ignore"
     )
 
     app_name: str = "SIH26262 — AICTE Approval & Compliance Platform"
@@ -122,6 +129,10 @@ class Settings(BaseSettings):
     # document type and never reads the file — only for tests or a demo that
     # must not depend on the OCR binary.
     ocr_engine: str = "real"
+
+    # AI / LLM Grounded Extraction (Gemini).
+    # If not set, falls back to deterministic local grounded parsing.
+    gemini_api_key: str | None = None
 
     # Bounded retention for transient operational rows. Audit events are retained
     # indefinitely because deleting a middle event would break the hash chain.

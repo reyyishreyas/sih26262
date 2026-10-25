@@ -490,6 +490,7 @@ export function CaseView({
 
       {step === "status" && isCollege && (
         <StatusTracker
+          applicationId={application.id}
           state={application.current_state}
           stateSince={detail.state_since}
           batch={batch}
