@@ -13,7 +13,7 @@ from ..core.permissions import (
     CASE_TRANSITION,
     DOCUMENT_VERIFY,
 )
-from ..models import Application, Deficiency, Document, ExtractedField
+from ..models import Deficiency, Document, ExtractedField
 from ..schemas.api import (
     DeficiencyCloseRequest,
     DeficiencyCreate,

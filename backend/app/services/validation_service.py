@@ -10,6 +10,7 @@ linked to the failed field and document, citing the verbatim source_quote.
 
 from __future__ import annotations
 
+from contextlib import suppress
 from datetime import date
 from typing import Any
 
@@ -61,10 +62,8 @@ def validate_lease_document(
         field_row = by_name["valid_to"]
         raw_val, source_quote = _get_field_val_and_quote(field_row.value)
         parsed_date: date | None = None
-        try:
+        with suppress(ValueError, TypeError):
             parsed_date = date.fromisoformat(raw_val[:10])
-        except (ValueError, TypeError):
-            pass
 
         quote_clause = f" (quoted: \"{source_quote}\")" if source_quote else ""
 

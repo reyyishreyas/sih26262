@@ -11,7 +11,6 @@ from __future__ import annotations
 import os
 import re
 from io import BytesIO
-from typing import Any
 
 from ..adapters.ocr.base import ExtractedFieldCandidate, ExtractionResult
 
@@ -113,7 +112,7 @@ class GroundedLeaseExtractor:
                                             "ai_reasoning": data.get("ai_reasoning", ""),
                                         },
                                         source_page=1,
-                                        source_span=f"Gemini LLM grounded citation",
+                                        source_span="Gemini LLM grounded citation",
                                         method="gemini_grounded_ai",
                                         confidence=0.98,
                                     )
@@ -137,8 +136,6 @@ class GroundedLeaseExtractor:
         # High-fidelity Deterministic Grounded Extractor
         # Parses Lessor, Lessee, Property address, Expiry date with exact quotes & reasoning
         for p_num, p_text in pages:
-            lines = [line.strip() for line in p_text.splitlines() if line.strip()]
-
             # 1. Lessor
             lessor_match = re.search(
                 r"(?:Lessor|Landlord|Owner|First Party)\s*[:\-–]?\s*([^\n\r,;]+)",
