@@ -101,6 +101,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     SUPERVISORY_OFFICER: (
         MONITORING_READ,
         CASE_READ,
+        DOCUMENT_READ,
         AUDIT_READ,
         UNDERTAKING_READ,
     ),

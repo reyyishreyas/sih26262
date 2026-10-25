@@ -3,6 +3,7 @@ import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
 import type { DocumentRow } from "../types";
 import { useFileCheck } from "../useFileCheck";
+import { useRefreshOnFocus } from "../useRefreshOnFocus";
 import { ACCEPT_ATTRIBUTE, MAX_UPLOAD_BYTES, formatBytes } from "../uploadCheck";
 import { Icon } from "./Icon";
 import {
@@ -44,6 +45,7 @@ export function EvidencePanel({
   onEvidenceChanged: () => void;
 }) {
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
+  const [loading, setLoading] = useState(true);
   const [docType, setDocType] = useState<string>("lease_deed");
   // Validates the chosen file from its head bytes the moment it is picked, so
   // an oversized or unreadable file is caught before any upload starts.
@@ -94,11 +96,16 @@ export function EvidencePanel({
 
   const load = useCallback(async () => {
     try {
+      setLoading(true);
       setDocuments(await api.documents(applicationId));
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not load documents");
+    } finally {
+      setLoading(false);
     }
   }, [applicationId]);
+
+  useRefreshOnFocus(load);
 
   useEffect(() => {
     setDocuments([]);
@@ -304,7 +311,13 @@ export function EvidencePanel({
         </form>
       )}
 
-      {documents.length === 0 && (
+      {loading && (
+        <p className="loading">
+          <span className="spinner" /> Loading documents…
+        </p>
+      )}
+
+      {!loading && documents.length === 0 && (
         <p className="muted">No documents have been uploaded yet.</p>
       )}
 

@@ -177,3 +177,66 @@ def test_an_officer_cannot_upload_evidence_without_the_permission(client, as_use
         files={"file": _pdf()},
     )
     assert response.status_code == 403
+
+
+def test_institution_upload_visible_to_authorized_checker_roles(client, as_user):
+    """Uploaded documents from Institution role are visible and readable to authorized checkers/authorities."""
+    college = as_user("institution@demo.local")
+    scrutiny = as_user("scrutiny@demo.local")
+    supervisor = as_user("supervisor@demo.local")
+    regional = as_user("regional@demo.local")
+
+    # 1. Institution uploads a supporting document
+    upload = client.post(
+        "/api/v1/applications/app-main-0001/documents",
+        headers=college,
+        data={"doc_type": "affidavit"},
+        files={"file": _pdf("reg-test-affidavit.pdf")},
+    )
+    assert upload.status_code == 201
+    doc_id = upload.json()["document"]["id"]
+
+    # 2. Scrutiny officer can retrieve and view the uploaded document
+    docs_scrutiny = client.get(
+        "/api/v1/applications/app-main-0001/documents", headers=scrutiny
+    )
+    assert docs_scrutiny.status_code == 200
+    doc_names = [d["file_name"] for d in docs_scrutiny.json()]
+    assert "reg-test-affidavit.pdf" in doc_names
+
+    # 3. Supervisory officer (Authority role) can retrieve and view the documents
+    docs_supervisor = client.get(
+        "/api/v1/applications/app-main-0001/documents", headers=supervisor
+    )
+    assert docs_supervisor.status_code == 200
+    assert any(d["id"] == doc_id for d in docs_supervisor.json())
+
+    # 4. Regional officer (Authority role) can retrieve and view the documents
+    docs_regional = client.get(
+        "/api/v1/applications/app-main-0001/documents", headers=regional
+    )
+    assert docs_regional.status_code == 200
+    assert any(d["id"] == doc_id for d in docs_regional.json())
+
+    # 5. Content download succeeds for authorized officers
+    content_scrutiny = client.get(
+        f"/api/v1/applications/app-main-0001/documents/{doc_id}/content",
+        headers=scrutiny,
+    )
+    assert content_scrutiny.status_code == 200
+
+    content_supervisor = client.get(
+        f"/api/v1/applications/app-main-0001/documents/{doc_id}/content",
+        headers=supervisor,
+    )
+    assert content_supervisor.status_code == 200
+
+    # 6. Unauthorized / out-of-scope cannot access
+    unassigned = client.get(
+        "/api/v1/applications/app-second-0002/documents", headers=scrutiny
+    )
+    assert unassigned.status_code == 404
+
+    unauthenticated = client.get("/api/v1/applications/app-main-0001/documents")
+    assert unauthenticated.status_code == 401
+
