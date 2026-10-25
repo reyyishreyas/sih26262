@@ -26,6 +26,20 @@ class ThrottleDecision:
     reason: str = ""
 
 
+def wall_now() -> datetime:
+    """Real time, always.
+
+    Sign-in throttling runs on the wall clock, never on the injected demo
+    clock. The failure window and the lockout are operational security
+    windows, not part of the case narrative: with the rehearsal clock frozen,
+    every attempt would carry the same instant, so the window could never age
+    out, the retention purge could never run, and ``unlock_at - now`` would
+    stay pinned at the full lockout — five wrong passwords would lock an
+    account *permanently* while still promising "try again in 15 minutes".
+    """
+    return datetime.now(UTC)
+
+
 def _hash(value: str) -> str:
     return hashlib.sha256(value.encode("utf-8")).hexdigest()
 

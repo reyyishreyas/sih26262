@@ -156,6 +156,48 @@ def test_successful_login_does_not_clear_address_failures(db):
     assert decision.reason == "too_many_ip_attempts"
 
 
+def test_lockout_window_uses_wall_clock_not_the_frozen_demo_clock(client, db):
+    """Throttling must never run on the rehearsal clock.
+
+    The demo clock is a fixed instant. Stamping attempts with it put every
+    failure permanently inside the counting window and pinned
+    ``unlock_at - now`` at the full lockout, so five wrong passwords locked an
+    account for ever while still promising "try again in 15 minutes" — the
+    sign-in screen then looked broken with no way out.
+    """
+    assert (
+        client.post(
+            "/api/v1/auth/login",
+            json={"email": "scrutiny@demo.local", "password": "wrong"},
+        ).status_code
+        == 401
+    )
+
+    stamps = [
+        row.attempted_at.replace(tzinfo=UTC)
+        if row.attempted_at.tzinfo is None
+        else row.attempted_at
+        for row in db.query(LoginAttempt).all()
+    ]
+    assert stamps, "the failed sign-in was not recorded"
+    age_seconds = (datetime.now(UTC) - max(stamps)).total_seconds()
+    # The frozen demo clock sits days in the past relative to real time.
+    assert 0 <= age_seconds < 60, f"attempt stamped {age_seconds:.0f}s from now"
+
+    # And the block has to say how long the wait really is.
+    for _ in range(5):
+        client.post(
+            "/api/v1/auth/login",
+            json={"email": "scrutiny@demo.local", "password": "wrong"},
+        )
+    blocked = client.post(
+        "/api/v1/auth/login",
+        json={"email": "scrutiny@demo.local", "password": "DemoPassw0rd!"},
+    )
+    assert blocked.status_code == 429
+    assert "Try again in" in blocked.json()["detail"]
+
+
 def test_login_attempts_and_audit_are_persisted(client, db):
     client.post(
         "/api/v1/auth/login",

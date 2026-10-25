@@ -24,11 +24,18 @@ UI="http://localhost:${UI_PORT}"
 
 # Refuse to start against someone else's servers; a half-running stack is the
 # most confusing failure mode there is.
+#
+# Only a *listening* socket counts. A bare `lsof -ti:PORT` also matches a
+# browser's leftover connection to a server that has already died (CLOSE_WAIT),
+# which blocks startup for as long as that tab is open — and the suggested
+# `xargs kill` would kill the browser rather than the server.
 for port in "${API_PORT}" "${UI_PORT}"; do
-  if command -v lsof >/dev/null 2>&1 && lsof -ti:"${port}" >/dev/null 2>&1; then
-    echo "Port ${port} is already in use." >&2
-    echo "Stop it (lsof -ti:${port} | xargs kill) or run 'make down' if a previous" >&2
-    echo "copy of this stack is still running." >&2
+  if command -v lsof >/dev/null 2>&1 &&
+    lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t >/dev/null 2>&1; then
+    holder="$(lsof -nP -iTCP:"${port}" -sTCP:LISTEN -t 2>/dev/null | head -1 || true)"
+    echo "Port ${port} is already in use (pid ${holder:-unknown})." >&2
+    echo "Run 'make down' to stop the stack that is already running, or stop that" >&2
+    echo "one process with:  lsof -ti:${port} -sTCP:LISTEN | xargs kill" >&2
     exit 1
   fi
 done

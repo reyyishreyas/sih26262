@@ -31,6 +31,15 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 _DUMMY_HASH = hash_password("dummy-password-not-used-by-any-account")
 
 
+def _lockout_message(retry_after_seconds: int) -> str:
+    """Say how long the wait actually is — "try again later" is not an answer."""
+    minutes = -(-retry_after_seconds // 60)  # round up
+    if minutes < 1:
+        return "Too many failed sign-in attempts. Try again in a few seconds."
+    unit = "minute" if minutes == 1 else "minutes"
+    return f"Too many failed sign-in attempts. Try again in {minutes} {unit}."
+
+
 def _audit_login(
     db: Session,
     *,
@@ -63,7 +72,7 @@ def _reject_login(
         db,
         email=email,
         client_ip=client,
-        now=get_clock().now(),
+        now=login_throttle.wall_now(),
         successful=False,
         settings=settings,
     )
@@ -95,9 +104,11 @@ def login(
     db: Session = Depends(get_db),
 ) -> TokenResponse:
     settings = get_settings()
-    now = get_clock().now()
     email = payload.email.strip().lower()
     client = client_ip(request.scope, settings)
+    # Wall-clock time: see login_throttle.wall_now(). The demo clock freezes
+    # the case timeline and must not freeze the lockout window with it.
+    now = login_throttle.wall_now()
 
     decision = login_throttle.evaluate(
         db, email=email, client_ip=client, now=now, settings=settings
@@ -105,7 +116,7 @@ def login(
     if not decision.allowed:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
-            "too many failed sign-in attempts; try again later",
+            _lockout_message(decision.retry_after_seconds),
             headers={"Retry-After": str(decision.retry_after_seconds)},
         )
 
