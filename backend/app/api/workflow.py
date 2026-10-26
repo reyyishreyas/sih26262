@@ -9,7 +9,7 @@ from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import APPLICATION_READ, CASE_READ
 from ..schemas.api import TransitionRequest
-from ..services import escalation, routing, workflow_service
+from ..services import appeal, escalation, routing, workflow_service
 from ..services.authorization_service import EffectiveAccess, require_application
 from ..services.policy import reason_codes_policy, workflow_routes
 from .deps import get_access, require_any
@@ -154,3 +154,24 @@ def case_escalation(
         "source": config.get("source"),
         "chain": escalation.chain(),
     }
+
+
+@router.get("/applications/{application_id}/appeal-window")
+def case_appeal_window(
+    application_id: str,
+    access: EffectiveAccess = Depends(require_any(CASE_READ, APPLICATION_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Advisory appeal-window view for one case (Phase 3.5, FR-27).
+
+    Serves the 7-day appeal clock on a decision (once, within 7 days of the
+    decision upload — APH cl. 2.24a) plus the day-3 / day-6 reminder cadence
+    from §11 line 288, all as a clearly-labelled placeholder (§19 leaves the
+    figure unverified — REG-APPEAL-001 says do not activate it as binding).
+    Read-only — it moves no case and writes nothing, and there is no
+    ``file_appeal`` transition or speaking-order trigger yet (those are the
+    approval-gated Phase 6.5/6.6 tasks); the "may file" flag is advisory
+    (DEC-0003), never a gate.
+    """
+    application = require_application(db, access, application_id)
+    return appeal.appeal_snapshot(db, application, get_clock().now())

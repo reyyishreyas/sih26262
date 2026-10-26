@@ -131,6 +131,8 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("GET", "/api/v1/applications/{application_id}/lease-check"): READ_ANY,
     # escalation: Phase 3.4 advisory L0-L3 view (read-only, no write route)
     ("GET", "/api/v1/applications/{application_id}/escalation"): READ_ANY,
+    # appeal window: Phase 3.5 advisory FR-27 7-day clock (read-only, no write route)
+    ("GET", "/api/v1/applications/{application_id}/appeal-window"): READ_ANY,
     # portal: FR-01 stubbed feed (Phase 2.5) — read-only, scope-filtered
     ("GET", "/api/v1/portal/feed"): READ_ANY,
     # rehearsals

@@ -1,5 +1,5 @@
 {
-  "note": "Illustrative deadline policy. Offsets are days relative to the obligation due date; an alert is eligible once now >= due_at + offset_days. Negative offsets are advance warnings.",
+  "note": "Illustrative deadline policy. Offsets are days relative to the obligation due date; an alert is eligible once now >= due_at + offset_days. Negative offsets are advance warnings. The 'appeal' ladder (Phase 3.5, FR-27) drives the day-3 / day-6 reminders as offsets from the window close date and is Unverified placeholder configuration until AICTE confirms the appeal cadence (see appeal_policy.json).",
   "undertaking": [
     { "level": "reminder_30", "offset_days": -30, "severity": "info" },
     { "level": "reminder_7", "offset_days": -7, "severity": "warning" },
@@ -21,5 +21,9 @@
     { "level": "visit_due_soon", "offset_days": -7, "severity": "warning" },
     { "level": "visit_overdue", "offset_days": 1, "severity": "critical" },
     { "level": "visit_escalated", "offset_days": 10, "severity": "escalated" }
+  ],
+  "appeal": [
+    { "level": "appeal_day_3", "offset_days": -4, "severity": "info" },
+    { "level": "appeal_day_6", "offset_days": -1, "severity": "warning" }
   ]
 }

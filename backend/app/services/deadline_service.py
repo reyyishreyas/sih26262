@@ -187,6 +187,18 @@ def collect_items(db: Session, now: datetime) -> list[DeadlineItem]:
             )
         )
 
+    # 5. Appeal window on a decision (FR-27, Phase 3.5). Advisory reminder
+    # only — it raises the day-3 / day-6 alerts, never a gate (DEC-0003).
+    decided = db.scalars(
+        select(Application).where(Application.current_state.in_(("approved", "rejected")))
+    ).all()
+    for application in decided:
+        from . import appeal as _appeal
+
+        item = _appeal.appeal_window_item(application, now)
+        if item is not None:
+            items.append(item)
+
     return items
 
 
@@ -196,6 +208,7 @@ def eligible_thresholds(alert_type: str, due_at: datetime, now: datetime):
         "document_expiry": "document_expiry",
         "stage_ageing": "stage_ageing",
         "evc_visit": "evc_visit",
+        "appeal_window": "appeal",
     }[alert_type]
     for threshold in policy.thresholds(kind):
         if now >= due_at + timedelta(days=threshold.offset_days):

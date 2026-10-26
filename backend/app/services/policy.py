@@ -73,6 +73,11 @@ def escalation_chain_policy() -> dict[str, Any]:
     return _load("escalation_chain.json")
 
 
+@lru_cache
+def appeal_policy() -> dict[str, Any]:
+    return _load("appeal_policy.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

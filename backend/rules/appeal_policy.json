@@ -1,0 +1,37 @@
+{
+  "version": "2026.1",
+  "status": "unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "recorded_on": "2026-10-27",
+  "source": "md/1_PRD.md FR-27 (P0, PS A, line 206: '7-day appeal clock from decision upload; one appeal only; schedule SAC; record Council final decision'), the §7 rules table (line 288: 'Appeal to Council | Once, within 7 days of decision upload | 2.24a'), and §11 line 288 (the institution-side 'Speaking Order uploaded' cadence 'Day 3 and day 6 of 7; window closes day 7' — the two reminder days the appeal-clock sweep reuses). md/rules2.json REG-APPEAL-001 records the 7-day figure as an unverified example and explicitly instructs not to activate it as binding.",
+  "note": "PLACEHOLDER CONFIG — the 7-day window and the one-appeal-only limit are AICTE regulatory values (APH cl. 2.24a). This file makes the day counts and the reminder days data, not code, and keeps them advisory (DEC-0003): the appeal-window endpoint computes and displays a countdown and a 'may file' flag, but nothing here gates, moves or rejects a case, and no speaking-order upload trigger exists yet (that is Phase 6.5/6.6). Activate or re-source only after a human records an official clause via the approval gate; until then every answer is labelled Unverified/placeholder.",
+  "window_days": 7,
+  "max_appeals": 1,
+  "appeal_action": "file_appeal",
+  "trigger": {
+    "states": ["approved", "rejected"],
+    "basis": "current_state_since",
+    "note": "The clock runs from the instant the case entered a decision state. 'decision upload' (APH cl. 2.24a) is the PRD's own trigger; because the prototype records the decision in the same transaction as the state change, the two are the same instant until Phase 6.5 lands a first-class Speaking Order upload that a human can point the clock at."
+  },
+  "receiving_authority": {
+    "id": "sac_schedule_pending",
+    "label": "State-level Advisory Committee (SAC) — scheduled after the appeal window",
+    "placeholder": true,
+    "note": "FR-27 ends with 'schedule SAC; record Council final decision'. Which SAC, and who sits it, is an open human question (same class as the §19 Q5 designated authority); this names the role, never a person, and schedules nothing on its own."
+  },
+  "reminder_thresholds": [
+    {
+      "level": "appeal_day_3",
+      "day": 3,
+      "severity": "info",
+      "note": "PRD §11 line 288 — first reminder, day 3 of the 7-day window."
+    },
+    {
+      "level": "appeal_day_6",
+      "day": 6,
+      "severity": "warning",
+      "note": "PRD §11 line 288 — second reminder, day 6 of the 7-day window (the day before it closes)."
+    }
+  ]
+}

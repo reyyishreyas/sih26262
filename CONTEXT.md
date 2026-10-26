@@ -452,8 +452,18 @@ tamper-evidence).
   (resolves to nobody, never an invented authority), the 70/90/100/125%
   ladder and 1-/3-working-day unassigned rules as pure lookups,
   working-day maths from calendars.json, recipient resolution reusing
-  regional/supervisory officers, advisory read-only snapshot + endpoint,
-  sweep payload carries the level additively).
+   regional/supervisory officers, advisory read-only snapshot + endpoint,
+   sweep payload carries the level additively) ·
+   `test_appeal_clock` (23 — Phase 3.5: FR-27 appeal clock as labelled
+   placeholder (REG-APPEAL-001 unverified), 7-day window + one-appeal
+   limit + day-3/day-6 reminders all in `appeal_policy.json`, window
+   anchored on `current_state_since` and end-of-day in the business tz,
+   one-appeal count from `WorkflowTransition` rows by a configured action
+   (0 until 6.6 defines `file_appeal`), advisory read-only snapshot +
+   `GET .../appeal-window` (no gate/audit/migration), sweep raises the two
+   reminders idempotently via the existing `dedupe_key`; no new workflow
+   states — `file_appeal` and the Speaking-Order-upload trigger are the
+   approval-gated 6.5/6.6 tasks).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `6b2ae40`.
