@@ -80,6 +80,11 @@ class VerifyFieldRequest(BaseModel):
 class TransitionRequest(BaseModel):
     action: str
     reason: str = ""
+    # Optimistic concurrency (Essentials §14a): when the client sends the
+    # baseline_version it loaded, a case that has moved underneath it is
+    # rejected with a reload message instead of acted on from a stale view.
+    # Optional so existing clients keep working; the UI adopts it separately.
+    expected_baseline_version: int | None = None
 
 
 class RehearsalRequest(BaseModel):

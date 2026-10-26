@@ -20,6 +20,8 @@ class RevertRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     reason: str = ""
+    # Same optimistic-concurrency contract as TransitionRequest.
+    expected_baseline_version: int | None = None
 
 
 @router.get("/workflow/routes")
@@ -59,6 +61,7 @@ def request_transition(
         payload.action,
         payload.reason,
         request_id=current_request_id(),
+        expected_baseline_version=payload.expected_baseline_version,
     )
     return decision.as_dict()
 
@@ -77,6 +80,7 @@ def revert_last_transition(
         application_id,
         payload.reason,
         request_id=current_request_id(),
+        expected_baseline_version=payload.expected_baseline_version,
     )
     return decision.as_dict()
 

@@ -3,6 +3,9 @@
 Order of checks is fixed and tested:
 
 1. record visible in the caller's scope
+1a. the case has not moved under the caller (optimistic concurrency): when the
+    caller supplies the baseline_version it loaded and it no longer matches,
+    the attempt is rejected with a reload message — see Essentials §14a
 2. caller holds the transition permission
 3. caller's role is allowed for this action
 4. the transition exists for the application's route
@@ -114,6 +117,19 @@ def _reject(
     )
 
 
+def _stale_version_reasons(application: Application, expected: int) -> list[str]:
+    """Why a stale write was refused, in the words the officer sees.
+
+    The message tells the caller exactly what to do (reload) rather than
+    leaving them to guess why an otherwise-valid action failed.
+    """
+    return [
+        "the case has changed since it was loaded "
+        f"(expected version {expected}, current version "
+        f"{application.baseline_version}) — reload the case and try again"
+    ]
+
+
 def request_transition(
     db: Session,
     access: EffectiveAccess,
@@ -121,6 +137,7 @@ def request_transition(
     action: str,
     reason: str = "",
     request_id: str | None = None,
+    expected_baseline_version: int | None = None,
 ) -> TransitionDecision:
     application = db.get(Application, application_id)
     if application is None:
@@ -141,6 +158,20 @@ def request_transition(
             request_id=request_id,
         )
         raise PermissionDenied("application not found in your scope", code="not_found")
+
+    if (
+        expected_baseline_version is not None
+        and expected_baseline_version != application.baseline_version
+    ):
+        return _reject(
+            db,
+            application=application,
+            access=access,
+            action=action,
+            from_state=from_state,
+            reasons=_stale_version_reasons(application, expected_baseline_version),
+            request_id=request_id,
+        )
 
     definition = _definition(db, application.route_key, action)
     if definition is None:
@@ -447,6 +478,7 @@ def revert_last_transition(
     application_id: str,
     reason: str,
     request_id: str | None = None,
+    expected_baseline_version: int | None = None,
 ) -> TransitionDecision:
     """Take the case back one step, with the undo recorded like everything else.
 
@@ -473,6 +505,20 @@ def revert_last_transition(
             request_id=request_id,
         )
         raise PermissionDenied("application not found in your scope", code="not_found")
+
+    if (
+        expected_baseline_version is not None
+        and expected_baseline_version != application.baseline_version
+    ):
+        return _reject(
+            db,
+            application=application,
+            access=access,
+            action="revert",
+            from_state=from_state,
+            reasons=_stale_version_reasons(application, expected_baseline_version),
+            request_id=request_id,
+        )
 
     from ..core.permissions import CASE_DECIDE, CASE_TRANSITION
 
