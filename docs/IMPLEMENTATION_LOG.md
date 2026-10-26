@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0007 | 2026-10-26 | Implementation | Phase 1.1: all 21 Table 2.3 rows encoded in `workflow_routes.json` as unverified advisory configuration | Tested | Phase 1 1.1 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
 | IMPL-0006 | 2026-10-26 | Verification | Phase 0.5 exit check: all four hardening regression suites re-run green; limitations consolidated | Verified | Phase 0.5 exit check (H.1–H.4) | MiMo (OpenCode agent) |
 | IMPL-0005 | 2026-10-26 | Implementation | H.4 document versioning: replacement reason recorded, immutability/partial-storage/signature tests | Tested | Phase 0.5 H.4 (AGENT-03; BUG-0006) | MiMo (OpenCode agent) |
 | IMPL-0004 | 2026-10-26 | Implementation | H.3 authorisation matrix: every gated route × role × scope; 404-vs-403 policy documented | Tested | Phase 0.5 H.3 (Essentials §2, SYS-AUTH-001) | MiMo (OpenCode agent) |
@@ -60,6 +61,34 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0007 — Phase 1.1: the 21 Table 2.3 routing rows, encoded as unverified advisory configuration
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 64976d4 (work uncommitted at implementation)
+- Task ID and PRD IDs: Phase 1 **1.1** (AGENT-02); PRD **FR-07** (assign route from category via configurable table), PRD §6 Table 2.3; rules2 SYS-ROUTE-001 (proposed).
+- Goal: put all 21 APH Table 2.3 routing rows into configuration — category id, route pattern, application window, and the EVC-not-applicable flag on the FN/OCI/Gulf row — so tasks 1.2/1.3 can build the routing service against real data instead of a hard-coded list.
+- What existed before: `backend/rules/workflow_routes.json` held only four prototype *state machines* (`new_technical`, `existing_technical`, `evc_only`, `evc_sac_shc`) with transitions/SLAs — no category-to-route mapping, no Table 2.3 rows anywhere in the repo. `grep` across `backend/` and `md/` confirmed the 21 rows existed only as a table inside `md/1_PRD.md` §6 ("routing test source of truth").
+- What I did:
+  - **Contract test first** — `backend/tests/test_table_2_3_data.py` (5 tests): first run failed exactly as intended (`AssertionError: workflow_routes.json has no table_2_3 section`), then all 5 green. It pins: exactly 21 rows in PRD order (row numbers 1…21); unique stable `category_id`s; `route` ∈ {SD, SCR, SCR+EVC, SCR+EVC+AA} and `window` ∈ {public_notice, year_round} (the PRD's §6 vocabulary); the `evc_not_applicable` flag on exactly one row — "Seats for Foreign Nationals, OCI, Children of Indian Workers in Gulf", shown by the PRD as "SCR (EVC n/a)"; and the honesty contract — section `status == "unverified"`, `advisory_only is True`, the note points at `docs/SOURCES.md`, and every row cites its source.
+  - **Data** — added a `table_2_3` section to `backend/rules/workflow_routes.json`, transcribed row-for-row from the PRD table (`git diff` is purely additive: +200 lines, 0 deletions; the existing `routes` section is byte-identical). Each row: `row` (PRD order), `category_id` (`t23-01`…`t23-21`), `category` (PRD wording verbatim), `route`, `window`, `evc_not_applicable`, `source` ("md/1_PRD.md §6 Table 2.3 row N"), plus a `note` on rows 8 and 21 where the PRD has one. Section metadata: `status: "unverified"`, `advisory_only: true`, `recorded_on`, and a note stating the PRD §0 / DEC-0003 rule — advisory only until a named reviewer records the exact clause in `docs/SOURCES.md`, and clause numbers deliberately not guessed (each row cites its PRD table row instead).
+- Files changed: `backend/rules/workflow_routes.json` (new `table_2_3` section), `backend/tests/test_table_2_3_data.py` (new, 5 tests), `md/6_IMPLEMENTATION_PLAN.md` (1.1 ticked — untracked), `README.md` + `CONTEXT.md` (206 → 211, suite list), this log.
+- Migrations / API / config / rule-file changes: **config only** — `backend/rules/workflow_routes.json` gains a sibling section. `app/services/policy.py::workflow_routes()` loads the file whole and every consumer reads `.get("routes", {})`, so nothing existing changes behaviour (verified by the full suite staying green and by `seed.py`'s route seeding, which iterates `["routes"]`).
+- Decisions made: none new — follows DEC-0003 (regulatory values Unverified/advisory) and the PRD §0 default status. The FN/OCI/Gulf row keeps `route: "SCR"` *and* `evc_not_applicable: true` so both facts survive separately, matching the plan line's wording ("EVC-not-applicable flag for FN/OCI/Gulf").
+- Permission and audit effects: none (no code, no endpoints; the section is not yet read by any service — that is tasks 1.2/1.3).
+- Verification: exact commands + results:
+  - `pytest tests/test_table_2_3_data.py -q -p no:randomly` → first run **5 failed** (section absent — the intended red), after adding the data **5 passed**
+  - `git diff --stat rules/workflow_routes.json` → `200 insertions(+)`, no deletions
+  - `make lint` → `All checks passed!`
+  - `make test` → **211 passed, 1 warning in 22.50s** (0 skipped; +5 vs 206)
+  - Not run: `npm run build` (no frontend change), Alembic (no model change), Compose.
+- Status per requirement touched: Plan 1.1 "encode all 21 Table 2.3 rows" — **Implemented · Tested** (data + shape contract; routing *behaviour* is 1.2/1.3).
+- Limitations / assumptions / manual steps:
+  - Rows are transcribed from the PRD, which itself copies the APH — everything here stays **Unverified** until a human checks the exact clause/edition (blocked item; see `docs/SOURCES.md` required action). Clause numbers are deliberately absent rather than guessed.
+  - Off-Campus (cl. 2.11e) and Extended EoA have **no** Table 2.3 row (PRD's own "gaps to confirm"); they are not invented here.
+  - Window granularity is two values only; row 21's "twice a year per UGC timeline" is kept as a `note`, not a third window value.
+  - The four prototype state machines are unchanged; mapping route patterns → state machines/stage lists is task 1.2's job.
+- Related bugs: none (the first-run failures were the intended test-first red).
+- Open questions for a human: same blocked item — who verifies the 21 rows against the official APH edition and records it in `docs/SOURCES.md`.
+- Next suggested task: Phase 1 **1.2** — `services/routing.py`: category → ordered stage list, supporting SD, SCR, SCR+EVC, SCR+EVC+AA.
 
 ### IMPL-0006 — Phase 0.5 exit check: four hardening suites re-run; limitations consolidated
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 4f16517

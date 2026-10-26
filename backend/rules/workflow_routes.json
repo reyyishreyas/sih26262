@@ -1,5 +1,205 @@
 {
   "note": "Prototype route table. The four routes mirror the four approval paths named in the problem statement: scrutiny only, scrutiny + EVC, EVC only, and EVC + SAC/SHC. The transitions, guards and SLAs are illustrative configuration and must be verified against the APH before production use.",
+  "table_2_3": {
+    "status": "unverified",
+    "advisory_only": true,
+    "source": "md/1_PRD.md \u00a76 'Table 2.3 (21 rows) \u2014 routing test source of truth'",
+    "recorded_on": "2026-10-26",
+    "note": "The 21 APH Table 2.3 routing rows, transcribed from the PRD table. Status Unverified per PRD \u00a70 and DEC-0003: until a named reviewer checks the exact clause in the exact APH edition and records it in docs/SOURCES.md, this section is advisory configuration only \u2014 it must never block, return or reject an application. Clause numbers are deliberately not guessed; each row cites its PRD table row as its source.",
+    "rows": [
+      {
+        "row": 1,
+        "category_id": "t23-01",
+        "category": "EoA based on Self-Disclosure",
+        "route": "SD",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 1"
+      },
+      {
+        "row": 2,
+        "category_id": "t23-02",
+        "category": "Introduction / Continuation of NRI seats",
+        "route": "SD",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 2"
+      },
+      {
+        "row": 3,
+        "category_id": "t23-03",
+        "category": "Conversion Diploma\u2194Degree",
+        "route": "SCR+EVC+AA",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 3"
+      },
+      {
+        "row": 4,
+        "category_id": "t23-04",
+        "category": "Change in Name of Institution / affiliating University or Board / Type (not converted into University)",
+        "route": "SCR",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 4"
+      },
+      {
+        "row": 5,
+        "category_id": "t23-05",
+        "category": "Start new Programme / Level",
+        "route": "SCR+EVC+AA",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 5"
+      },
+      {
+        "row": 6,
+        "category_id": "t23-06",
+        "category": "Merger of Institutions",
+        "route": "SCR+EVC+AA",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 6"
+      },
+      {
+        "row": 7,
+        "category_id": "t23-07",
+        "category": "EoA after break / Restoration of Intake / Hibernation",
+        "route": "SCR+EVC+AA",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 7"
+      },
+      {
+        "row": 8,
+        "category_id": "t23-08",
+        "category": "Seats for Foreign Nationals, OCI, Children of Indian Workers in Gulf",
+        "route": "SCR",
+        "window": "public_notice",
+        "evc_not_applicable": true,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 8",
+        "note": "PRD shows this row as 'SCR (EVC n/a)'."
+      },
+      {
+        "row": 9,
+        "category_id": "t23-09",
+        "category": "Increase in Intake / Additional Course(s)",
+        "route": "SCR+EVC+AA",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 9"
+      },
+      {
+        "row": 10,
+        "category_id": "t23-10",
+        "category": "Integrated / Dual Degree Course",
+        "route": "SCR+EVC+AA",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 10"
+      },
+      {
+        "row": 11,
+        "category_id": "t23-11",
+        "category": "Fellow Programme in Management",
+        "route": "SCR+EVC+AA",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 11"
+      },
+      {
+        "row": 12,
+        "category_id": "t23-12",
+        "category": "Change in Name of Course / Merger of Courses / Reduction in Intake",
+        "route": "SCR",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 12"
+      },
+      {
+        "row": 13,
+        "category_id": "t23-13",
+        "category": "Collaboration and Twinning Programme",
+        "route": "SCR+EVC+AA",
+        "window": "public_notice",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 13"
+      },
+      {
+        "row": 14,
+        "category_id": "t23-14",
+        "category": "Change of Site / Location",
+        "route": "SCR+EVC+AA",
+        "window": "year_round",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 14"
+      },
+      {
+        "row": 15,
+        "category_id": "t23-15",
+        "category": "Closure of the Institution",
+        "route": "SCR",
+        "window": "year_round",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 15"
+      },
+      {
+        "row": 16,
+        "category_id": "t23-16",
+        "category": "Women's Institution \u2194 Co-ed",
+        "route": "SCR",
+        "window": "year_round",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 16"
+      },
+      {
+        "row": 17,
+        "category_id": "t23-17",
+        "category": "Closure of Programme(s) / Course(s)",
+        "route": "SCR",
+        "window": "year_round",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 17"
+      },
+      {
+        "row": 18,
+        "category_id": "t23-18",
+        "category": "Change in Bank Details",
+        "route": "SCR",
+        "window": "year_round",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 18"
+      },
+      {
+        "row": 19,
+        "category_id": "t23-19",
+        "category": "Change in Name of Trust / Society / Company",
+        "route": "SCR",
+        "window": "year_round",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 19"
+      },
+      {
+        "row": 20,
+        "category_id": "t23-20",
+        "category": "Type converted into Deemed-to-be-University",
+        "route": "SCR+EVC+AA",
+        "window": "year_round",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 20"
+      },
+      {
+        "row": 21,
+        "category_id": "t23-21",
+        "category": "Online Learning / ODL",
+        "route": "SCR+EVC+AA",
+        "window": "year_round",
+        "evc_not_applicable": false,
+        "source": "md/1_PRD.md \u00a76 Table 2.3 row 21",
+        "note": "PRD: year round, processed twice a year per UGC timeline."
+      }
+    ]
+  },
   "routes": {
     "new_technical": {
       "label": "New technical institution \u2014 Scrutiny + EVC",
