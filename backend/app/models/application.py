@@ -88,6 +88,10 @@ class Document(Base):
     storage_ref: Mapped[str] = mapped_column(Text)
     size_bytes: Mapped[int] = mapped_column(Integer, default=0)
     version: Mapped[int] = mapped_column(Integer, default=1)
+    # Why this version exists. A replacement records what was corrected, so the
+    # version history explains itself without opening the audit timeline.
+    # Null on uploads where nobody recorded a reason (the field is optional).
+    upload_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     status: Mapped[str] = mapped_column(String(32), default="processed")
     uploaded_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), default=utcnow

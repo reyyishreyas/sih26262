@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0005 | 2026-10-26 | Implementation | H.4 document versioning: replacement reason recorded, immutability/partial-storage/signature tests | Tested | Phase 0.5 H.4 (AGENT-03; BUG-0006) | MiMo (OpenCode agent) |
 | IMPL-0004 | 2026-10-26 | Implementation | H.3 authorisation matrix: every gated route × role × scope; 404-vs-403 policy documented | Tested | Phase 0.5 H.3 (Essentials §2, SYS-AUTH-001) | MiMo (OpenCode agent) |
 | IMPL-0003 | 2026-10-26 | Implementation | H.2 transaction boundary: one commit per workflow action; audit failure fails the operation | Tested | Phase 0.5 H.2 (Essentials §17, BUG-0004) | MiMo (OpenCode agent) |
 | IMPL-0002 | 2026-10-26 | Implementation | H.1 optimistic concurrency: stale transitions/reverts rejected and audited | Tested | Phase 0.5 H.1 (Essentials §14a, SYS-CONCUR-001) | MiMo (OpenCode agent) |
@@ -58,6 +59,45 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0005 — H.4: document versioning — replacement reason, immutability, partial-storage failure, file signatures
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 271f8db (work uncommitted at implementation; committed and pushed per user instruction)
+- Task ID and PRD IDs: Phase 0.5 **H.4** (AGENT-03); PRD document-versioning requirements (replacement creates a new immutable version; extraction linked to a version), `md/3_ARCHITECTURE_ESSENTIALS.md` (evidence immutability, no half-written evidence), rules2 SYS-DEF-001/SYS-REVAL-001 (corrective document versions feed the deficiency loop).
+- Goal: prove the versioning contract the plan asks for — a replacement upload creates a **new immutable version with a reason**, every extraction/finding stays linked to the version it came from, a partial storage failure leaves no half-written row or file, and the file-signature check refuses content that contradicts its declared type.
+- What existed before: upload already created a new `Document` row per version (`version = max + 1`), stored bytes under a per-version path with `os.replace` atomicity plus rollback cleanup, and linked `ExtractedField.document_version`. **Gaps:** no `reason` on replacement (nobody recorded *why* a version was replaced), and none of the above was covered by tests — `test_hardening` only checked the "not really a pdf" 415 and path-traversal names, `test_deficiency_loop` only `version > old`. Additionally `alembic check` was red (BUG-0006).
+- What I did:
+  - **Tests first** — `backend/tests/test_document_versioning.py` (7 tests): first run `2 failed, 5 passed` with `KeyError: 'upload_reason'` (reason genuinely absent), then all 7 green after implementation. Coverage:
+    1. `test_a_replacement_adds_a_new_version_and_never_rewrites_the_old_one` — two uploads; v1 row snapshot (id, sha, storage_ref, version, uploaded_at, size, every field incl. `document_version`) byte-identical after v2; both files present on disk, both download endpoints return exactly their own sha; v2 `version == v1 + 1`; each extraction linked to its own version; both `document.uploaded` audit events carry the supplied reason; the list endpoint shows both reasons.
+    2. `test_upload_without_a_reason_keeps_the_version_readable` — reason optional, upload still 201.
+    3. `test_every_extracted_field_points_at_the_version_it_was_read_from` — after replacement, every `ExtractedField.document_version` equals its document's version.
+    4. `test_verifying_a_field_changes_the_verdict_never_the_extraction` — officer verify flips `verification_status`, `value` and `document.version` unchanged (immutability of what was read). Uses `admin@demo.local` because `app-draft-0004` is unassigned (scrutiny scope would 404).
+    5. `test_a_database_failure_after_the_file_is_stored_leaves_no_row_and_no_file` — monkeypatch `AuditService.append` to raise after the file is on disk → 500, no new row, no new file, no `.tmp` left.
+    6. `test_a_failure_while_storing_the_file_leaves_no_row_and_no_temp_file` — monkeypatch `os.replace` in `app.api.documents` → 500, no row, no temp file.
+    7. `test_a_declared_type_that_contradicts_the_file_signature_is_refused` — PNG bytes declared as `application/pdf` → 415 "file content is … declared"; empty body → 415 "empty"; no row, no file stored (the two signature branches `test_hardening` did not reach).
+  - **Implementation** (smallest change): optional `reason: str = Form("", max_length=512)` on `POST /applications/{id}/documents`, stored on the new row (`documents.upload_reason`, nullable) and as the `document.uploaded` audit event's `reason`; `DocumentOut.upload_reason` exposes it. Deliberately **not** a `status = "superseded"` marker: `Document.status != "rejected"` is read by evidence/deadline/reporting services, so repurposing status would change what those services count.
+  - **Migration 0007** — nullable `documents.upload_reason` (Text); existing rows stay NULL. **Migration 0008** — BUG-0006: creates `deficiencies` and `evc_visits` that two earlier feature commits added to the ORM without migrations; a Compose deploy (`alembic upgrade head` only) would have lacked both tables.
+- Files changed: `backend/tests/test_document_versioning.py` (new, 7), `backend/app/api/documents.py` (reason param, row + audit), `backend/app/models/application.py` (`Document.upload_reason`), `backend/app/schemas/api.py` (`DocumentOut.upload_reason`), `backend/migrations/versions/0007_document_upload_reason.py` (new), `backend/migrations/versions/0008_deficiencies_and_evc_visits.py` (new, BUG-0006), `md/6_IMPLEMENTATION_PLAN.md` (H.4 ticked), `README.md` + `CONTEXT.md` (199 → 206), this log + `docs/BUG_LOG.md`.
+- Migrations / API / config / rule-file changes: two new migrations (see above). API: one optional form field `reason` on the upload endpoint and one optional response field `upload_reason` — backward compatible; no permission, route or rule-file change.
+- Permission and audit effects: no permission changes. Audit: `document.uploaded` now records the uploader's stated reason in `reason` (was empty). Two failure-path audit events (malware, scanner unavailable) untouched.
+- Verification: exact commands + results:
+  - `pytest tests/test_document_versioning.py -q -p no:randomly` → first run **2 failed, 5 passed** (reason missing, as intended), after implementation **7 passed**
+  - `make lint` → `All checks passed!`
+  - `make test` → **206 passed, 1 warning in 21.76s** (0 skipped; +7 vs the 199 baseline)
+  - `make migrate-sqlite` → `alembic upgrade head` (0007 → 0008) then `alembic check` → **`No new upgrade operations detected.` / CHECK_OK**; downgrade to 0007 and re-upgrade both succeed; `ruff check migrations` clean
+  - Not run: `npm run build` (no frontend change), Compose stack, Postgres.
+- Status per requirement touched:
+  - Plan H.4 "replacement creates a new immutable version with reason" — **Implemented · Tested**
+  - Plan H.4 "extraction/finding links to a version" — **Tested** (already implemented; now pinned)
+  - Plan H.4 "partial-storage-failure test" — **Tested** (both halves: DB failure after file stored; file failure before commit)
+  - Plan H.4 "file-signature check" — **Tested** (lying declared type + empty body, the two untested branches)
+- Limitations / assumptions / manual steps:
+  - `Document.status` has no "superseded" value on purpose (see above); version history is told by `version` + `upload_reason` + the audit chain.
+  - The partial-failure tests monkeypatch the exact seams (`AuditService.append`, `os.replace`); if the upload code moves those calls, the tests still pass as long as cleanup works — they assert the *invariant*, not the line number.
+  - Migration 0008 was verified on SQLite only; Postgres types used are basic (String/Date/DateTime/JSON) and match the ORM, but `make up` + `make verify-isolation` were not run.
+  - `alembic check` is not in CI — flagged in BUG-0006 as a question for a human.
+- Related bugs: BUG-0006 (Fixed here).
+- Open questions for a human: should CI run `make migrate-sqlite` to catch ORM/migration drift automatically?
+- Next suggested task: Phase 0.5 **H.5** — read the next unchecked item in `md/6_IMPLEMENTATION_PLAN.md`.
 
 ### IMPL-0004 — H.3: authorisation matrix (every gated route × role × scope) and the 404-vs-403 policy
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 0b4bd11 (work uncommitted at implementation; committed and pushed per user instruction)

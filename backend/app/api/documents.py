@@ -65,6 +65,10 @@ def upload_document(
     application_id: str,
     doc_type: str = Form(..., min_length=1, max_length=64, pattern="^[a-z0-9_]+$"),
     file: UploadFile = File(...),
+    # Optional: what this version is for. A replacement says what was
+    # corrected; a first upload often has nothing to add. Never required, so
+    # an existing client that sends no reason keeps working.
+    reason: str = Form("", max_length=512),
     access: EffectiveAccess = Depends(require(DOCUMENT_UPLOAD)),
     db: Session = Depends(get_db),
 ) -> dict:
@@ -178,6 +182,7 @@ def upload_document(
             storage_ref=str(storage_ref),
             size_bytes=len(content),
             version=version,
+            upload_reason=reason.strip() or None,
             uploaded_at=get_clock().now(),
         )
         db.add(document)
@@ -259,6 +264,7 @@ def upload_document(
             outcome="accepted",
             actor_id=access.user_id,
             actor_role=access.primary_role,
+            reason=reason.strip(),
             after={
                 "application_id": application.id,
                 "doc_type": doc_type,

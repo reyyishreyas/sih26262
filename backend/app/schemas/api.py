@@ -67,6 +67,7 @@ class DocumentOut(BaseModel):
     file_name: str
     file_sha256: str
     version: int
+    upload_reason: str | None = None
     status: str
     uploaded_at: Any
     fields: list[FieldOut] = []
