@@ -1,0 +1,17 @@
+{
+  "note": "Readiness / intake checks as configuration. Each rule is advisory and Unverified until a reviewer records the exact APH clause in docs/SOURCES.md; an Unverified rule never blocks, returns or rejects an application (PRD §0). Dates are never stored here — cut-off dates live in calendars.json so there is one source of truth per year.",
+  "status": "unverified",
+  "advisory_only": true,
+  "recorded_on": "2026-10-26",
+  "cut_off": {
+    "rule": "An application submitted after the Public Notice cut-off is queued for the next Academic Year.",
+    "action_on_after_cutoff": "queue_for_next_academic_year",
+    "reject": false,
+    "reject_note": "The plan implements the tag half of FR-02 only — 'never reject' — because PRD §0 forbids an Unverified rule from blocking or rejecting. FR-02's literal wording also says 'reject from processing'; that half is deliberately NOT implemented and would need a human approval gate plus a verified cut-off date before it could ever be switched on.",
+    "date_source": "calendars.json -> years[<year>].public_notice.closes_on",
+    "date_source_note": "The cut-off date is looked up for the submission's calendar year. If no date is recorded for that year the check answers needs_review — never 'no cut-off applies' — because calendars.json ships with no year loaded (IMPL-0016).",
+    "status": "unverified",
+    "advisory_only": true,
+    "source": "md/1_PRD.md FR-02 (APH cl. 2.2, 2.22); §6 routing rule 7"
+  }
+}

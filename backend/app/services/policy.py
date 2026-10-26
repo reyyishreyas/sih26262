@@ -43,6 +43,11 @@ def calendars() -> dict[str, Any]:
     return _load("calendars.json")
 
 
+@lru_cache
+def readiness_policy() -> dict[str, Any]:
+    return _load("readiness_policy.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

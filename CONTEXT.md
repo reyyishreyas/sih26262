@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 318 passing
+make test      # pytest — 332 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -358,7 +358,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **318 passing** (~222 test functions; some parametrised).
+- `make test` → **332 passing** (~223 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -408,7 +408,10 @@ tamper-evidence).
   returns all 21 rows with coverage `21/21`, auth-gated, read-only) ·
   `test_working_calendar` (24 — Phase 2.1: IST/working-day/holiday maths and
   Public Notice + Academic Calendar lookups (FR-37); no date invented — an
-  unconfigured year answers `None`, never a guessed window).
+  unconfigured year answers `None`, never a guessed window) ·
+  `test_readiness_cutoff` (14 — Phase 2.2: cut-off check tags next AY and
+  never rejects (FR-02); no date/time → `needs_review`, never a guessed
+  pass; status vocabulary provably has no rejected/blocked).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `12cd8be`.
