@@ -70,6 +70,43 @@ class Application(Base):
 
     institution: Mapped[Institution] = relationship()
     documents: Mapped[list[Document]] = relationship(back_populates="application")
+    items: Mapped[list[ApplicationItem]] = relationship(
+        back_populates="application", cascade="all, delete-orphan"
+    )
+
+
+class ApplicationItem(Base):
+    """One Table 2.3 category on a (possibly combined) application.
+
+    PRD routing rule 2 / FR-08: a combined application runs the union of its
+    categories' stages and records its outcome **per category**, so a
+    conversion that clears and a merger that does not are not flattened into
+    one verdict. A plain single-category case carries exactly one item.
+    """
+
+    __tablename__ = "application_items"
+    __table_args__ = (
+        UniqueConstraint(
+            "application_id", "category_id", name="uq_application_item_category"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    application_id: Mapped[str] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    )
+    # Table 2.3 category id (t23-01 … t23-21); route is copied from the
+    # category's pattern so a case history survives later table edits.
+    category_id: Mapped[str] = mapped_column(String(16))
+    route: Mapped[str] = mapped_column(String(32))
+    # Per-category outcome (FR-08); None until that category is decided.
+    outcome: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    outcome_recorded_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    application: Mapped[Application] = relationship(back_populates="items")
 
 
 class Document(Base):

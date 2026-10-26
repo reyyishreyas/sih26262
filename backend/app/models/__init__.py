@@ -1,5 +1,6 @@
 from .application import (
     Application,
+    ApplicationItem,
     Committee,
     Deficiency,
     Document,
@@ -29,6 +30,7 @@ __all__ = [
     "Alert",
     "AlertDelivery",
     "Application",
+    "ApplicationItem",
     "AuditChainHead",
     "AuditEvent",
     "Base",

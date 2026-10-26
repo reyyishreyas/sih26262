@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 245 passing
+make test      # pytest — 253 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -357,7 +357,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **245 passing** (~202 test functions; some parametrised).
+- `make test` → **253 passing** (~210 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -388,7 +388,10 @@ tamper-evidence).
   category/pattern fails loudly) ·
   `test_routing_table_2_3` (24 — Phase 1.3: one parametrised test per
   Table 2.3 row checking route, window and stage order against an
-  independent transcription of the PRD table).
+  independent transcription of the PRD table) ·
+  `test_combined_applications` (8 — Phase 1.4: combined cases run the
+  ordered union of their categories' stages and keep one outcome per
+  category; duplicate category refused; cascade delete).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `81acaa5`.

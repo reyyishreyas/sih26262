@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0010 | 2026-10-26 | Implementation | Phase 1.4: combined applications — `ApplicationItem` (outcome per category), stage union, migration 0009 | Tested | Phase 1 1.4 (AGENT-02; FR-08) | MiMo (OpenCode agent) |
 | IMPL-0009 | 2026-10-26 | Implementation | Phase 1.3: one parametrised routing test per Table 2.3 row (21 rows) against the PRD | Tested | Phase 1 1.3 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
 | IMPL-0008 | 2026-10-26 | Implementation | Phase 1.2: `services/routing.py` — Table 2.3 category → ordered stage list for the four PRD patterns | Tested | Phase 1 1.2 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
 | IMPL-0007 | 2026-10-26 | Implementation | Phase 1.1: all 21 Table 2.3 rows encoded in `workflow_routes.json` as unverified advisory configuration | Tested | Phase 1 1.1 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
@@ -63,6 +64,35 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0010 — Phase 1.4: combined applications — `ApplicationItem`, stage union, per-category outcome
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 1c50cd0 (work uncommitted at implementation)
+- Task ID and PRD IDs: Phase 1 **1.4** (AGENT-02); PRD **FR-08** (combined applications, per-category outcomes, sequencing rules) and routing rule 2 ("route = union of needed stages; outcome recorded per category").
+- Goal: let one case carry several Table 2.3 categories — each with its own recorded outcome — and compute the union of the stages its categories need, in the PRD's flow order.
+- What existed before: `Application.category` holds a single string; nothing modelled multiple categories per case; `routing.py` answered per one category only.
+- What I did:
+  - **Tests first** — `backend/tests/test_combined_applications.py` (8 tests): SD+SCR union interleaves `nil_deficiency_report` and `scrutiny` in canonical flow order; single-category union is that category's list; duplicate categories don't duplicate stages; conditional stages keep their gate in the union (`shc` stays `if_deficiencies`); unknown category raises `KeyError`; per-category outcome rows are independent (one approved, one still None); the same category cannot be added to one application twice (unique constraint → `IntegrityError`); deleting an application removes its items (FK `ON DELETE CASCADE` + ORM `delete-orphan`). All 8 passed on first run.
+  - **Model** — `ApplicationItem` in `app/models/application.py`: `application_id` (FK CASCADE), `category_id` (`t23-01`…), `route` (copied from the category's pattern so a case history survives later table edits), `outcome` + `outcome_recorded_at` (nullable — per-category verdict, None until that category is decided), `created_at`; unique `(application_id, category_id)`; exported from `app.models`.
+  - **Migration 0009** — autogenerate draft restyled to house conventions (revision `0009_application_items`, dated docstring). `sql/roles.sql` needs no change: grants are `ON ALL TABLES IN SCHEMA public`.
+  - **Union** — `routing.stages_for_categories(category_ids)`: stages from every category, merged by name, ordered by the new config key `table_2_3.stage_order` (readiness → nil_deficiency_report → scrutiny → evc → shc → executive_decision → appeal_window → grant, transcribed from PRD §7); if categories disagree about a stage's condition the **most restrictive** wins (a gate one category requires must not be widened by another category listing the same stage); a `stage_order` that is missing a used stage raises `KeyError` rather than producing a wrong order.
+- Files changed: `backend/app/models/application.py` (`ApplicationItem`, `Application.items`), `backend/app/models/__init__.py` (export), `backend/app/services/routing.py` (`stages_for_categories`, `stage_order`, `_WHEN_RANK`), `backend/rules/workflow_routes.json` (`stage_order` + note), `backend/migrations/versions/0009_application_items.py` (new), `backend/tests/test_combined_applications.py` (new, 8), `md/6_IMPLEMENTATION_PLAN.md` (1.4 ticked — untracked), `README.md` + `CONTEXT.md` (245 → 253, suite list), this log.
+- Migrations / API / config / rule-file changes: migration 0009 (new table); config `stage_order`; **no API change** — nothing yet creates items or reads the union through HTTP (that comes with the stage graph in 3.1 and the workflow wiring); no permission/route change.
+- Decisions made: `route` is denormalised onto the item so the category→route decision is frozen at case creation (audit-friendly, survives config edits); union condition-merge is "most restrictive wins" — conservative by design for an advisory engine. No new DEC entry needed: both follow DEC-0003 (advisory) and the existing policy-as-data pattern.
+- Permission and audit effects: none — the table is not exposed by any endpoint yet, so no permission applies and no audit event is written for item creation (endpoint + audit come when the workflow consumes items; noted for 3.1).
+- Verification: exact commands + results:
+  - `pytest tests/test_combined_applications.py -q -p no:randomly` → **8 passed** (first run)
+  - `alembic upgrade head` (fresh `/tmp/sih26262-migrate.db`) → 0008 → 0009 applied; `alembic check` → **`No new upgrade operations detected.`**; downgrade to 0008 and re-upgrade both succeed
+  - `make lint` → `All checks passed!`
+  - `make test` → **253 passed, 1 warning in 26.58s** (0 skipped; +8 vs 245)
+  - Not run: `npm run build` (no frontend change), Compose/Postgres (migration uses only String/DateTime/unique-constraint primitives; Postgres run is Phase 10.1).
+- Status per requirement touched: Plan 1.4 "`ApplicationItem` model + migration" — **Implemented · Tested**; "union of stages" — **Implemented · Tested**; "per-category outcome (FR-08)" — **Implemented · Tested** (storage + independence; the *recording* endpoint arrives later).
+- Limitations / assumptions / manual steps:
+  - No endpoint yet to add categories to a case or record a per-category outcome; seeded single-category cases have no items (the workflow's consumption of items is 3.1+). Sequencing rules (1.5) are not yet applied to the union order beyond the canonical flow order.
+  - `outcome` vocabulary is an unconstrained string until the decision points exist (Phase 6); the column is deliberately nullable, not defaulted.
+  - Migration verified on SQLite only; Postgres in Phase 10.1.
+- Related bugs: none.
+- Open questions for a human: none new (per-category outcome *values* will need the Phase 6 decision-authority gate).
+- Next suggested task: Phase 1 **1.5** — sequencing: Women's conversion before merger (2.13.1m).
 
 ### IMPL-0009 — Phase 1.3: one routing test per Table 2.3 row (21 rows, against the PRD)
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / fad38c4 (work uncommitted at implementation)

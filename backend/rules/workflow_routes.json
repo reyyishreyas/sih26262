@@ -313,7 +313,18 @@
           }
         ]
       }
-    }
+    },
+    "stage_order_note": "Canonical flow order (PRD \u00a77), used to interleave the stages of a combined application's categories (FR-08). Advisory like the rest.",
+    "stage_order": [
+      "readiness",
+      "nil_deficiency_report",
+      "scrutiny",
+      "evc",
+      "shc",
+      "executive_decision",
+      "appeal_window",
+      "grant"
+    ]
   },
   "routes": {
     "new_technical": {

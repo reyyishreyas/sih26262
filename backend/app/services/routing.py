@@ -76,3 +76,44 @@ def stages(route_pattern_name: str) -> list[dict[str, Any]]:
 def stages_for_category(category_id: str) -> list[dict[str, Any]]:
     """Ordered stages for a category's pattern."""
     return stages(route_pattern(category_id))
+
+
+def stage_order() -> list[str]:
+    """Canonical flow order (PRD §7) used to interleave combined stages."""
+    return list(_section().get("stage_order", []))
+
+
+def stages_for_categories(category_ids: list[str]) -> list[dict[str, Any]]:
+    """Ordered union of the stage lists of several categories (FR-08).
+
+    A combined application runs every stage *any* of its categories needs,
+    interleaved in the canonical flow order so SD's Nil Deficiency report
+    and SCR's scrutiny sit where the PRD puts them. A stage named by more
+    than one category appears once; if the categories disagree about its
+    condition, the **most restrictive** one wins — a gate that one category
+    requires (SHC behind its deficiency gate) must not be opened wider
+    because another category happens to list the same stage. Unknown
+    categories raise ``KeyError`` via :func:`stages_for_category`.
+    """
+    merged: dict[str, str] = {}
+    for category_id in category_ids:
+        for stage in stages_for_category(category_id):
+            name, when = stage["stage"], stage["when"]
+            if name not in merged or _WHEN_RANK[when] < _WHEN_RANK[merged[name]]:
+                merged[name] = when
+
+    order = stage_order()
+    if set(merged) - set(order):
+        raise KeyError(
+            "stage_order is missing stages used by the route patterns: "
+            f"{sorted(set(merged) - set(order))}"
+        )
+    return [
+        {"stage": name, "when": merged[name]}
+        for name in sorted(merged, key=order.index)
+    ]
+
+
+# How much a condition gates the stage: lower keeps the stage more tightly
+# closed. Used to merge conditions when categories disagree.
+_WHEN_RANK = {"if_deficiencies": 0, "on_decision": 1, "always": 2}
