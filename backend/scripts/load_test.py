@@ -84,9 +84,12 @@ async def run(args: argparse.Namespace) -> dict:
     async with httpx.AsyncClient(
         base_url=args.base_url.rstrip("/"), timeout=timeout, limits=limits
     ) as client:
+        # Sign-in only accepts the sign-in screen's origin (app/api/auth.py), so
+        # the probe names one rather than being refused like a plain client.
         login = await client.post(
             "/api/v1/auth/login",
             json={"email": args.email, "password": args.password},
+            headers={"Origin": args.ui_origin},
         )
         if login.status_code != 200:
             raise SystemExit(
@@ -147,6 +150,11 @@ def main() -> int:
     parser.add_argument(
         "--password",
         default=os.environ.get("SIH_LOADTEST_PASSWORD", "DemoPassw0rd!"),
+    )
+    parser.add_argument(
+        "--ui-origin",
+        default=os.environ.get("SIH_UI_ORIGIN", "http://localhost:5173"),
+        help="origin sign-in accepts; this stands in for the browser",
     )
     parser.add_argument("--duration", type=float, default=10.0)
     parser.add_argument("--concurrency", type=int, default=10)

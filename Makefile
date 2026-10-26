@@ -31,7 +31,7 @@ dev:
 
 up:
 	$(COMPOSE) up -d --build
-	@echo "API  http://localhost:8000/docs"
+	@echo "API  http://localhost:8000  (explorer /docs off unless SIH_DOCS_ENABLED=true)"
 	@echo "UI   http://localhost:5173"
 
 down:

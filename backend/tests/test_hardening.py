@@ -212,6 +212,67 @@ def test_login_attempts_and_audit_are_persisted(client, db):
     assert actions
 
 
+def test_sign_in_is_refused_to_anything_but_the_sign_in_screen(database):
+    """A plain HTTP client (curl, no Origin header) must not get a token."""
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    payload = {"email": "scrutiny@demo.local", "password": "DemoPassw0rd!"}
+    with TestClient(app) as bare:
+        response = bare.post("/api/v1/auth/login", json=payload)
+
+    assert response.status_code == 403
+    assert (
+        response.json()["detail"]
+        == "Sign-in is only available from the application's sign-in screen."
+    )
+
+
+def test_sign_in_is_refused_to_another_site(client):
+    """A different site's origin cannot use our sign-in endpoint either."""
+    response = client.post(
+        "/api/v1/auth/login",
+        json={"email": "scrutiny@demo.local", "password": "DemoPassw0rd!"},
+        headers={"Origin": "https://someone-elses-site.example"},
+    )
+    assert response.status_code == 403
+
+
+def test_a_refused_sign_in_does_not_lock_the_account(database):
+    """The refusal sits before the throttle, so a script hammering the
+    endpoint cannot spend a real person's lockout budget — and the
+    sign-in screen still works straight afterwards."""
+    from fastapi.testclient import TestClient
+
+    from app.core.config import get_settings
+    from app.main import app
+
+    payload = {"email": "scrutiny@demo.local", "password": "DemoPassw0rd!"}
+    with TestClient(app) as bare:
+        for _ in range(6):
+            assert bare.post("/api/v1/auth/login", json=payload).status_code == 403
+
+    with TestClient(app, headers={"Origin": get_settings().cors_origins[0]}) as screen:
+        assert screen.post("/api/v1/auth/login", json=payload).status_code == 200
+
+
+def test_api_docs_are_off_unless_asked_for(monkeypatch):
+    """/docs and /openapi.json are a second sign-in door: shut unless opened."""
+    from fastapi.testclient import TestClient
+
+    from app.main import create_app
+
+    with TestClient(create_app()) as shut:
+        assert shut.get("/docs").status_code == 404
+        assert shut.get("/openapi.json").status_code == 404
+
+    settings = Settings(docs_enabled=True, _env_file=None)
+    monkeypatch.setattr("app.main.get_settings", lambda: settings)
+    with TestClient(create_app()) as opened:
+        assert opened.get("/docs").status_code == 200
+
+
 def test_upload_rejects_content_type_mismatch(client, as_user):
     response = client.post(
         "/api/v1/applications/app-draft-0004/documents",

@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 159 passing
+make test      # pytest — 163 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -70,12 +70,15 @@ Password for all: **`DemoPassw0rd!`**
 | `evc@demo.local` | EVC member | `evc_member` | committee |
 | `admin@demo.local` | Administrator | `administrator` | global |
 
-Sign-in is a **typed email/password form** (no one-tap). The `Login.tsx`
-component exports `DEMO_PASSWORD`.
+Sign-in is a **typed email/password form** (no one-tap), and `POST /auth/login`
+**only answers the sign-in screen's origin** — curl, the API explorer or another
+site get `403` (refused before the throttle, so they cannot lock anyone out).
+The `Login.tsx` component exports `DEMO_PASSWORD`.
 
 ### Ports and health
 
-- API `http://localhost:8000` (docs at `/docs`), UI `http://localhost:5173`
+- API `http://localhost:8000` (explorer `/docs` off unless `SIH_DOCS_ENABLED=true`),
+  UI `http://localhost:5173`
 - `GET /health` (JSON, includes the simulated clock), `/health/live`,
   `/health/ready`, `/metrics` (token-gated)
 - Frontend calls the API directly at `http://localhost:8000/api/v1`
@@ -117,6 +120,11 @@ in `styles.css`, icons are **inline SVG** in `components/Icon.tsx`.
   900 s window, 900 s lockout, persisted in `login_attempts` so it survives
   restarts. **Runs on `wall_now()` (real time), never the demo clock** — see
   §8, bug fixed 26 Oct.
+- **Sign-in channel** (`api/auth.py::_sign_in_comes_from_the_screen`): a
+  request without the sign-in screen's origin is `403` before any throttle
+  row or audit row is written. A channel rule, not a security boundary — a
+  client can copy `Origin`; the password check and throttling do the real
+  work.
 - RBAC + scope: role permission ("may act") and scope (global / region /
   institution / committee / assigned cases) resolved from
   `user_role_assignments` — never from query parameters. The same scope
@@ -344,7 +352,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **159 passing** (~154 test functions; some parametrised).
+- `make test` → **163 passing** (~158 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -434,7 +442,7 @@ before a demo.
 ## 10. API map (one line per endpoint, all under `/api/v1`)
 
 ```
-auth          POST /auth/login · GET /auth/me · POST /auth/change-password
+auth          POST /auth/login (UI origin only) · GET /auth/me · POST /auth/change-password
 applications  GET|POST /applications · GET /applications/{id} · GET .../evidence · GET .../compliance
 documents     GET|POST /applications/{id}/documents · GET .../{doc}/content · POST .../{doc}/fields/{f}/verify
 compliance    POST /applications/{id}/compliance/evaluate

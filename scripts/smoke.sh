@@ -7,6 +7,12 @@ API="$BASE/api/v1"
 PYTHON="${PYTHON:-.venv/bin/python}"
 EMAIL="${SIH_SMOKE_EMAIL:-admin@demo.local}"
 PASSWORD="${SIH_SMOKE_PASSWORD:-DemoPassw0rd!}"
+# `POST /auth/login` only accepts the sign-in screen's origin, so this script
+# stands in for the browser by sending it. That is a channel rule — anything
+# can copy a header — not a security boundary; the password check, throttling
+# and signed tokens are what stop a forged request. Set SIH_UI_ORIGIN to the
+# deployed front-end origin when pointing the smoke test at another host.
+UI_ORIGIN="${SIH_UI_ORIGIN:-http://localhost:5173}"
 
 if [[ ! -x "$PYTHON" ]]; then
   echo "Python interpreter not found at $PYTHON (set PYTHON=...)" >&2
@@ -47,6 +53,7 @@ say "request-id and security headers present"
 
 token="$(curl -fsS -X POST "$API/auth/login" \
   -H 'content-type: application/json' \
+  -H "origin: $UI_ORIGIN" \
   -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" | json 'd["access_token"]')"
 auth=(-H "Authorization: Bearer $token")
 say "login as $EMAIL"
@@ -68,11 +75,21 @@ upload="$(curl -fsS "${auth[@]}" -X POST \
   -F "file=@$tmp;type=application/pdf" \
   "$API/applications/$application_id/documents")"
 rm -f "$tmp"
-[[ "$(echo "$upload" | json 'd["extraction"]["simulated"]')" == "True" ]] || {
-  echo "upload did not report a simulated extraction" >&2
+# The extraction block must be present and honest about what happened.
+# `simulated` is true for the mock engine and false for the real reader
+# (the default since extraction became real), so asserting either value
+# would be asserting a configuration choice, not a behaviour.
+simulated="$(echo "$upload" | json 'd["extraction"]["simulated"]')"
+fields="$(echo "$upload" | json 'd["extraction"]["fields_extracted"]')"
+[[ "$simulated" == "True" || "$simulated" == "False" ]] || {
+  echo "upload did not report an extraction result: $upload" >&2
   exit 1
 }
-say "uploaded evidence; $(echo "$upload" | json 'd["extraction"]["fields_extracted"]') fields extracted (mock)"
+[[ "$fields" =~ ^[0-9]+$ ]] || {
+  echo "extraction did not report a field count: $upload" >&2
+  exit 1
+}
+say "uploaded evidence; extraction ran (simulated=$simulated, fields extracted: $fields)"
 
 compliance="$(curl -fsS "${auth[@]}" "$API/applications/$application_id/compliance")"
 say "compliance evaluated: $(echo "$compliance" | json 'd["counts"]')"

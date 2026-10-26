@@ -21,7 +21,7 @@ security, legal and operations sign-off.
 | Rehearsal roles | `sim_prod_ro`, `sim_results_rw` | same |
 | Clock | fixed demo clock | real system clock |
 | Seed | synthetic demo data on startup | seeding disabled |
-| API docs | enabled | disabled by default (`SIH_DOCS_ENABLED=false`) |
+| API docs | off unless `SIH_DOCS_ENABLED=true` | off by default (`SIH_DOCS_ENABLED=false`) |
 | TLS headers | no HSTS (non-production) | HSTS emitted, one-year minimum enforced |
 | Images | backend multi-stage/non-root; frontend dev server | backend + nginx production image, both non-root |
 | Filesystem | writable | API/worker read-only root with `/tmp` and a storage volume |
@@ -88,7 +88,7 @@ Required values:
 | `SIH_SIM_RW_PASSWORD` | rehearsal results writer (sim schema only) |
 | `SIH_SIMULATION_SCHEMA` | dedicated rehearsal schema; defaults to `sim`, never `public` |
 | `SIH_JWT_SECRET` | token signing secret, at least 32 random characters |
-| `SIH_CORS_ORIGINS` | exact browser origin, e.g. `["https://aicte.example.gov.in"]` |
+| `SIH_CORS_ORIGINS` | exact browser origin, e.g. `["https://aicte.example.gov.in"]` — also the only origin `POST /auth/login` answers |
 | `SIH_ALLOWED_HOSTS` | exact API hostnames, e.g. `["api.aicte.example.gov.in"]` |
 | `SIH_PUBLIC_API_BASE` | absolute API URL baked into the frontend build |
 
@@ -100,7 +100,8 @@ Also review:
   account/address in fifteen minutes, twenty-five per address, fifteen-minute
   lockout.
 - `SIH_DB_*` — pool size, overflow, connection timeout and statement timeout.
-- `SIH_DOCS_ENABLED` — keep `false` unless the API is on a restricted network.
+- `SIH_DOCS_ENABLED` — keep `false` unless the API is on a restricted network;
+  the explorer posts to the same login endpoint as the application.
 - `SIH_TRUST_PROXY_HEADERS` — only `true` when a trusted proxy overwrites
   `X-Forwarded-For`; otherwise clients can choose their throttle key.
 - `SIH_SIMULATION_SCHEMA` — Compose sets `sim`. Do not unset it in production.
@@ -162,7 +163,10 @@ If the reverse proxy is the only route to the API:
 - Bind Compose to localhost (`API_BIND=127.0.0.1:8000`,
   `WEB_BIND=127.0.0.1:8080`) and let the proxy expose `443`.
 - Keep `SIH_ALLOWED_HOSTS` restricted to the public hostnames.
-- Set `SIH_CORS_ORIGINS` to the exact UI origin, not `*`.
+- Set `SIH_CORS_ORIGINS` to the exact UI origin, not `*`. Sign-in follows the
+  same list: `POST /auth/login` returns `403` to any other origin, so a wrong
+  value here locks every person out of signing in — verify a sign-in after
+  every change.
 - Enable `SIH_TRUST_PROXY_HEADERS` only if the proxy **overwrites**
   `X-Forwarded-For`; never trust a client-supplied value.
 - Do not expose PostgreSQL or the storage volume to the public network.
@@ -305,7 +309,7 @@ A release is only eligible when CI passes:
 - Ruff lint and import order
 - Python syntax compilation
 - SQLite `alembic upgrade head` + `alembic check`
-- 99 backend tests
+- 163 backend tests
 - PostgreSQL role-isolation job (including `alembic check` as `sih_migrator` and the
   live role contract)
 - Frontend `tsc --noEmit` + Vite production build
@@ -313,7 +317,10 @@ A release is only eligible when CI passes:
 Then run, against the deployed stack:
 
 ```bash
-SIH_BASE_URL=https://api.example.gov.in make smoke
+# The smoke script signs in by naming the deployed UI origin (sign-in is
+# UI-only); point it at the front end with SIH_UI_ORIGIN.
+SIH_BASE_URL=https://api.example.gov.in \
+SIH_UI_ORIGIN=https://aicte.example.gov.in make smoke
 ```
 
 `make verify-isolation` is a local/Compose check; the CI PostgreSQL job runs the

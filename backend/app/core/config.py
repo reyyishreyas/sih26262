@@ -46,7 +46,10 @@ class Settings(BaseSettings):
     env: str = "dev"
     api_prefix: str = "/api/v1"
     debug: bool = False
-    docs_enabled: bool = True
+    # The API explorer (/docs, /redoc, /openapi.json) is a second sign-in door:
+    # it posts to the same login endpoint as the application. Off unless asked
+    # for — sign-in lives in the application's sign-in screen alone.
+    docs_enabled: bool = False
 
     # Production/operational database (PostgreSQL in deployment, SQLite for dev).
     database_url: str = "sqlite:///./sih26262.db"

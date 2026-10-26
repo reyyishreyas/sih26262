@@ -92,10 +92,11 @@ fi
 
 cat <<DONE
 
-  [ok] API   ${API}  (docs: ${API}/docs)
+  [ok] API   ${API}  (explorer /docs off unless SIH_DOCS_ENABLED=true)
   [ok] UI    ${UI}
 
   Sign in with the demo logins printed on the screen, password DemoPassw0rd!.
+  Sign-in lives in the UI: the API answers 403 to any other caller.
   Press Ctrl-C to stop both.
 
 DONE

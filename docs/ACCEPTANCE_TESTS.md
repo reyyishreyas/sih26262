@@ -3,7 +3,7 @@
 ```bash
 cd backend
 ../.venv/bin/python -m pytest -q
-# 99 passed
+# 163 passed
 ```
 
 Pytest fixtures (`tests/conftest.py`) use a fixed clock
@@ -144,6 +144,10 @@ One warning is emitted: Starlette's notice that `httpx` with
 | A successful login clears recent failures | `test_hardening.py::test_successful_login_clears_recent_failures` |
 | A success does not reset the address-wide spraying counter | `test_hardening.py::test_successful_login_does_not_clear_address_failures` |
 | Failed sign-ins persist throttle rows and audit events | `test_hardening.py::test_login_attempts_and_audit_are_persisted` |
+| Sign-in is refused to anything that is not the sign-in screen | `test_hardening.py::test_sign_in_is_refused_to_anything_but_the_sign_in_screen` |
+| Another site's origin cannot use the sign-in endpoint | `test_hardening.py::test_sign_in_is_refused_to_another_site` |
+| A refused sign-in cannot spend a real account's lockout budget | `test_hardening.py::test_a_refused_sign_in_does_not_lock_the_account` |
+| The API explorer (`/docs`, `/openapi.json`) is off unless asked for | `test_hardening.py::test_api_docs_are_off_unless_asked_for` |
 | Upload magic bytes must match the declared type | `test_hardening.py::test_upload_rejects_content_type_mismatch` |
 | Filenames are sanitised and traversal is rejected | `test_hardening.py::test_upload_sanitises_path_traversal_filenames` |
 | Password change revokes previously issued tokens | `test_hardening.py::test_password_change_invalidates_existing_tokens` |
@@ -182,7 +186,9 @@ make smoke              # end-to-end API exercise against the running stack
 make verify-isolation   # prove the PostgreSQL role contract
 ```
 
-`scripts/smoke.sh` signs in, lists institutions, creates a draft, uploads evidence,
+`scripts/smoke.sh` signs in (standing in for the browser: sign-in only accepts
+the UI's origin, so the script sends `SIH_UI_ORIGIN`, default
+`http://localhost:5173`), lists institutions, creates a draft, uploads evidence,
 reads the compliance batch, runs a rehearsal (asserting `production_modified:
 false` and `load_factor: null`), lists alerts, checks `/health/ready` and asserts
 the security headers.

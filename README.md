@@ -43,6 +43,7 @@ logins, the conventions, and the current build order. The next feature lives in
 | Production-shaped deployment | **Implemented** | Multi-stage non-root images, `docker-compose.prod.yml`, nginx prod build, required secrets, fail-fast production config |
 | API hardening | **Implemented** | JSON logs, request ids, security headers, bounded pagination, upload signature checks, typed error envelope |
 | Sign-in protection | **Implemented** | PBKDF2-SHA256, JWT issuer/audience, persisted account/address throttling, password change revokes old tokens |
+| Sign-in channel | **UI only** | `POST /auth/login` returns 403 to anything that does not carry the sign-in screen's origin (curl, an API explorer); `/docs` and `/openapi.json` are off unless `SIH_DOCS_ENABLED=true` |
 | Health and readiness | **Implemented** | `/health/live`, `/health/ready`, database probes for all three roles |
 | CI | **Implemented and green** | GitHub Actions: Ruff, SQLite Alembic check, the full test suite, PostgreSQL role isolation, frontend production build ([verified run](https://github.com/reyyishreyas/sih26262/actions)) |
 | Historical state replay | **Not implemented** | The UI says "audit timeline", not "replay" |
@@ -105,7 +106,7 @@ synthetic demo only.
 
 ```bash
 make up            # PostgreSQL + API + worker + frontend
-# API    http://localhost:8000/docs
+# API    http://localhost:8000  (explorer /docs is off unless SIH_DOCS_ENABLED=true)
 # UI     http://localhost:5173
 ```
 
@@ -157,13 +158,14 @@ The demo clock is fixed by default to **2026-10-22T09:00:00Z** in `.env.example`
 ```bash
 make lint        # ruff check app tests migrations scripts
 make test        # cd backend && ../.venv/bin/python -m pytest -q
-# 155 passed
+# 163 passed
 ```
 
 The suite covers rule semantics and immutability, workflow guards, rejected-action
 auditing, hash-chain tampering, RBAC and scope, rehearsal isolation, alert dedupe
 and boundaries, the evidence/institution/undertaking flows, HTTP-level behaviour,
-password-change invalidation, persisted sign-in throttling, upload signature and
+password-change invalidation, persisted sign-in throttling, the UI-only sign-in
+channel, upload signature and
 path checks, bounded pagination, structured errors and production-config
 validation. See [docs/ACCEPTANCE_TESTS.md](docs/ACCEPTANCE_TESTS.md) for the
 claim-to-test map.
@@ -246,7 +248,14 @@ Failed sign-ins are counted per account/address and per address in the database;
 five failures return `429` with `Retry-After`. `POST /api/v1/auth/change-password`
 enforces a 12-character letter-and-digit policy and invalidates previously issued
 tokens. `POST /api/v1/auth/login` writes accepted and rejected attempts to the
-hash-chained audit log.
+hash-chained audit log, and only answers requests that carry the sign-in screen's
+origin (`SIH_CORS_ORIGINS`, or the API's own host in a same-origin deployment) —
+anything else gets `403 "Sign-in is only available from the application's
+sign-in screen."` and is refused *before* the throttle, so a script cannot spend
+a real account's lockout budget. That is a channel rule, not a security
+boundary: an HTTP client can copy an `Origin` header, which is why the password
+check, the persisted throttling and the signed token remain the defences that
+matter.
 
 ---
 

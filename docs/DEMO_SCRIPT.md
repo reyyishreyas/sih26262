@@ -1,8 +1,9 @@
 # Demo Script
 
 Target length: **8–10 minutes**. Two tracks: the UI (primary) and curl (for proving
-HTTP-level behaviour). All figures below are synthetic seed data, not real AICTE
-statistics.
+HTTP-level behaviour). Sign-in itself is not one of the curl tracks — the API
+refuses it (403) to anything that is not the sign-in screen; see the appendix.
+All figures below are synthetic seed data, not real AICTE statistics.
 
 ## Before you start
 
@@ -14,8 +15,10 @@ make up          # PostgreSQL 16 + API + worker + frontend
 make smoke       # optional: proves the API works end to end
 ```
 
-Then open <http://localhost:5173>. The API docs are at
-<http://localhost:8000/docs> and `/health` reports the database role in use.
+Then open <http://localhost:5173>. The API is at <http://localhost:8000> and
+`/health` reports the database role in use. The API explorer (`/docs`,
+`/openapi.json`) is off unless you set `SIH_DOCS_ENABLED=true` — it is a second
+sign-in door, and sign-in lives in the application alone.
 
 To run without Docker instead (SQLite, no database-enforced isolation):
 
@@ -219,7 +222,19 @@ Three sentences:
 ```bash
 BASE=http://localhost:8000/api/v1
 
+# 1. Sign-in is refused to anything that is not the sign-in screen. No Origin
+#    header means no screen, so this is a 403 and no token is issued:
+curl -s -X POST "$BASE/auth/login" -H 'content-type: application/json' \
+  -d '{"email":"scrutiny@demo.local","password":"DemoPassw0rd!"}'
+# {"detail":"Sign-in is only available from the application's sign-in screen."}
+
+# 2. Everything below needs a token. Naming the sign-in screen's origin is how
+#    the smoke test (and this appendix) stand in for the browser. Read that as a
+#    channel rule, not a security boundary: a client can copy a header. The
+#    password check, the throttling and the signed token are what actually stop
+#    a forged request, and they are unchanged.
 login() { curl -s -X POST "$BASE/auth/login" -H 'content-type: application/json' \
+  -H "origin: http://localhost:5173" \
   -d "{\"email\":\"$1\",\"password\":\"DemoPassw0rd!\"}" | jq -r .access_token; }
 
 SCRUTINY=$(login scrutiny@demo.local)

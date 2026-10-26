@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from urllib.parse import urlsplit
+
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -29,6 +31,50 @@ router = APIRouter(prefix="/auth", tags=["auth"])
 # A fixed hash keeps the unknown-email path close to the known-email path so the
 # response time does not reveal whether an account exists.
 _DUMMY_HASH = hash_password("dummy-password-not-used-by-any-account")
+
+
+def _origin_of(request: Request) -> str | None:
+    """The origin this request came from, if the caller named one.
+
+    Browsers attach `Origin` to every POST they send (and `Referer` when
+    `Origin` is absent). Command-line clients — curl, wget, an API explorer's
+    "Execute" button — send neither unless they deliberately copy one.
+    """
+    origin = request.headers.get("origin", "").strip()
+    if origin:
+        # "null" is an opaque origin (file:// pages, some privacy modes): it
+        # names no site we serve.
+        return None if origin.lower() == "null" else origin.rstrip("/")
+    referer = request.headers.get("referer", "").strip()
+    parts = urlsplit(referer)
+    if parts.scheme in {"http", "https"} and parts.netloc:
+        return f"{parts.scheme}://{parts.netloc}"
+    return None
+
+
+def _sign_in_comes_from_the_screen(request: Request, settings) -> bool:
+    """True only when the sign-in screen could have made this request.
+
+    Sign-in is a UI-only action. The accepted callers are the deployed
+    front-end origins (`SIH_CORS_ORIGINS`) and the API's own host, which is
+    what a deployment serving the UI and the API from one host looks like.
+
+    This is a channel rule, not a security boundary: an HTTP client can copy
+    an `Origin` header, and nothing on a server can tell a browser apart from
+    a script that mimics one. What actually protects an account is unchanged
+    here — the password check, the persisted throttling, the short-lived
+    signed token. This rule removes the second sign-in door (curl, the API
+    explorer) so there is one sign-in screen, and nothing else.
+    """
+    origin = _origin_of(request)
+    if not origin:
+        return False
+    if origin in {candidate.rstrip("/") for candidate in settings.cors_origins}:
+        return True
+    # Same-host deployment: compare hosts only, so the scheme a proxy adds in
+    # front does not decide whether a real person can sign in.
+    host = request.headers.get("host", "").strip()
+    return bool(host) and urlsplit(origin).netloc == host
 
 
 def _lockout_message(retry_after_seconds: int) -> str:
@@ -104,6 +150,16 @@ def login(
     db: Session = Depends(get_db),
 ) -> TokenResponse:
     settings = get_settings()
+    # Before anything is read or written: a request that did not come from the
+    # sign-in screen is refused without touching the throttle table (so it can
+    # never lock a real person out of their account) and without writing an
+    # audit row (so an unauthenticated caller cannot use us as a free write
+    # path). The access log still records every one of these.
+    if not _sign_in_comes_from_the_screen(request, settings):
+        raise HTTPException(
+            status.HTTP_403_FORBIDDEN,
+            "Sign-in is only available from the application's sign-in screen.",
+        )
     email = payload.email.strip().lower()
     client = client_ip(request.scope, settings)
     # Wall-clock time: see login_throttle.wall_now(). The demo clock freezes

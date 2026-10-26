@@ -6,7 +6,7 @@ Companion to `1_PRD.md`. Items marked **[BUILT]** exist in the repo today; **[NE
 | Layer | Choice |
 |---|---|
 | Runtime | Python 3.13.9 (`.venv/`), Node 26 / npm 11 (README says Python 3.10+/Node 20+ minimum) |
-| API | FastAPI 0.159.1, uvicorn[standard] 0.54.0, routes under `/api/v1`, OpenAPI at `/docs` |
+| API | FastAPI 0.159.1, uvicorn[standard] 0.54.0, routes under `/api/v1`, OpenAPI at `/docs` only when `SIH_DOCS_ENABLED=true` (off by default — it would be a second sign-in door) |
 | ORM / migrations | SQLAlchemy 2.1.6 (2.0 declarative, `Mapped[]`), Alembic 1.20.1 (6 migrations) |
 | Config / schemas | pydantic 2.14.1, pydantic-settings 2.16.1, typed `.env` with `SIH_*` prefix |
 | Auth | python-jose 3.5.0 (HS256 JWT, issuer/audience/leeway); passwords via stdlib `hashlib.pbkdf2_hmac` SHA-256, 260,000 iterations. bcrypt/passlib are installed but **never imported** |
