@@ -114,6 +114,46 @@ def stages_for_categories(category_ids: list[str]) -> list[dict[str, Any]]:
     ]
 
 
+def sequencing_rules() -> list[dict[str, Any]]:
+    """Rules for a category that must clear before another may start."""
+    return list(_section().get("sequencing_rules", []))
+
+
+def prerequisites_for(category_id: str) -> list[str]:
+    """Categories that must clear before this one may start (PRD rule 4).
+
+    Validates the category against the table first, so an unknown id fails
+    loudly rather than silently answering "no prerequisites".
+    """
+    category(category_id)  # raises KeyError for an unknown id
+    return [
+        rule["requires"]
+        for rule in sequencing_rules()
+        if rule["category"] == category_id
+    ]
+
+
+def unmet_prerequisites(
+    category_id: str, outcomes: dict[str, str | None]
+) -> list[str]:
+    """Which prerequisites have not cleared yet.
+
+    ``outcomes`` maps category id → its recorded per-category outcome
+    (None when undecided). A prerequisite counts as cleared only when its
+    outcome equals the rule's ``clears_with`` value — undecided or any
+    other outcome keeps the successor blocked.
+    """
+    unmet: list[str] = []
+    prerequisites_for(category_id)  # unknown category fails loudly
+    for rule in sequencing_rules():
+        if rule["category"] != category_id:
+            continue
+        required, clears_with = rule["requires"], rule["clears_with"]
+        if outcomes.get(required) != clears_with:
+            unmet.append(required)
+    return unmet
+
+
 # How much a condition gates the stage: lower keeps the stage more tightly
 # closed. Used to merge conditions when categories disagree.
 _WHEN_RANK = {"if_deficiencies": 0, "on_decision": 1, "always": 2}

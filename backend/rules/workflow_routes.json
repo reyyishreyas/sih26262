@@ -324,6 +324,16 @@
       "executive_decision",
       "appeal_window",
       "grant"
+    ],
+    "sequencing_rules_note": "PRD \u00a76 routing rule 4 (cl. 2.13.1m): a category that must clear before another may start. 'clears_with' names the per-category outcome that counts as clearing \u2014 provisional vocabulary until the Phase 6 decision points define it. Advisory like the rest of this section.",
+    "sequencing_rules": [
+      {
+        "category": "t23-06",
+        "requires": "t23-16",
+        "clears_with": "approved",
+        "source": "md/1_PRD.md \u00a76 routing rule 4 (APH cl. 2.13.1m)",
+        "note": "Women's-to-Co-ed conversion first, merger after it clears."
+      }
     ]
   },
   "routes": {

@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0011 | 2026-10-26 | Implementation | Phase 1.5: sequencing rule — Women's conversion must clear before the merger starts (cl. 2.13.1m) | Tested | Phase 1 1.5 (AGENT-02; FR-08) | MiMo (OpenCode agent) |
 | IMPL-0010 | 2026-10-26 | Implementation | Phase 1.4: combined applications — `ApplicationItem` (outcome per category), stage union, migration 0009 | Tested | Phase 1 1.4 (AGENT-02; FR-08) | MiMo (OpenCode agent) |
 | IMPL-0009 | 2026-10-26 | Implementation | Phase 1.3: one parametrised routing test per Table 2.3 row (21 rows) against the PRD | Tested | Phase 1 1.3 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
 | IMPL-0008 | 2026-10-26 | Implementation | Phase 1.2: `services/routing.py` — Table 2.3 category → ordered stage list for the four PRD patterns | Tested | Phase 1 1.2 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
@@ -64,6 +65,33 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0011 — Phase 1.5: sequencing rule — Women's conversion clears before the merger starts
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / d766bba (work uncommitted at implementation)
+- Task ID and PRD IDs: Phase 1 **1.5** (AGENT-02); PRD **FR-08** sequencing rules; §6 routing rule 4, APH cl. **2.13.1m** (clause cited as the PRD cites it; not independently verified — same blocked item).
+- Goal: on a combined application that asks for both a Women's Institution ↔ Co-ed conversion (t23-16) and a Merger of Institutions (t23-06), the merger category reports itself blocked until the conversion category has a clearing outcome.
+- What existed before: `ApplicationItem.outcome` (1.4) stored per-category outcomes, but nothing expressed "this category waits for that one".
+- What I did:
+  - **Tests first** — `backend/tests/test_sequencing.py` (7 tests, all passed on first run): the merger's prerequisites are exactly `[t23-16]`; categories without a rule (SD, the conversion itself, Change of Site, ODL) have none; the merger is blocked while the conversion is undecided, clears when its outcome is `approved`, and stays blocked on any other outcome (e.g. `rejected`); a prerequisite missing from the outcome map counts as not cleared; a single-category case is never blocked by absent items; an unknown category raises `KeyError` from both functions; the rule itself cites cl. 2.13.1m so no clause can be invented silently.
+  - **Config** — `table_2_3.sequencing_rules`: one rule `{category: t23-06, requires: t23-16, clears_with: "approved", source: "md/1_PRD.md §6 routing rule 4 (APH cl. 2.13.1m)", note}` plus a note explaining that `clears_with` is provisional vocabulary until Phase 6 defines the decision points. Policy-as-data, like everything else in the section.
+  - **Service** — `routing.sequencing_rules()`, `routing.prerequisites_for(category_id)` (validates the id against the table first, so an unknown category fails loudly instead of answering "no prerequisites"), `routing.unmet_prerequisites(category_id, outcomes)` (a prerequisite counts as cleared only when its recorded outcome equals the rule's `clears_with`; undecided or any other outcome keeps the successor blocked).
+- Files changed: `backend/rules/workflow_routes.json` (`sequencing_rules` + note), `backend/app/services/routing.py` (three functions), `backend/tests/test_sequencing.py` (new, 7), `md/6_IMPLEMENTATION_PLAN.md` (1.5 ticked — untracked), `README.md` + `CONTEXT.md` (253 → 260, suite list), this log.
+- Migrations / API / config / rule-file changes: config only. No model, endpoint, permission or audit change — the workflow does not yet *enforce* the block (the answer is advisory input for the stage graph in 3.1, per DEC-0003 nothing from Table 2.3 may gate a case yet).
+- Decisions made: `clears_with: "approved"` reuses the workflow's existing state name rather than inventing a new outcome value; the rule is data, so a second sequencing rule (e.g. for 2.17e's second EVC, task 1.6) is a config row, not code. Flagged as provisional in the config note and below.
+- Permission and audit effects: none (pure lookup; no endpoint).
+- Verification: exact commands + results:
+  - `pytest tests/test_sequencing.py -q -p no:randomly` → **7 passed** (first run)
+  - `make lint` → `All checks passed!`
+  - `make test` → **260 passed, 1 warning in 26.40s** (0 skipped; +7 vs 253)
+  - Not run: `npm run build`, Alembic (no model change), Compose.
+- Status per requirement touched: Plan 1.5 "Sequencing: Women's conversion before merger (2.13.1m)" — **Implemented · Tested** (as advisory configuration; enforcement arrives with the stage graph).
+- Limitations / assumptions / manual steps:
+  - Advisory only: nothing yet stops an officer from advancing a merger — the check is a service answer, not a workflow gate (by design until the clause is verified; PRD §0).
+  - `clears_with: "approved"` is provisional — Phase 6 (decision authority) must confirm the outcome vocabulary; a human should confirm whether "approved with conditions" also counts as clearing.
+  - The clause 2.13.1m citation is the PRD's, not independently verified against the APH edition (blocked item, docs/SOURCES.md).
+- Related bugs: none.
+- Open questions for a human: should "approved with conditions" (once defined) count as clearing for sequencing? Owner: regulatory reviewer.
+- Next suggested task: Phase 1 **1.6** — random EVC add for SD (2.3.5) and second EVC after site shift (2.17e) as authorised actions.
 
 ### IMPL-0010 — Phase 1.4: combined applications — `ApplicationItem`, stage union, per-category outcome
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 1c50cd0 (work uncommitted at implementation)
