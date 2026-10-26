@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0014 | 2026-10-26 | Implementation | Phase 1.8: fallback-to-EoA branch after "not approved" (FR-11) — eligible, never auto-issued | Tested | Phase 1 1.8 (AGENT-02; FR-11) | MiMo (OpenCode agent) |
 | IMPL-0013 | 2026-10-26 | Implementation | Phase 1.7: "AA" gate — SHC/SAC opens only on a deficiency or negative scrutiny result (FR-10) | Tested | Phase 1 1.7 (AGENT-02; FR-10) | MiMo (OpenCode agent) |
 | IMPL-0012 | 2026-10-26 | Implementation | Phase 1.6: additional-EVC actions — random EVC for SD (2.3.5), second EVC after site shift (2.17e) | Tested | Phase 1 1.6 (AGENT-02; FR-19) | MiMo (OpenCode agent) |
 | IMPL-0011 | 2026-10-26 | Implementation | Phase 1.5: sequencing rule — Women's conversion must clear before the merger starts (cl. 2.13.1m) | Tested | Phase 1 1.5 (AGENT-02; FR-08) | MiMo (OpenCode agent) |
@@ -67,6 +68,35 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0014 — Phase 1.8: fallback-to-EoA branch after "not approved" (FR-11)
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 469e87a (work uncommitted at implementation)
+- Task ID and PRD IDs: Phase 1 **1.8** (AGENT-02); PRD **FR-11** "After 'not approved', open fallback EoA branch"; §6 routing rule 3; APH cl. **2.7l, 2.14j, 2.15e** (cited as the PRD cites them, as a set — not independently verified; same blocked item).
+- Goal: model the fallback-to-EoA branch — after a "not approved" outcome on one of the PRD's three categories (new programme/level, Diploma↔Degree conversion, Women's ↔ Co-ed), an EoA for the existing institution may be issued *if requirements are met* — as advisory configuration, without ever issuing or blocking anything automatically.
+- What existed before: nothing expressed this branch; the four route patterns and the earlier 1.5/1.6/1.7 additions did not mention a post-decision fallback. Search for `fallback_eoa` / `2.7l` in `backend/` found nothing.
+- What I did:
+  - **Tests first** — `backend/tests/test_fallback_eoa.py` (9 tests; all 9 first failed with the service absent, then passed): the rule config exists and is `unverified` + `advisory_only`; it carries the three clause numbers as the PRD gives them (as a set, no remapping); the three qualifying categories are listed; a qualifying category with the `rejected` trigger answers **`review_required`** (never an automatic "issue"); a non-qualifying category (Change of Site t23-14, Closure t23-15) answers `not_applicable`; a qualifying category with a clean (`approved`) outcome answers `not_triggered`; an undecided (`None`) or unrecognised outcome answers `review_required` (uncertain, not a silent "no fallback"); `fallback_eoa_applies()` says which categories qualify; and an unknown category raises `KeyError` from both functions (fails loudly).
+  - **Config** — `table_2_3.fallback_eoa` (+ `_note`): `{categories: [t23-03, t23-05, t23-16], trigger_outcome: "rejected", trigger_outcome_note, clauses: [2.7l, 2.14j, 2.15e], requirements_condition: "unevaluated_placeholder", status: unverified, advisory_only: true, source: "md/1_PRD.md FR-11 and §6 routing rule 3 (APH cl. 2.7l, 2.14j, 2.15e)"}`. Two deliberate hedges, both recorded in the config: (1) the PRD's phrase "not approved" is mapped **provisionally** to the workflow's existing `rejected` state name (flagged in `trigger_outcome_note` for a regulatory reviewer); (2) the PRD never says which of the three clauses covers which category, so the clauses are stored **as a set** with no clause→category mapping asserted.
+  - **Service** — `routing.fallback_eoa_rule()` (raises `KeyError` if the config is deleted, so a missing rule fails loudly rather than answering "no fallback"), `routing.fallback_eoa_applies(category_id)` (validates the category against the Table 2.3 rows first), and `routing.fallback_eoa_status(category_id, outcome) -> "review_required" | "not_applicable" | "not_triggered"`. The uncertainty branch runs before the clean "no" so a `None`/unknown outcome can never be read as "no fallback".
+- Files changed: `backend/rules/workflow_routes.json` (`fallback_eoa` + note, additive), `backend/app/services/routing.py` (`fallback_eoa_rule()`, `fallback_eoa_applies()`, `fallback_eoa_status()`, `_KNOWN_OUTCOMES`), `backend/tests/test_fallback_eoa.py` (new, 9), `md/6_IMPLEMENTATION_PLAN.md` (1.8 ticked), `README.md` + `CONTEXT.md` (277 → 286, suite list), this log.
+- Migrations / API / config / rule-file changes: config only. No model, endpoint, permission or audit change. Nothing yet *opens* the branch in the workflow — the decision points and the "requirements are met" check arrive with Phase 6 (decision authority) and the stage graph (3.1).
+- Decisions made: (1) three-valued answer again (`review_required`/`not_applicable`/`not_triggered`) — the PRD's unevaluable "if requirements are met" must not become a silent issue or a silent no (rules 1 + 4); (2) provisional `rejected` mapping for "not approved", recorded as config with a note rather than hard-coded, so a reviewer can correct the vocabulary without a code change; (3) clauses kept as a set because the PRD gives no clause→category mapping — inventing one would breach rule 2; (4) no new DEC entry — follows DEC-0003 (advisory) and the established policy-as-data pattern.
+- Permission and audit effects: none — no endpoint, so no permission applies and no audit event is written. When the workflow later opens/consumes this branch (Phase 6), that transition must carry its own permission, reason and audit event.
+- Verification: exact commands + results:
+  - `pytest tests/test_fallback_eoa.py -q -p no:randomly` → **9 passed** (after implementation; 9 failed first, service absent)
+  - `make lint` → `All checks passed!`
+  - `make test` → **286 passed, 1 warning in 28.51s** (0 skipped; +9 vs 277)
+  - JSON re-validated after the config edit (`json.load` OK).
+  - Not run: `npm run build` (no frontend change), Alembic (no model change), Compose/Postgres.
+- Status per requirement touched: Plan 1.8 "Fallback-to-EoA branch after 'not approved' (FR-11)" — **Implemented · Tested** as advisory configuration + a three-valued service lookup. The actual issuance decision is deliberately **not** automated (Proposed, needs a human decision point).
+- Limitations / assumptions / manual steps:
+  - Advisory only: nothing opens the branch, issues an EoA or blocks a case. `review_required` is the ceiling this service will ever answer for a triggered case — the "requirements are met" check is a placeholder pending a human definition.
+  - The `rejected` ↔ "not approved" mapping is provisional (PRD wording vs workflow state name) and is flagged in the config note; a regulatory reviewer should confirm it.
+  - Clause citations (2.7l, 2.14j, 2.15e) are the PRD's, not independently verified against the APH edition (blocked item, docs/SOURCES.md); no clause→category mapping is asserted.
+  - `_KNOWN_OUTCOMES` (approved/rejected) is the small vocabulary the function treats as "decided"; if Phase 6 adds outcome words (e.g. "approved with conditions"), this set must grow with it — noted as follow-up for 6.x.
+- Related bugs: none (no error hit this run).
+- Open questions for a human: (1) confirm "not approved" maps to the workflow's `rejected` state (recommended provisional default already in config). (2) What are the actual "requirements" whose satisfaction gates the fallback EoA? The PRD does not enumerate them — a regulatory reviewer must supply them before this can ever issue anything. Owner: regulatory reviewer.
+- Next suggested task: Phase 1 **1.9** — `GET` route-scoreboard endpoint + `RouteScoreboard.tsx` (the Phase 1 exit check needs the 21/21 scoreboard visible).
 
 ### IMPL-0013 — Phase 1.7: the "AA" gate — SHC/SAC opens only on a deficiency or negative outcome
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 2b4411d (work uncommitted at implementation)

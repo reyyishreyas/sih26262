@@ -387,6 +387,25 @@
       "status": "unverified",
       "advisory_only": true,
       "source": "md/1_PRD.md FR-10 (Table 2.3) and \u00a76 SCR+EVC+AA pattern note"
+    },
+    "fallback_eoa_note": "PRD FR-11 / \u00a76 routing rule 3: after a 'not approved' outcome on Start new Programme/Level, Conversion Diploma\u2194Degree, or Women's Institution \u2194 Co-ed, an EoA for the existing institution may be issued if requirements are met, and the engine opens this branch automatically. 'if requirements are met' is NOT enumerated in the PRD, so a qualifying category with a not-approved outcome answers 'review_required' \u2014 a human decides whether to actually issue the EoA; nothing here issues or blocks anything. The three clause numbers are recorded as the PRD gives them, as a set: the PRD does not say which clause covers which category, so no clause-to-category mapping is asserted. Advisory like the rest of this section.",
+    "fallback_eoa": {
+      "categories": [
+        "t23-03",
+        "t23-05",
+        "t23-16"
+      ],
+      "trigger_outcome": "rejected",
+      "trigger_outcome_note": "The PRD's phrase is 'not approved'; mapped provisionally to the workflow's existing 'rejected' state name. Confirm with a regulatory reviewer before this is treated as exact.",
+      "clauses": [
+        "2.7l",
+        "2.14j",
+        "2.15e"
+      ],
+      "requirements_condition": "unevaluated_placeholder",
+      "status": "unverified",
+      "advisory_only": true,
+      "source": "md/1_PRD.md FR-11 and \u00a76 routing rule 3 (APH cl. 2.7l, 2.14j, 2.15e)"
     }
   },
   "routes": {

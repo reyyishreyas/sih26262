@@ -249,6 +249,73 @@ def aa_stage_is_due(
     return "closed"
 
 
+def fallback_eoa_rule() -> dict[str, Any]:
+    """The fallback-to-EoA rule (PRD FR-11 / §6 routing rule 3).
+
+    After a "not approved" outcome on one of three categories (new
+    programme/level, Diploma↔Degree conversion, Women's ↔ Co-ed), an EoA
+    for the existing institution may be issued if requirements are met.
+    Advisory like the rest of this module.
+    """
+    rule = _section().get("fallback_eoa")
+    if not rule:
+        raise KeyError(
+            f"workflow_routes.json has no {_SECTION!r}.fallback_eoa — the "
+            "fallback-to-EoA rule is missing from configuration"
+        )
+    return dict(rule)
+
+
+def fallback_eoa_applies(category_id: str) -> bool:
+    """Does the fallback-to-EoA branch exist for this category?
+
+    Validates the category against the Table 2.3 rows first, so an unknown
+    id fails loudly rather than silently answering "no".
+    """
+    category(category_id)  # raises KeyError for an unknown id
+    return category_id in fallback_eoa_rule()["categories"]
+
+
+def fallback_eoa_status(category_id: str, outcome: str | None) -> str:
+    """Is the fallback-to-EoA branch relevant for this case and outcome?
+
+    Answers ``review_required``, ``not_applicable`` or ``not_triggered``.
+
+    ``not_applicable`` — the category is not one of the PRD's three.
+    ``not_triggered`` — a qualifying category, but its recorded outcome is
+    not the configured "not approved" trigger.
+    ``review_required`` — a qualifying category with the trigger outcome:
+    the branch is *eligible* to open, but the PRD's "if requirements are
+    met" is never enumerated, so a human decides whether to actually issue
+    the EoA. Nothing here issues or blocks anything automatically
+    (Master Prompt §2 rules 1 and 4).
+
+    An undecided (``None``) or unrecognised outcome is treated as
+    uncertain, not as a clean "no fallback".
+    """
+    rule = fallback_eoa_rule()  # missing config fails loudly
+    if not fallback_eoa_applies(category_id):
+        return "not_applicable"
+
+    trigger = rule["trigger_outcome"]
+    if outcome == trigger:
+        # Qualifying category + "not approved": the branch is eligible, but
+        # the PRD's "if requirements are met" is not enumerated — a human
+        # decides whether to issue the EoA.
+        return "review_required"
+    if outcome is None or outcome not in _KNOWN_OUTCOMES:
+        # No clear decision yet (or an outcome we don't recognise) is
+        # uncertain — never a silent "no fallback".
+        return "review_required"
+    # A recognised, non-trigger outcome (e.g. "approved"): no fallback.
+    return "not_triggered"
+
+
+# Workflow outcome names the fallback rule can recognise as "decided".
+# Anything outside this set is treated as uncertain by fallback_eoa_status.
+_KNOWN_OUTCOMES = frozenset({"approved", "rejected"})
+
+
 # How much a condition gates the stage: lower keeps the stage more tightly
 # closed. Used to merge conditions when categories disagree.
 _WHEN_RANK = {"if_deficiencies": 0, "on_decision": 1, "always": 2}
