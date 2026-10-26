@@ -378,7 +378,7 @@ tamper-evidence).
   that keeps the matrix in step with the routes the app actually declares).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `eb4d051`.
+  repo is currently green at `f9d8756`.
 
 ---
 
