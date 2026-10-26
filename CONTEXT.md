@@ -448,7 +448,7 @@ tamper-evidence).
   read from active stint + configured days, nothing stored).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `65d5850`.
+  repo is currently green at `c97df69`.
 
 ---
 
