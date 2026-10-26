@@ -28,6 +28,7 @@ from .api import (
     evc,
     institutions,
     officer_dashboard,
+    portal,
     readiness,
     rehearsals,
     reports,
@@ -184,6 +185,7 @@ def create_app() -> FastAPI:
         officer_dashboard,
         admin_access,
         evc,
+        portal,
         reports,
     ):
         app.include_router(module.router, prefix=prefix)

@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 386 passing
+make test      # pytest — 403 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -360,7 +360,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **386 passing** (~343 test functions; some parametrised).
+- `make test` → **403 passing** (~360 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -422,7 +422,11 @@ tamper-evidence).
   lease-years vs longest course duration; duration ships null (nothing
   invented) so production answers `needs_review` with the computed
   years; equality = "stopped unless extended"; reads the persisted
-  grounded-extractor output, never re-parses PDFs at read time).
+  grounded-extractor output, never re-parses PDFs at read time) ·
+  `test_portal_feed` (17 — Phase 2.5: FR-01 stubbed portal feed; the
+  seven PRD fields in order, PID/institution-type/TER-status served
+  null (never guessed), `as_of` from the clock, scope-filtered so an
+  other-institution case never leaks).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `0ff1388`.
@@ -506,6 +510,7 @@ documents     GET|POST /applications/{id}/documents · GET .../{doc}/content · 
 compliance    POST /applications/{id}/compliance/evaluate
 deficiencies  GET|POST /applications/{id}/deficiencies · PATCH .../{id} · POST .../{id}/close
 readiness      GET /applications/{id}/blocked-flags · POST /applications/{id}/blocked-flags/{flag_id} · GET /applications/{id}/lease-check
+portal         GET /portal/feed (FR-01 stub: 7 fields + as_of; scope-filtered; read-only)
 workflow      GET /workflow/routes · GET /workflow/table-2-3-scoreboard · POST /applications/{id}/transitions · POST .../revert · GET .../transitions
 undertakings  GET|POST /applications/{id}/undertakings · POST .../{id}/waive|submit|verify
 rehearsals    POST /applications/{id}/rehearsals · GET /rehearsals/{run_id}

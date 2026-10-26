@@ -209,3 +209,40 @@ class LeaseCheckOut(BaseModel):
     reason: str
     missing_inputs: list[str]
 
+
+class PortalDocumentBrief(BaseModel):
+    """One document as the FR-01 feed lists it (contents are not embedded)."""
+
+    doc_type: str
+    file_name: str
+    version: int
+    status: str
+
+
+class PortalFeedRecord(BaseModel):
+    """One final-submitted case in the PRD's FR-01 field order.
+
+    ``pid``/``institution_type``/``ter_status`` are served as null: this
+    repo records no such data, and a stub that guessed them would be worse
+    than one that admits the gap (``rules/portal_feed.json -> fields``).
+    """
+
+    application_id: str
+    pid: str | None
+    category: str
+    institution_type: str | None
+    submission_time: str | None
+    ter_status: str | None
+    documents: list[PortalDocumentBrief]
+
+
+class PortalFeedOut(BaseModel):
+    """The stubbed portal feed envelope: identity, "as of" stamp, records."""
+
+    source: str
+    as_of: str
+    status: str
+    advisory_only: bool
+    sync_cadence: str | None
+    records: list[PortalFeedRecord]
+

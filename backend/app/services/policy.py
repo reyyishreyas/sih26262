@@ -48,6 +48,11 @@ def readiness_policy() -> dict[str, Any]:
     return _load("readiness_policy.json")
 
 
+@lru_cache
+def portal_feed_policy() -> dict[str, Any]:
+    return _load("portal_feed.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

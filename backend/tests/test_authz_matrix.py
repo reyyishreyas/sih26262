@@ -129,6 +129,8 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
         "/api/v1/applications/{application_id}/blocked-flags/{flag_id}",
     ): frozenset({CASE_TRANSITION}),
     ("GET", "/api/v1/applications/{application_id}/lease-check"): READ_ANY,
+    # portal: FR-01 stubbed feed (Phase 2.5) — read-only, scope-filtered
+    ("GET", "/api/v1/portal/feed"): READ_ANY,
     # rehearsals
     ("POST", "/api/v1/applications/{application_id}/rehearsals"): frozenset(
         {REHEARSAL_RUN}

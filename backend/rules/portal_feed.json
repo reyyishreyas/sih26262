@@ -1,0 +1,50 @@
+{
+  "version": "2026.1",
+  "status": "unverified",
+  "advisory_only": true,
+  "recorded_on": "2026-10-26",
+  "source": "md/1_PRD.md FR-01 (APH cl. 2.3.1): 'Receive each final-submitted application with ID, PID, category, institution type, submission time, TER status, documents'; §18 risk row 'Portal data not real-time | Scheduled sync with \"as of\" time on every screen'; release plan: 'Prototype (sample data, stubbed portal feed)'.",
+  "note": "STUB feed. No live AICTE portal integration exists (PRD line 341: live integration is Release 1; PRD line 46: we integrate with or stub the portal). This endpoint serves the FR-01 field set from RECORDED case data so the interface is real and clients can be built against it, and stamps every response with 'as_of' per the §18 risk row. The INGESTION half of FR-01 ('receive' applications into cases) is deliberately NOT implemented: accepting external records would need a portal service identity and an untrusted-write path — an external integration and role-authority change, both human approval gates (AGENTS.md). See the open question in IMPL-0020.",
+  "as_of_note": "as_of is the moment the feed was produced (the sync/serve time), read from the injectable clock — never datetime.now(). A consumer must treat the feed as valid as of that instant and no later; it is not real-time.",
+  "sync_cadence": null,
+  "sync_cadence_note": "The PRD says 'scheduled sync' but records no cadence, so none is invented; a human must record the official sync schedule here before any consumer schedules against it (placeholder, like the cut-off dates in calendars.json).",
+  "fields_note": "The seven FR-01 fields, in the PRD's own order. 'modelled: false' means this repo records no such data today: the value is served as null with the description naming what a live portal feed would carry — never a guessed PID, never a claimed 'TER paid'.",
+  "submitted_note": "'Final-submitted' is read as applications with a recorded submitted_at (the submit transition sets it); drafts never appear.",
+  "fields": [
+    {
+      "field": "application_id",
+      "modelled": true,
+      "description": "The case id recorded by this system (FR-01's 'ID')."
+    },
+    {
+      "field": "pid",
+      "modelled": false,
+      "description": "The portal PID (APH cl. 2.3.1 / RULE-E03's 'PID'). No PID column or portal record is modelled in this repo, so it is served as null."
+    },
+    {
+      "field": "category",
+      "modelled": true,
+      "description": "The application's routing category (Table 2.3 key), as recorded."
+    },
+    {
+      "field": "institution_type",
+      "modelled": false,
+      "description": "The institution type the portal would carry (new/existing/other — cf. RULE-E03 'institution name, PID, type agree across docs'). The institutions table records name, AICTE id and region only, so it is served as null."
+    },
+    {
+      "field": "submission_time",
+      "modelled": true,
+      "description": "The recorded final-submission timestamp (applications.submitted_at)."
+    },
+    {
+      "field": "ter_status",
+      "modelled": false,
+      "description": "TER payment status (Table 2.1). No payment record is modelled anywhere in this repo, so it is served as null — never a guessed 'paid'/'unpaid' (TER amounts themselves are PRD Table 2.1 and unverified for the applicable year)."
+    },
+    {
+      "field": "documents",
+      "modelled": true,
+      "description": "The case's documents: doc_type, file name, version and status as recorded (the FR-01 'documents' list; contents are not embedded — the document API serves content under its own permission)."
+    }
+  ]
+}
