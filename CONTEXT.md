@@ -425,7 +425,7 @@ tamper-evidence).
   grounded-extractor output, never re-parses PDFs at read time).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `44dbd6e`.
+  repo is currently green at `0ff1388`.
 
 ---
 
