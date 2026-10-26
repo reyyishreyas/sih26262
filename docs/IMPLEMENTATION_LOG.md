@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0003 | 2026-10-26 | Implementation | H.2 transaction boundary: one commit per workflow action; audit failure fails the operation | Tested | Phase 0.5 H.2 (Essentials §17, BUG-0004) | MiMo (OpenCode agent) |
 | IMPL-0002 | 2026-10-26 | Implementation | H.1 optimistic concurrency: stale transitions/reverts rejected and audited | Tested | Phase 0.5 H.1 (Essentials §14a, SYS-CONCUR-001) | MiMo (OpenCode agent) |
 | IMPL-0001 | 2026-10-26 | Implementation | Phase 0 baseline, repo audit and planning-doc set | Tested | 0.1–0.8, AGENT-01 | MiMo (OpenCode agent) |
 | DEC-0004 | 2026-10-26 | Decision | Planning documents live in `md/`, not `docs/prd/` | Accepted | 0.3 | reyyishreyas (human) + agent |
@@ -56,6 +57,34 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0003 — H.2: transaction boundary — one commit per workflow action; audit failure fails the operation
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / a3477cb (work uncommitted at implementation; pushed later per user instruction)
+- Task ID and PRD IDs: Phase 0.5 **H.2** (AGENT-02); Essentials §17 (audit for every state change) and the plan's transaction-boundary item ("state + transition + assignment + required audit commit together; audit-write failure fails the operation"); rules2 SYS-ASSIGN-001 (assignment atomicity with the move).
+- Goal: one workflow action = one transaction. A failure anywhere in it — including the audit write itself — must leave the database exactly as it was, never half-moved.
+- What existed before: the main transition path already committed state + transition + assignment + audit in a single `db.commit()` (good by construction, untested). Two genuine two-transaction windows existed (BUG-0004): `_complete_evc_visits` and `_cancel_visits_on_revert` each ran **after** the main commit with their own commit — a failure between them left the case and its EVC booking contradictory.
+- What I did:
+  - **Tests first** (`backend/tests/test_transaction_boundary.py`, 8 tests): the four effects commit together (state/transition/assignment/audit visible after one call); audit-write failure fails the transition and the revert leaving no partial write (state, version, transition rows, assignment rows and audit count all unchanged, chain still verifies); the same guarantee at the HTTP boundary (broken audit store ⇒ 500, case untouched); EVC completion and its visit update are one step; visit-cancellation failure rolls back the whole revert. The two window tests were run against the old code first and **failed** (`'evc_completed' == 'evc_scheduled'`), proving the bug before the fix.
+  - Moved `_complete_evc_visits(db, application.id)` and `_cancel_visits_on_revert(db, application, from_state, target_state)` **before** the single `db.commit()` in `request_transition` / `revert_last_transition`.
+  - Removed both helpers' internal `db.commit()`; docstrings now state "runs inside the caller's transaction — it must not commit on its own".
+  - No API/schema/config/migration change; no permission change; audit coverage unchanged (the `evc.visit_cancelled` event is now written in the same transaction as `workflow.revert` instead of a separate one — same events, one commit).
+- Files changed: `backend/app/services/workflow_service.py` (call order + two helper bodies), `backend/tests/test_transaction_boundary.py` (created).
+- Migrations / API / config / rule-file changes: none.
+- Permission and audit effects: no permission changes. Audit events themselves are unchanged in content; rejection path untouched (rollback-then-audit-in-new-transaction remains the deliberate design for rejections, documented in audit_service's docstring — a rejection has no business transaction left to protect once it is refused).
+- Verification: exact commands + results:
+  - `pytest tests/test_transaction_boundary.py -q` before the fix → **2 failed** (the window tests, bug proven), 6 passed; after the fix → **8 passed**
+  - `make lint` → `All checks passed!`
+  - `make test` → **178 passed, 1 warning in 17.43s** (0 skipped; +8 vs the 170 baseline)
+  - Not run: `npm run build` (no frontend change), Alembic (no model change), Compose stack.
+- Status per requirement touched:
+  - Plan H.2 "state + transition + assignment + required audit commit together" — **Implemented · Tested**
+  - Plan H.2 "audit-write failure fails the operation" — **Implemented · Tested** (service + HTTP boundary; the API returns 500 and the case is untouched)
+- Limitations / assumptions / manual steps:
+  - Fault injection replaces the failing write with one that raises — an honest stand-in for a DB/storage failure, but not a real killed-connection test; the Postgres/Compose stack was not exercised for this change.
+  - `schedule_visit` in `api/evc.py` intentionally remains two transactions (booking first, auto-transition second) — the code documents that the booking stands even when the case cannot move; that is a product decision, not a partial write, and was left as-is.
+- Related bugs: BUG-0004 (fixed here).
+- Open questions for a human: none.
+- Next suggested task: Phase 0.5 **H.3** — authorisation matrix test; 404-vs-403 policy documented.
 
 ### IMPL-0002 — H.1: optimistic concurrency enforced on transitions and reverts
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / a3477cb (work uncommitted)

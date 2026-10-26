@@ -16,6 +16,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0004 | 2026-10-26 | S2 | workflow | EVC visit updates ran in a second transaction after the main commit — a failure left the case and its booking contradictory | Fixed | IMPL-0003 |
 | BUG-0003 | 2026-10-26 | S4 | test-harness | Test session showed pre-request state after an API call committed in another session | Fixed | IMPL-0002 |
 | BUG-0002 | 2026-10-26 | S4 | docs | README repository map said 155 tests; actual 163 | Fixed | IMPL-0001 |
 | BUG-0001 | 2026-10-26 | S3 | ocr | Tesseract binary missing → OCR tests skipped | Workaround | IMPL-0001 |
@@ -42,6 +43,29 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0004 — EVC visit updates committed in a second transaction after the main workflow commit
+- Date found / found by: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6), Phase 0.5 H.2 code inspection, confirmed by a failing test before the fix
+- Branch / commit: master @ a3477cb (work on top, uncommitted at time of fix)
+- Severity / Area: **S2** (feature degraded: case and booking can contradict; no data loss, chain still valid, recoverable by re-running the completion) / workflow + evc
+- Status: **Fixed**
+- Where it showed up: `backend/tests/test_transaction_boundary.py::test_visit_update_failure_rolls_back_the_whole_evc_completion` and `...::test_visit_cancellation_failure_rolls_back_the_whole_revert` (both written first, both failed against the old code)
+- Expected behaviour: a workflow action and its EVC booking side-effects (completion on `complete_evc`, cancellation on revert) commit in **one** transaction — all or nothing (plan H.2; Essentials 17).
+- Actual behaviour: `request_transition` committed the state/transition/assignment/audit at line 342 and *then* called `_complete_evc_visits`, which ran its own `db.commit()` in a second transaction; `revert_last_transition` did the same with `_cancel_visits_on_revert`. A failure in the second transaction left the case at `evc_completed` with the visit still `scheduled` (or reverted with the booking still live) — the queue report and the workflow state contradicting each other.
+- Exact error output (trimmed):
+  ```
+  E       AssertionError: assert 'evc_completed' == 'evc_scheduled'
+  E         - evc_scheduled
+  E         + evc_completed
+  ```
+- Steps to reproduce: monkeypatch `workflow_service._complete_evc_visits` (or `_cancel_visits_on_revert`) to raise, call the transition/revert, then read the case state and the visit row: the case had moved, the visit had not.
+- Environment: macOS, Python 3.13.9, SQLite (test DB), fixed clock — the bug is dialect-independent (two commits, not an SQLite quirk).
+- Hypotheses tried: none needed beyond the failing test — the two-commit structure was visible in the source (`workflow_service.py` lines 342→347/386 and 646→694); the test pinned it before the fix to prove causality.
+- Root cause: the booking side-effects were added *after* the main `db.commit()` as a second transaction (probably to reuse the session post-commit), splitting one business action across two commits with a failure window between them.
+- Solution applied: moved both helper calls **before** the single `db.commit()` in their respective flows and removed their internal `db.commit()`s (documented "runs inside the caller's transaction" in both docstrings). Files: `backend/app/services/workflow_service.py` only. Rejected alternative: a compensating action on failure — more code and still a visible half-state between the commits.
+- Verification: the two regression tests above now pass; `make lint` clean; `make test` → **178 passed, 1 warning** (0 skipped).
+- Side effects / follow-ups: audit-event ordering changed slightly — `evc.visit_cancelled` now lands in the same transaction as `workflow.revert` (previously a separate committed event after it); the full suite passes, no test depended on the old order. Related: IMPL-0003.
+- Update history: —
 
 ### BUG-0003 — Test session showed pre-request state after an API call committed elsewhere
 - Date found / found by / branch / commit: 2026-10-26 / MiMo (OpenCode agent) / master @ a3477cb (uncommitted H.1 work)

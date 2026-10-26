@@ -324,6 +324,13 @@ def request_transition(
     # queue, and an officer whose scope is "assigned cases" cannot see it at
     # all — the College would submit and the reviewer would see nothing.
     assign_next_actors(db, application)
+    # Keep the EVC scheduling records in step with the workflow: when the
+    # committee records the visit, the live appointment stops being pending.
+    # Inside the same transaction — the case and its booking must agree, or a
+    # failure here would leave the case at evc_completed with the visit still
+    # "scheduled" (the queue report and the workflow would contradict).
+    if action == "complete_evc":
+        _complete_evc_visits(db, application.id)
     event = audit_service.AuditService(db).append(
         action=f"workflow.{action}",
         entity_type="application",
@@ -340,11 +347,6 @@ def request_transition(
         request_id=request_id,
     )
     db.commit()
-
-    # Keep the EVC scheduling records in step with the workflow: when the
-    # committee records the visit, the live appointment stops being pending.
-    if action == "complete_evc":
-        _complete_evc_visits(db, application.id)
 
     return TransitionDecision(
         accepted=True,
@@ -369,7 +371,10 @@ def _missing_documents(snapshot, doc_types: list[str]) -> list[str]:
 
 
 def _complete_evc_visits(db: Session, application_id: str) -> None:
-    """Mark the live appointment completed once the visit outcome is recorded."""
+    """Mark the live appointment completed once the visit outcome is recorded.
+
+    Runs inside the caller's transaction — it must not commit on its own.
+    """
     from ..models import EvcVisit
 
     now = get_clock().now()
@@ -382,8 +387,6 @@ def _complete_evc_visits(db: Session, application_id: str) -> None:
     for visit in visits:
         visit.status = "completed"
         visit.completed_at = now
-    if visits:
-        db.commit()
 
 
 def available_transitions(
@@ -624,6 +627,9 @@ def revert_last_transition(
             created_at=now,
         )
     )
+    # A booking must not outlive the stage it was made for — and the undo
+    # plus its cancellations are one step, so they share one transaction.
+    cancelled = _cancel_visits_on_revert(db, application, from_state, target_state)
     event = audit_service.AuditService(db).append(
         action="workflow.revert",
         entity_type="application",
@@ -646,7 +652,6 @@ def revert_last_transition(
     db.commit()
 
     notes: list[str] = []
-    cancelled = _cancel_visits_on_revert(db, application, from_state, target_state)
     if cancelled:
         notes.append(
             f"{cancelled} committee visit booking(s) were cancelled — the case is "
@@ -667,7 +672,10 @@ def revert_last_transition(
 def _cancel_visits_on_revert(
     db: Session, application: Application, from_state: str, to_state: str
 ) -> int:
-    """A booking must not outlive the stage it was made for."""
+    """A booking must not outlive the stage it was made for.
+
+    Runs inside the caller's transaction — it must not commit on its own.
+    """
     from ..models import EvcVisit
 
     if "evc" not in from_state or "evc" in to_state:
@@ -691,5 +699,4 @@ def _cancel_visits_on_revert(
             reason="the case was taken back a step, so the booking no longer applies",
             after={"cancelled": len(visits)},
         )
-        db.commit()
     return len(visits)
