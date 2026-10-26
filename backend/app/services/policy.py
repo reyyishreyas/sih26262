@@ -38,6 +38,11 @@ def deadline_policy() -> dict[str, Any]:
     return _load("deadline_policy.json")
 
 
+@lru_cache
+def calendars() -> dict[str, Any]:
+    return _load("calendars.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

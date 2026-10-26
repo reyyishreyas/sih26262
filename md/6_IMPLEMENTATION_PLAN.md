@@ -49,7 +49,7 @@ Do not run phases concurrently without agreed interfaces (see `4_AGENTS.md`). Ea
 - [ ] **Exit check:** scoreboard shows 21/21; audit events written for every routing decision. → **scoreboard 21/21: Met** (service + HTTP test assert `coverage == "21/21"`). **audit events: Partial** — the creation-time route is audited (`application.created` carries `route_key`, verified); the dedicated per-category route/stage-list decision event arrives with the stage graph (3.1) and is not faked. Phase 1 otherwise complete.
 
 ## Phase 2 — Readiness and intake (FR-01–FR-05)
-- [ ] 2.1 `calendars.json` + `working_calendar.py` (IST, holidays, Public Notice dates, Academic Calendar) (FR-37).
+- [x] 2.1 `calendars.json` + `working_calendar.py` (IST, holidays, Public Notice dates, Academic Calendar) (FR-37). → `calendars.json` (unverified/advisory; `timezone` Asia/Kolkata bound by test to `settings.business_timezone`; `weekend_days` config not code; **`years: {}` — no date invented** because the PRD/rules files record none, with a `template` for a reviewer to fill) + `policy.calendars()` + `working_calendar.py` (`business_date`, `public_notice_cutoff`, `academic_calendar`, `holidays_for`, `is_working_day`, `add_working_days` — unconfigured year → `None`, never a guess; no-working-day → raises, never hangs); `test_working_calendar.py` (24); 318 passed (IMPL-0016, 2026-10-26). FR-37 *load* half Partial by design: loader done, no year loaded pending an official date.
 - [ ] 2.2 `readiness.py`: cut-off check → tag next AY, never reject (FR-02).
 - [ ] 2.3 Blocked-application flags: five rules from FR-03, officer can clear or hold.
 - [ ] 2.4 Lease-years computation and flag (FR-05, RULE-LEASE-01), reusing the grounded lease extractor.

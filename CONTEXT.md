@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 294 passing
+make test      # pytest — 318 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -358,7 +358,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **294 passing** (~221 test functions; some parametrised).
+- `make test` → **318 passing** (~222 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -405,7 +405,10 @@ tamper-evidence).
   eligible after "not approved" on three categories (FR-11) but never
   auto-issued; "requirements are met" is an unevaluated placeholder) ·
   `test_route_scoreboard` (8 — Phase 1.9: `GET /workflow/table-2-3-scoreboard`
-  returns all 21 rows with coverage `21/21`, auth-gated, read-only).
+  returns all 21 rows with coverage `21/21`, auth-gated, read-only) ·
+  `test_working_calendar` (24 — Phase 2.1: IST/working-day/holiday maths and
+  Public Notice + Academic Calendar lookups (FR-37); no date invented — an
+  unconfigured year answers `None`, never a guessed window).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `447c674`.

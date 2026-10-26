@@ -1,0 +1,34 @@
+{
+  "note": "Working calendar and application-window configuration. Holds the business timezone, the working-day (weekend) convention, and — once a human records them — the yearly Public Notice dates and Academic Calendar that every clock must apply (PRD FR-37). No date in this file may be invented: it is transcribed only from an official notice once a reviewer has recorded it in docs/SOURCES.md.",
+  "status": "unverified",
+  "advisory_only": true,
+  "source": "md/1_PRD.md FR-37 (APH cl. 2.2, 2.25); cut-off rule 7 / FR-02; grant last date FR-32 (cl. 2.25b,j)",
+  "recorded_on": "2026-10-26",
+  "timezone": "Asia/Kolkata",
+  "timezone_note": "Single server time in IST (PRD §11 non-functional requirements: 'Deadline accuracy (single server time in IST, working-day calendar, nightly clock recompute)'). Kept in sync with settings.business_timezone by a test so the two cannot silently diverge.",
+  "weekend_days": [
+    5,
+    6
+  ],
+  "weekend_days_note": "Python weekday(): 0=Monday … 6=Sunday, so 5,6 = Saturday and Sunday. This is the working-day convention every deadline will use (PRD: 'Working-day calendar from config'). It is configuration, not code, so changing the convention is a config edit and never a deploy. It is Unverified until a reviewer confirms the AICTE/office working week for the applicable year.",
+  "years": {},
+  "years_note": "Empty by design. The PRD and md/rules.json record NO actual Public Notice or Academic Calendar date — rules.json marks them unverified/null ('fill only after the official trigger, duration, calendar, and applicability are verified') and rules2.json allows a cut-off to be enforced 'only when the applicable notice and time basis are verified'. Until a human records a year here, every lookup answers 'no date recorded' (None), never a guessed date — so no clock can be computed from an unverified window (Master Prompt §2 rules 2 and 4). Add one entry per year using `template` below, and record the source in docs/SOURCES.md.",
+  "template": {
+    "academic_year": null,
+    "public_notice": {
+      "opens_on": null,
+      "closes_on": null,
+      "status": "unverified",
+      "source_refs": []
+    },
+    "academic_calendar": {
+      "starts_on": null,
+      "ends_on": null,
+      "last_grant_date": null,
+      "status": "unverified",
+      "source_refs": []
+    },
+    "holidays": []
+  },
+  "template_note": "Shape only — not a value, and not active. `public_notice.closes_on` is the cut-off that queues a late application for the next Academic Year (FR-02); `academic_calendar.last_grant_date` is the date after which no EoA letter may be published (FR-32, cl. 2.25j); `holidays` are ISO dates (YYYY-MM-DD) excluded from working-day counts. Each block carries its own status/source_refs so a year can be partly verified (e.g. Public Notice confirmed, Academic Calendar still pending). All three stay `unverified` until recorded."
+}
