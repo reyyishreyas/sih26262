@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0006 | 2026-10-26 | Verification | Phase 0.5 exit check: all four hardening regression suites re-run green; limitations consolidated | Verified | Phase 0.5 exit check (H.1–H.4) | MiMo (OpenCode agent) |
 | IMPL-0005 | 2026-10-26 | Implementation | H.4 document versioning: replacement reason recorded, immutability/partial-storage/signature tests | Tested | Phase 0.5 H.4 (AGENT-03; BUG-0006) | MiMo (OpenCode agent) |
 | IMPL-0004 | 2026-10-26 | Implementation | H.3 authorisation matrix: every gated route × role × scope; 404-vs-403 policy documented | Tested | Phase 0.5 H.3 (Essentials §2, SYS-AUTH-001) | MiMo (OpenCode agent) |
 | IMPL-0003 | 2026-10-26 | Implementation | H.2 transaction boundary: one commit per workflow action; audit failure fails the operation | Tested | Phase 0.5 H.2 (Essentials §17, BUG-0004) | MiMo (OpenCode agent) |
@@ -59,6 +60,25 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0006 — Phase 0.5 exit check: four hardening suites re-run; limitations consolidated
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 4f16517
+- Task ID and PRD IDs: Phase 0.5 **Exit check** (covers H.1–H.4, AGENT-02 + AGENT-03); PRD core-consistency phase.
+- Goal: prove the phase gate — every regression suite from H.1–H.4 still passes on the final tree, and the limitations of all four tasks are written down in one place.
+- What existed before: H.1–H.4 each verified at its own commit; no single re-run of all four together on the final tree.
+- What I did: re-ran the four suites together, then the full gate, and consolidated the limitations from IMPL-0002…0005 into the plan's exit-check line.
+- Files changed: `md/6_IMPLEMENTATION_PLAN.md` (exit check ticked with the limitation summary — untracked user file, not in version control), `docs/IMPLEMENTATION_LOG.md` (this entry).
+- Migrations / API / config / rule-file changes: none. Permission and audit effects: none (verification only).
+- Verification: exact commands + results:
+  - `pytest tests/test_concurrency.py tests/test_transaction_boundary.py tests/test_authz_matrix.py tests/test_document_versioning.py -q -p no:randomly` → **43 passed** (7 + 8 + 21 + 7)
+  - `make lint` → `All checks passed!`
+  - `make test` → **206 passed, 1 warning in 22.16s** (0 skipped)
+  - Not run: `npm run build`, Compose/Postgres (no code changed since the H.4 verification at `b52c838`).
+- Status per requirement touched: Phase 0.5 exit check — **Verified**.
+- Limitations / assumptions / manual steps: the six consolidated limitations are recorded in `md/6_IMPLEMENTATION_PLAN.md` at the exit-check line (opt-in concurrency guard; matrix asserts authorisation only; H.4 SQLite-only migration verification; other mutation endpoints still lack the version guard; OCR skips without Tesseract; plan ticks not in version control).
+- Related bugs: none new.
+- Open questions for a human: unchanged from IMPL-0005 — add `make migrate-sqlite` to CI? Plus: may I commit `md/6_IMPLEMENTATION_PLAN.md` (and the rest of `md/`) so plan progress is versioned?
+- Next suggested task: Phase 1 **1.1** — encode Table 2.3 rows in `workflow_routes.json` (blocked pending: confirm where the authoritative 21 rows come from, since inventing APH routes is forbidden).
 
 ### IMPL-0005 — H.4: document versioning — replacement reason, immutability, partial-storage failure, file signatures
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 271f8db (work uncommitted at implementation; committed and pushed per user instruction)
