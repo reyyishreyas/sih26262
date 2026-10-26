@@ -414,7 +414,7 @@ tamper-evidence).
   pass; status vocabulary provably has no rejected/blocked).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `12cd8be`.
+  repo is currently green at `3895656`.
 
 ---
 
