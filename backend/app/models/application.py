@@ -257,3 +257,43 @@ class Deficiency(Base):
     extracted_field: Mapped[ExtractedField | None] = relationship()
     corrective_document: Mapped[Document | None] = relationship(foreign_keys=[corrective_document_id])
 
+
+class ReadinessFlag(Base):
+    """An officer's clear/hold decision on one FR-03 blocked-application flag.
+
+    Rows exist only once an officer has acted (PRD §7: "Regional officer
+    clears flags ... official clears/holds each flag"). The five FR-03 rules
+    themselves are configuration (`rules/readiness_policy.json`) and are
+    evaluated on read — the advisory evaluation is deliberately never stored,
+    so a rule edit cannot leave stale verdicts behind (same principle as the
+    deadline clocks: nothing stores a computed verdict).
+
+    One row per application + rule; re-deciding updates it and the audit
+    timeline keeps both decisions. This table gates nothing: no workflow
+    transition reads it (DEC-0003, PRD §0).
+    """
+
+    __tablename__ = "readiness_flags"
+    __table_args__ = (
+        UniqueConstraint(
+            "application_id", "flag_id", name="uq_readiness_flag_rule"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    application_id: Mapped[str] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    )
+    # The config rule id (bf-01 … bf-05) from readiness_policy.json.
+    flag_id: Mapped[str] = mapped_column(String(64))
+    # "cleared" | "held" — the PRD §7 vocabulary; validated against the
+    # config `decisions` list by a test, and by the request schema at the edge.
+    decision: Mapped[str] = mapped_column(String(16))
+    note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    decided_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # Latest decision time; a re-decision moves it (history lives in audit).
+    decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+    application: Mapped[Application] = relationship()
+

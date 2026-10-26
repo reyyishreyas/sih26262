@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 332 passing
+make test      # pytest — 363 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -308,10 +308,10 @@ in `styles.css`, icons are **inline SVG** in `components/Icon.tsx`.
 
 ---
 
-## 5. Data model (26 tables)
+## 5. Data model (27 tables)
 
 `regions · institutions · applications · documents · extracted_fields ·
-committees · evc_visits · deficiencies · users · roles · permissions ·
+committees · evc_visits · deficiencies · readiness_flags · users · roles · permissions ·
 role_permissions · user_role_assignments · jurisdiction_assignments ·
 case_assignments · login_attempts · undertakings · rule_evaluations · alerts ·
 alert_deliveries · audit_events · audit_chain_head · workflow_transition_defs ·
@@ -320,7 +320,9 @@ sim_runs · sim_input_snapshots · sim_rule_results · sim_metrics`
 
 Migrations: `backend/migrations/versions/` — `075aed043fd2_initial_schema`,
 `0002_sim_schema_and_finding_labels`, `0003_auth_hardening`,
-`0004_rule_immutability_trigger`, `0005_alert_lifecycle`, `0006_revert_support`.
+`0004_rule_immutability_trigger`, `0005_alert_lifecycle`, `0006_revert_support`,
+`0007_document_upload_reason`, `0008_deficiencies_and_evc_visits`,
+`0009_application_items`, `0010_readiness_flags`.
 
 ---
 
@@ -358,7 +360,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **332 passing** (~223 test functions; some parametrised).
+- `make test` → **363 passing** (~320 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -411,7 +413,11 @@ tamper-evidence).
   unconfigured year answers `None`, never a guessed window) ·
   `test_readiness_cutoff` (14 — Phase 2.2: cut-off check tags next AY and
   never rejects (FR-02); no date/time → `needs_review`, never a guessed
-  pass; status vocabulary provably has no rejected/blocked).
+  pass; status vocabulary provably has no rejected/blocked) ·
+  `test_blocked_flags` (31 — Phase 2.3: the five FR-03 flags evaluate
+  three-valued from config (`flagged`/`clear`/`needs_review`; unrecorded
+  input is never read as false), officer clear/hold persists one audited
+  row, `rejected` is a 422, scope miss is 404).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `3895656`.
@@ -494,6 +500,7 @@ applications  GET|POST /applications · GET /applications/{id} · GET .../eviden
 documents     GET|POST /applications/{id}/documents · GET .../{doc}/content · POST .../{doc}/fields/{f}/verify
 compliance    POST /applications/{id}/compliance/evaluate
 deficiencies  GET|POST /applications/{id}/deficiencies · PATCH .../{id} · POST .../{id}/close
+readiness      GET /applications/{id}/blocked-flags · POST /applications/{id}/blocked-flags/{flag_id}
 workflow      GET /workflow/routes · GET /workflow/table-2-3-scoreboard · POST /applications/{id}/transitions · POST .../revert · GET .../transitions
 undertakings  GET|POST /applications/{id}/undertakings · POST .../{id}/waive|submit|verify
 rehearsals    POST /applications/{id}/rehearsals · GET /rehearsals/{run_id}

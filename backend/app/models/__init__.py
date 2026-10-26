@@ -7,6 +7,7 @@ from .application import (
     EvcVisit,
     ExtractedField,
     Institution,
+    ReadinessFlag,
     Region,
 )
 from .audit import AuditChainHead, AuditEvent
@@ -44,6 +45,7 @@ __all__ = [
     "JurisdictionAssignment",
     "LoginAttempt",
     "Permission",
+    "ReadinessFlag",
     "Region",
     "Role",
     "RolePermission",

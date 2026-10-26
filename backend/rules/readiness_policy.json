@@ -13,5 +13,130 @@
     "status": "unverified",
     "advisory_only": true,
     "source": "md/1_PRD.md FR-02 (APH cl. 2.2, 2.22); §6 routing rule 7"
+  },
+  "blocked_flags": {
+    "status": "unverified",
+    "advisory_only": true,
+    "recorded_on": "2026-10-26",
+    "source": "md/1_PRD.md FR-03 (APH cl. 2.21f, 2.16.1a, 2.3.1, 2.6e, 2.27); §7 readiness row ('Regional officer clears flags ... official clears/holds each flag')",
+    "note": "The five FR-03 block rules as advisory configuration. Nothing here gates a workflow: an evaluation is advice produced on read and stores nothing; only an officer's recorded clear/hold decision (POST, audited, permission-gated) changes a case. An Unverified rule never blocks, returns or rejects an application (PRD §0; DEC-0003).",
+    "evaluation_note": "Three-valued per flag: 'flagged' only when every declared input is recorded AND matches the rule; 'clear' only when a RECORDED input provably fails a condition (so the rule cannot apply — a deduction, not a guess); 'needs_review' whenever any required input is not recorded — never a guessed pass (Master Prompt §2 rule 4). 'clear' means 'the rule does not apply to this case', NOT an official clearance: only an officer decision 'cleared' is (PRD §7). Absent data is always unknown, never false.",
+    "clause_mapping_note": "FR-03 lists five rules and five clauses as two parallel lists; each flag cites its clause by list position. The mapping is Unverified except bf-02 <-> 2.16.1a (the PRD's clause-notes table: 'Break in EoA | 6 consecutive years without application | 2.16.1a') and bf-04 <-> cl. 2.6 (the PRD's §6 rule 6 makes cl. 2.6 the increase-in-intake clause), both of which the PRD itself cross-confirms.",
+    "input_note": "Input field names are declared placeholders for data sources this repo does not integrate: no closure record, no EoA history, no inquiry status, no programme/student-data record, no prior partial-approval record. 'modelled: false' names what must be integrated before that flag can ever evaluate beyond needs_review. The names are labels for missing inputs, never invented data, and the one modelled input (application.category_ids) is absent — i.e. UNKNOWN, not false — for a case that carries no Table 2.3 items.",
+    "decisions": [
+      "cleared",
+      "held"
+    ],
+    "decisions_note": "The only officer decisions (PRD §7 'clears/holds each flag'). There is deliberately no 'rejected' decision: an Unverified flag never rejects (PRD §0, plan 2.2).",
+    "flags": [
+      {
+        "flag_id": "bf-01",
+        "rule": "Closure applicants applying for other categories",
+        "clause": "2.21f",
+        "source": "md/1_PRD.md FR-03 (APH cl. 2.21f)",
+        "status": "unverified",
+        "advisory_only": true,
+        "inputs": [
+          {
+            "field": "applicant.after_closure",
+            "modelled": false,
+            "description": "Whether the applicant institution is applying after a closure (FR-03's own wording). Needs the applicant's closure record; no such record is modelled in this repo."
+          },
+          {
+            "field": "application.category_differs_from_closure",
+            "modelled": false,
+            "description": "Whether the application is for a category other than the one the closure applies to. Needs both the closure record and the requested-category mapping; neither is modelled."
+          }
+        ],
+        "condition": [
+          { "field": "applicant.after_closure", "equals": true },
+          { "field": "application.category_differs_from_closure", "equals": true }
+        ]
+      },
+      {
+        "flag_id": "bf-02",
+        "rule": "No EoA for 6 years",
+        "clause": "2.16.1a",
+        "source": "md/1_PRD.md FR-03 (APH cl. 2.16.1a; PRD clause notes: '6 consecutive years without application -> apply as new institution')",
+        "status": "unverified",
+        "advisory_only": true,
+        "inputs": [
+          {
+            "field": "institution.consecutive_years_without_eoa",
+            "modelled": false,
+            "description": "Consecutive years with no extension of approval, per cl. 2.16.1a. Needs the institution's EoA history; none is stored. The 6-year figure is Unverified until a reviewer records the clause."
+          }
+        ],
+        "condition": [
+          { "field": "institution.consecutive_years_without_eoa", "gte": 6 }
+        ]
+      },
+      {
+        "flag_id": "bf-03",
+        "rule": "Standalone PGDM/PGCM without full student data",
+        "clause": "2.3.1",
+        "source": "md/1_PRD.md FR-03 (APH cl. 2.3.1)",
+        "status": "unverified",
+        "advisory_only": true,
+        "inputs": [
+          {
+            "field": "application.standalone_pgdm_pgcm",
+            "modelled": false,
+            "description": "Whether the case is for a standalone PGDM/PGCM programme. Needs a programme record; applications here carry routing categories, not programme type."
+          },
+          {
+            "field": "application.full_student_data_submitted",
+            "modelled": false,
+            "description": "Whether the full student data required with it was submitted. Needs structured student data; documents here are unstructured and no student-data source is modelled."
+          }
+        ],
+        "condition": [
+          { "field": "application.standalone_pgdm_pgcm", "equals": true },
+          { "field": "application.full_student_data_submitted", "equals": false }
+        ]
+      },
+      {
+        "flag_id": "bf-04",
+        "rule": "Intake increase during Central/State inquiry",
+        "clause": "2.6e",
+        "source": "md/1_PRD.md FR-03 (APH cl. 2.6e; the PRD's §6 rule 6 makes cl. 2.6 the increase-in-intake clause)",
+        "status": "unverified",
+        "advisory_only": true,
+        "inputs": [
+          {
+            "field": "application.category_ids",
+            "modelled": true,
+            "description": "The case's Table 2.3 category ids; 'contains t23-09' (Increase in Intake / Additional Course(s), per workflow_routes.json) identifies an intake-increase application. Recorded only when the case carries items — an absent item set is UNKNOWN, never 'not an intake increase'."
+          },
+          {
+            "field": "institution.under_central_state_inquiry",
+            "modelled": false,
+            "description": "Whether the institution is under a Central or State inquiry. No inquiry-status source is modelled in this repo, so this input is recorded for no case."
+          }
+        ],
+        "condition": [
+          { "field": "application.category_ids", "contains": "t23-09" },
+          { "field": "institution.under_central_state_inquiry", "equals": true }
+        ]
+      },
+      {
+        "flag_id": "bf-05",
+        "rule": "Partial approval of programmes",
+        "clause": "2.27",
+        "source": "md/1_PRD.md FR-03 (APH cl. 2.27)",
+        "status": "unverified",
+        "advisory_only": true,
+        "inputs": [
+          {
+            "field": "application.partial_programme_approval",
+            "modelled": false,
+            "description": "Whether the partial-approval-of-programmes condition of cl. 2.27 applies. The clause text is Unverified and no prior-approval record is modelled, so the condition cannot yet be evaluated for any case."
+          }
+        ],
+        "condition": [
+          { "field": "application.partial_programme_approval", "equals": true }
+        ]
+      }
+    ]
   }
 }

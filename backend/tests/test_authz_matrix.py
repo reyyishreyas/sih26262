@@ -121,6 +121,12 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
         "POST",
         "/api/v1/applications/{application_id}/deficiencies/{deficiency_id}/close",
     ): TRANSITION_OR_VERIFY,
+    # readiness: FR-03 blocked-application flags (Phase 2.3)
+    ("GET", "/api/v1/applications/{application_id}/blocked-flags"): READ_ANY,
+    (
+        "POST",
+        "/api/v1/applications/{application_id}/blocked-flags/{flag_id}",
+    ): frozenset({CASE_TRANSITION}),
     # rehearsals
     ("POST", "/api/v1/applications/{application_id}/rehearsals"): frozenset(
         {REHEARSAL_RUN}
@@ -220,6 +226,10 @@ JSON_BODIES: dict[tuple[str, str], dict] = {
         "/api/v1/applications/{application_id}/deficiencies/{deficiency_id}/close",
     ): {"resolution_note": "Authorisation matrix probe"},
     ("POST", "/api/v1/applications/{application_id}/rehearsals"): {"overrides": {}},
+    (
+        "POST",
+        "/api/v1/applications/{application_id}/blocked-flags/{flag_id}",
+    ): {"decision": "cleared", "note": "Authorisation matrix probe"},
     ("POST", "/api/v1/applications/{application_id}/undertakings"): {
         "title": "Authorisation matrix probe condition",
         "due_at": "2026-12-31",

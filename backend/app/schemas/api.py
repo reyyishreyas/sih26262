@@ -148,3 +148,36 @@ class DeficiencyOut(BaseModel):
     resolution_note: str | None
     corrective_document_id: str | None
 
+
+class BlockedFlagDecision(BaseModel):
+    """An officer's PRD §7 decision on one FR-03 flag: clear or hold.
+
+    The pattern is the whole point: the vocabulary has no ``rejected`` (an
+    Unverified flag never rejects — PRD §0, plan 2.2), so recording one is a
+    422 before it can reach the database. The same two values are pinned in
+    ``readiness_policy.json -> blocked_flags.decisions`` by a test.
+    """
+
+    decision: str = Field(pattern="^(cleared|held)$")
+    note: str = ""
+
+
+class BlockedFlagOut(BaseModel):
+    """One FR-03 flag as the endpoint returns it: configuration + evaluation
+    + the officer's decision if one exists (otherwise None)."""
+
+    flag_id: str
+    rule: str
+    clause: str
+    source: str
+    status: str
+    advisory_only: bool
+    evaluation: str
+    reason: str
+    missing_inputs: list[str]
+    decision: str | None
+    decided_by: str | None
+    decided_at: Any = None
+    note: str | None
+    state: str
+
