@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 552 passing
+make test      # pytest — 561 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **552 passing** (~480 test functions; some parametrised).
+- `make test` → **561 passing** (~490 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -495,9 +495,21 @@ tamper-evidence).
    `DemoClock.tsx` admin panel (Jump 1/3/7 days + Reset) wired into `App.tsx`
    as a `demo` hash view gated on `admin.users`, rendering a switched-off
    message when the API reports `enabled:false`).
+   `test_reconcile.py` (9 — Phase 3.9: clock reconciliation.
+   `services/reconcile.py` recomputes every clock-derived date (stage-ageing
+   SLA, per-stage due, undertaking `due_at`, scheduled EVC visit) from the
+   current clock + config via the *same* readers the sweep uses, then diffs
+   against what the live reader reports; **read-only**, never repairs.
+   Frozen `Alert.due_at` snapshots are surfaced in `frozen_alerts` with an
+   explanatory note but never counted as drift (an alert describes the cycle
+   it fired in, so a live recompute legitimately differs after a transition).
+   `GET /internal/reconcile-clocks` (`ADMIN_USERS`, matrix row) +
+   `scripts/reconcile_clocks.py` nightly job (`--fail-on-diff` for a
+   monitoring cron). The exit-check property holds: reconciliation stays 0
+   after a 30-day demo-clock jump).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `9e99f9c`.
+  repo is currently green at `47a8409`.
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on
@@ -588,7 +600,7 @@ workflow      GET /workflow/routes · GET /workflow/table-2-3-scoreboard · POST
 undertakings  GET|POST /applications/{id}/undertakings · POST .../{id}/waive|submit|verify
 rehearsals    POST /applications/{id}/rehearsals · GET /rehearsals/{run_id}
 evc           GET /evc/committees · GET|POST /applications/{id}/evc/visits · GET /evc/queue
-alerts        GET /alerts · POST /alerts/{id}/ack · POST /alerts/{id}/close · POST /internal/deadline-sweep · GET /internal/deadline-preview
+alerts        GET /alerts · POST /alerts/{id}/ack · POST /alerts/{id}/close · POST /internal/deadline-sweep · GET /internal/deadline-preview · GET /internal/reconcile-clocks
 audit         GET /applications/{id}/audit · GET /audit/verify
 officer       GET /officer/{dashboard,pendency,ageing,escalations,assignments}
 reports       GET /reports (+ /pendency /regions /evc /undertakings /documents /overdue /workload)
