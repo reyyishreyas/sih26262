@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 421 passing
+make test      # pytest — 442 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -323,7 +323,8 @@ Migrations: `backend/migrations/versions/` — `075aed043fd2_initial_schema`,
 `0002_sim_schema_and_finding_labels`, `0003_auth_hardening`,
 `0004_rule_immutability_trigger`, `0005_alert_lifecycle`, `0006_revert_support`,
 `0007_document_upload_reason`, `0008_deficiencies_and_evc_visits`,
-`0009_application_items`, `0010_readiness_flags`, `0011_stage_instances`.
+`0009_application_items`, `0010_readiness_flags`, `0011_stage_instances`,
+`0012_workflow_reason_code`.
 
 ---
 
@@ -361,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **421 passing** (~378 test functions; some parametrised).
+- `make test` → **442 passing** (~399 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -433,7 +434,13 @@ tamper-evidence).
   route's real transitions, authorised completion auto-advances
   (re-entry reactivates one row), a terminal decision completes only
   entered stages, a refused transition changes nothing, a revert
-  rewinds the graph; derived rows never gate or move a case).
+  rewinds the graph; derived rows never gate or move a case) ·
+  `test_reason_codes` (21 — Phase 3.2: FR-28 reason code + free text
+  mandatory on return/revert; placeholder vocabulary in config
+  (`reason_codes.json`, unverified), unknown/out-of-scope codes and
+  codeless returns refused with the valid list named, code persisted
+  on the transition row and in the audit `after`, `reject` keeps
+  free-text-only, `GET /workflow/reason-codes` serves the vocabulary).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `12ca6b4`.

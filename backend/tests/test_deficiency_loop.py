@@ -106,6 +106,7 @@ def test_structured_deficiency_and_return_loop(client, as_user):
         json={
             "action": "return_for_clarification",
             "reason": "Returned due to document expiry and missing notarization in governing body resolution.",
+            "reason_code": "RC-DOC-MISSING",
         },
     )
     assert ret_res.status_code == 200

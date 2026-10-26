@@ -113,6 +113,7 @@ def test_a_step_can_be_undone_with_a_reason(db, client, as_user):
         json={
             "action": "return_for_clarification",
             "reason": "Lease dates do not match the ownership record.",
+            "reason_code": "RC-DOC-MISSING",
         },
     )
     assert moved.json()["to_state"] == "returned"
@@ -120,7 +121,10 @@ def test_a_step_can_be_undone_with_a_reason(db, client, as_user):
     undone = client.post(
         "/api/v1/applications/app-main-0001/revert",
         headers=headers,
-        json={"reason": "Opened by mistake — the dates were checked and match."},
+        json={
+            "reason": "Opened by mistake — the dates were checked and match.",
+            "reason_code": "RC-SCOPE-ERROR",
+        },
     )
     assert undone.status_code == 200
     body = undone.json()
@@ -156,7 +160,11 @@ def test_undoing_needs_a_reason(db, client, as_user):
     client.post(
         "/api/v1/applications/app-main-0001/transitions",
         headers=headers,
-        json={"action": "return_for_clarification", "reason": "Evidence incomplete."},
+        json={
+            "action": "return_for_clarification",
+            "reason": "Evidence incomplete.",
+            "reason_code": "RC-DOC-MISSING",
+        },
     )
     bare = client.post(
         "/api/v1/applications/app-main-0001/revert",
@@ -174,13 +182,17 @@ def test_undoing_twice_walks_back_one_step_at_a_time(db, client, as_user):
     client.post(
         "/api/v1/applications/app-main-0001/transitions",
         headers=headers,
-        json={"action": "return_for_clarification", "reason": "Evidence incomplete."},
+        json={
+            "action": "return_for_clarification",
+            "reason": "Evidence incomplete.",
+            "reason_code": "RC-DOC-MISSING",
+        },
     )
 
     first = client.post(
         "/api/v1/applications/app-main-0001/revert",
         headers=headers,
-        json={"reason": "Wrong queue."},
+        json={"reason": "Wrong queue.", "reason_code": "RC-SCOPE-ERROR"},
     )
     assert first.json()["accepted"] is True
     assert first.json()["to_state"] == "scrutiny"
@@ -189,7 +201,10 @@ def test_undoing_twice_walks_back_one_step_at_a_time(db, client, as_user):
     second = client.post(
         "/api/v1/applications/app-main-0001/revert",
         headers=headers,
-        json={"reason": "And that was opened by the wrong officer too."},
+        json={
+            "reason": "And that was opened by the wrong officer too.",
+            "reason_code": "RC-SCOPE-ERROR",
+        },
     )
     assert second.json()["accepted"] is True
     assert second.json()["to_state"] == "submitted"
@@ -198,7 +213,7 @@ def test_undoing_twice_walks_back_one_step_at_a_time(db, client, as_user):
     third = client.post(
         "/api/v1/applications/app-main-0001/revert",
         headers=headers,
-        json={"reason": "Back to square one."},
+        json={"reason": "Back to square one.", "reason_code": "RC-SCOPE-ERROR"},
     )
     assert third.json()["accepted"] is True
     assert third.json()["to_state"] == "draft"
@@ -207,7 +222,7 @@ def test_undoing_twice_walks_back_one_step_at_a_time(db, client, as_user):
     fourth = client.post(
         "/api/v1/applications/app-main-0001/revert",
         headers=headers,
-        json={"reason": "One more."},
+        json={"reason": "One more.", "reason_code": "RC-SCOPE-ERROR"},
     )
     assert fourth.json()["accepted"] is False
     assert any("nothing to undo" in reason for reason in fourth.json()["reasons"])
@@ -259,7 +274,10 @@ def test_undoing_a_committee_booking_cancels_the_visit(db, client, as_user):
     undone = client.post(
         f"/api/v1/applications/{application_id}/revert",
         headers=headers,
-        json={"reason": "Booked before the paperwork was complete."},
+        json={
+            "reason": "Booked before the paperwork was complete.",
+            "reason_code": "RC-SCOPE-ERROR",
+        },
     )
     assert undone.json()["accepted"] is True
     assert undone.json()["to_state"] == "submitted"
@@ -275,7 +293,11 @@ def test_the_college_cannot_undo_an_officer_step(db, client, as_user):
     client.post(
         "/api/v1/applications/app-main-0001/transitions",
         headers=officer,
-        json={"action": "return_for_clarification", "reason": "Evidence incomplete."},
+        json={
+            "action": "return_for_clarification",
+            "reason": "Evidence incomplete.",
+            "reason_code": "RC-DOC-MISSING",
+        },
     )
     college = as_user("institution@demo.local")
     attempt = client.post(
@@ -305,7 +327,11 @@ def test_sweep_and_revert_coexist(db, client, as_user):
     client.post(
         "/api/v1/applications/app-main-0001/transitions",
         headers=headers,
-        json={"action": "return_for_clarification", "reason": "Evidence incomplete."},
+        json={
+            "action": "return_for_clarification",
+            "reason": "Evidence incomplete.",
+            "reason_code": "RC-DOC-MISSING",
+        },
     )
     client.post(
         "/api/v1/applications/app-main-0001/evc/visits",
@@ -315,7 +341,7 @@ def test_sweep_and_revert_coexist(db, client, as_user):
     client.post(
         "/api/v1/applications/app-main-0001/revert",
         headers=headers,
-        json={"reason": "Not ready."},
+        json={"reason": "Not ready.", "reason_code": "RC-SCOPE-ERROR"},
     )
     result = deadline_service.sweep(db, NOW_TODAY)
     # The case is back in scrutiny with a fresh state timestamp: the sweep

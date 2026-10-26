@@ -1,0 +1,38 @@
+{
+  "version": "2026.1",
+  "status": "unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "recorded_on": "2026-10-26",
+  "source": "md/1_PRD.md FR-28 (P0, PS A, line 206: 'Return/revert to prior stage or institution; reason code + free text mandatory') and the §11 metrics (line 297: 'rejections and returns by reason code' — the reason codes are persisted on the transition row, so that metric is computed from structured data and never from free-text guesswork).",
+  "note": "PLACEHOLDER VOCABULARY — the PRD mandates a reason code on return/revert but never enumerates the codes, and §19 has no vocabulary open question to answer. The list below is therefore a clearly-labelled placeholder (the same pattern as the 3.3 placeholder day counts): AICTE must confirm the official reason-code list before it is treated as anything but Unverified. Validation rejects unknown codes: an officer cannot invent a code at the keyboard, and this repo does not invent an APH clause at the desk. The free text stays separately mandatory — the code says WHAT KIND of reason, the text says WHAT EXACTLY (FR-28: 'reason code + free text mandatory', both parts).",
+  "applies_to_note": "'return' covers the requires_reason workflow actions (return_for_clarification on the routes that define it); 'revert' covers undoing a step. A code may apply to one or both kinds; validation scopes it accordingly.",
+  "required_for_actions_note": "FR-28 mandates a code + free text on RETURN/revert only — 'reject' also carries a mandatory free-text reason (route config requires_reason) but the PRD does not ask for a code on it, so it is deliberately not listed here. Each listed action must exist in workflow_routes.json with requires_reason true (a cross-config test enforces this); adding or removing a return type is a config edit, not a code change.",
+  "required_for_actions": ["return_for_clarification"],
+  "codes": [
+    {
+      "id": "RC-DOC-MISSING",
+      "label": "Required document missing or illegible",
+      "applies_to": ["return", "revert"],
+      "source": "Placeholder. The PRD §7 compliance cycle exists for deficiencies, and document deficiency is the recurring named cause in the PRD's own workflow narrative (line 36: 'Deficiency, return and reopening reasons are scattered') — awaiting AICTE's official list."
+    },
+    {
+      "id": "RC-CLARIFICATION",
+      "label": "Clarification sought before scrutiny may proceed",
+      "applies_to": ["return", "revert"],
+      "source": "Placeholder. PRD FR-28's action is literally 'Return/revert to prior stage or institution' for clarification; awaiting AICTE's official list."
+    },
+    {
+      "id": "RC-SCOPE-ERROR",
+      "label": "Routed or acted in error (wrong route, case or step)",
+      "applies_to": ["revert"],
+      "source": "Placeholder. An undo needs its own honest reason kind — the PRD grants revert as a first-class action (FR-28) but names no codes; awaiting AICTE's official list."
+    },
+    {
+      "id": "RC-OTHER",
+      "label": "Other — described in the free text",
+      "applies_to": ["return", "revert"],
+      "source": "Placeholder catch-all so an unlisted but genuine reason can still be recorded with a structured marker plus mandatory free text, instead of forcing an officer to pick a code that does not fit; awaiting AICTE's official list."
+    }
+  ]
+}

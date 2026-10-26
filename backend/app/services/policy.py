@@ -58,6 +58,11 @@ def stage_graph_policy() -> dict[str, Any]:
     return _load("stage_graph.json")
 
 
+@lru_cache
+def reason_codes_policy() -> dict[str, Any]:
+    return _load("reason_codes.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

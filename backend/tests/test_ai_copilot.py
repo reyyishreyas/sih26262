@@ -107,6 +107,7 @@ def test_evidence_grounded_ai_extraction_and_copilot_deficiency(client, as_user)
         json={
             "action": "return_for_clarification",
             "reason": "AI Copilot flagged expired lease and mismatched lessee entity.",
+            "reason_code": "RC-DOC-MISSING",
         },
     )
     assert ret_res.status_code == 200

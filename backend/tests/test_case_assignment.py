@@ -127,7 +127,11 @@ def test_handing_over_twice_does_not_duplicate_assignments(client, as_user, db):
     client.post(
         f"/api/v1/applications/{application_id}/transitions",
         headers=officer,
-        json={"action": "return_for_clarification", "reason": "please clarify"},
+        json={
+            "action": "return_for_clarification",
+            "reason": "please clarify",
+            "reason_code": "RC-CLARIFICATION",
+        },
     )
     client.post(
         f"/api/v1/applications/{application_id}/transitions",

@@ -81,6 +81,11 @@ class VerifyFieldRequest(BaseModel):
 class TransitionRequest(BaseModel):
     action: str
     reason: str = ""
+    # FR-28: returns need a structured reason code (from
+    # GET /workflow/reason-codes) alongside the free text. Optional at the
+    # schema level so non-return actions stay simple; the workflow service
+    # refuses a return that omits or fakes it.
+    reason_code: str | None = None
     # Optimistic concurrency (Essentials §14a): when the client sends the
     # baseline_version it loaded, a case that has moved underneath it is
     # rejected with a reload message instead of acted on from a stale view.

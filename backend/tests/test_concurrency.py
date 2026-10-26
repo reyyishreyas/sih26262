@@ -171,6 +171,7 @@ def test_stale_revert_is_rejected_and_current_version_reverts(db, access_for):
         admin,
         application.id,
         reason="Undo by mistake",
+        reason_code="RC-SCOPE-ERROR",
         expected_baseline_version=stale,
     )
     assert stale_revert.accepted is False
@@ -182,6 +183,7 @@ def test_stale_revert_is_rejected_and_current_version_reverts(db, access_for):
         admin,
         application.id,
         reason="Undo by mistake",
+        reason_code="RC-SCOPE-ERROR",
         expected_baseline_version=_app(db, application.id).baseline_version,
     )
     assert good_revert.accepted is True

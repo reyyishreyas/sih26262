@@ -184,7 +184,8 @@ def test_audit_write_failure_fails_the_revert_and_leaves_no_partial_write(
 
     with pytest.raises(RuntimeError, match="audit store unavailable"):
         workflow_service.revert_last_transition(
-            db, admin, application.id, reason="Undo by mistake"
+            db, admin, application.id, reason="Undo by mistake",
+            reason_code="RC-SCOPE-ERROR",
         )
 
     db.rollback()
@@ -308,6 +309,7 @@ def test_revert_cancels_the_visit_and_moves_the_case_together(
         access_for("regional@demo.local"),
         application_id,
         reason="Booked before the paperwork was complete.",
+        reason_code="RC-SCOPE-ERROR",
     )
     assert decision.accepted is True
     assert any("cancelled" in note for note in decision.notes)
@@ -340,6 +342,7 @@ def test_visit_cancellation_failure_rolls_back_the_whole_revert(
             access_for("regional@demo.local"),
             application_id,
             reason="Booked before the paperwork was complete.",
+            reason_code="RC-SCOPE-ERROR",
         )
 
     db.rollback()

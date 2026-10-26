@@ -170,7 +170,12 @@ def test_an_authorised_completion_auto_advances_to_the_next_stage(db, access_for
 def test_returning_a_case_opens_the_compliance_cycle(db, access_for):
     access = access_for("scrutiny@demo.local")
     decision = workflow_service.request_transition(
-        db, access, "app-main-0001", "return_for_clarification", reason="Documents needed"
+        db,
+        access,
+        "app-main-0001",
+        "return_for_clarification",
+        reason="Documents needed",
+        reason_code="RC-DOC-MISSING",
     )
     assert decision.accepted is True
     assert _by_key(db, "app-main-0001", "compliance_cycle").status == "active"
@@ -182,7 +187,12 @@ def test_re_entering_a_stage_keeps_one_row_and_reactivates_it(db, access_for):
     scrutiny = access_for("scrutiny@demo.local")
     college = access_for("institution@demo.local")
     workflow_service.request_transition(
-        db, scrutiny, "app-main-0001", "return_for_clarification", reason="Fix lease"
+        db,
+        scrutiny,
+        "app-main-0001",
+        "return_for_clarification",
+        reason="Fix lease",
+        reason_code="RC-DOC-MISSING",
     )
     workflow_service.request_transition(db, college, "app-main-0001", "resubmit")
     decision = workflow_service.request_transition(
@@ -233,13 +243,22 @@ def test_a_refused_transition_changes_no_stage_row(db, access_for):
 def test_a_revert_rewinds_the_stage_graph_with_the_case(db, access_for):
     scrutiny = access_for("scrutiny@demo.local")
     decision = workflow_service.request_transition(
-        db, scrutiny, "app-main-0001", "return_for_clarification", reason="Rewind me"
+        db,
+        scrutiny,
+        "app-main-0001",
+        "return_for_clarification",
+        reason="Rewind me",
+        reason_code="RC-DOC-MISSING",
     )
     assert decision.accepted is True
     assert _by_key(db, "app-main-0001", "compliance_cycle").status == "active"
 
     undo = workflow_service.revert_last_transition(
-        db, scrutiny, "app-main-0001", reason="Visit already held"
+        db,
+        scrutiny,
+        "app-main-0001",
+        reason="Visit already held",
+        reason_code="RC-SCOPE-ERROR",
     )
     assert undo.accepted is True
     assert _by_key(db, "app-main-0001", "compliance_cycle").status == "pending"

@@ -54,6 +54,11 @@ class WorkflowTransition(Base):
     to_state: Mapped[str] = mapped_column(String(32))
     actor_id: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
     reason: Mapped[str] = mapped_column(String(1024), default="")
+    # FR-28: a return/revert carries a structured reason code from
+    # rules/reason_codes.json alongside the free text, so §11's "returns by
+    # reason code" metric reads data, not prose. Nullable: non-return
+    # actions carry no code (FR-28 mandates it only on return/revert).
+    reason_code: Mapped[str | None] = mapped_column(String(64), nullable=True)
     # When an officer undid this step, the row stays but is marked, so the
     # history keeps showing what actually happened (including the undo).
     reverted_at: Mapped[datetime | None] = mapped_column(

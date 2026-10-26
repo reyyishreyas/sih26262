@@ -39,6 +39,7 @@ from . import audit_service, compliance_service, stages
 from .authorization_service import EffectiveAccess, can_access_application
 from .case_assignment_service import assign_next_actors
 from .evidence_service import build_snapshot
+from .policy import reason_codes_policy
 from .rule_engine import RuleEvaluationResult, RuleOutcome
 
 
@@ -130,12 +131,40 @@ def _stale_version_reasons(application: Application, expected: int) -> list[str]
     ]
 
 
+def _reason_code_error(applies_to: str, reason_code: str | None) -> list[str]:
+    """FR-28: the structured half of a return/revert reason, from config.
+
+    Returns refusal reasons (empty when fine). The vocabulary lives in
+    `rules/reason_codes.json` (a labelled placeholder until AICTE confirms
+    the official list); an unlisted code is refused rather than stored — an
+    officer cannot invent a code any more than this repo invents a clause.
+    The message names the valid codes so the refusal teaches the vocabulary.
+    """
+    valid = [
+        code["id"]
+        for code in reason_codes_policy().get("codes", [])
+        if applies_to in code.get("applies_to", ())
+    ]
+    if not reason_code or not reason_code.strip():
+        return [
+            f"a reason code is mandatory on {applies_to} (PRD FR-28); "
+            f"valid codes: {', '.join(valid)}"
+        ]
+    if reason_code not in valid:
+        return [
+            f"unknown reason code {reason_code!r} for {applies_to}; "
+            f"valid codes: {', '.join(valid)}"
+        ]
+    return []
+
+
 def request_transition(
     db: Session,
     access: EffectiveAccess,
     application_id: str,
     action: str,
     reason: str = "",
+    reason_code: str | None = None,
     request_id: str | None = None,
     expected_baseline_version: int | None = None,
 ) -> TransitionDecision:
@@ -235,6 +264,36 @@ def request_transition(
             request_id=request_id,
         )
 
+    # FR-28: returns need a code AND free text. The mandate is scoped by
+    # config (reason_codes.required_for_actions), not by requires_reason —
+    # 'reject' also demands free text but the PRD asks no code for it.
+    if action in reason_codes_policy().get("required_for_actions", ()):
+        code_errors = _reason_code_error("return", reason_code)
+        if code_errors:
+            return _reject(
+                db,
+                application=application,
+                access=access,
+                action=action,
+                from_state=from_state,
+                reasons=code_errors,
+                request_id=request_id,
+            )
+    elif reason_code and reason_code.strip():
+        # Optional elsewhere, but never unvalidated: an unknown code must
+        # not reach the row (it would poison the §11 metric).
+        code_errors = _reason_code_error("return", reason_code)
+        if code_errors:
+            return _reject(
+                db,
+                application=application,
+                access=access,
+                action=action,
+                from_state=from_state,
+                reasons=code_errors,
+                request_id=request_id,
+            )
+
     snapshot = build_snapshot(db, application)
     missing_documents = _missing_documents(snapshot, definition.required_documents or [])
     if missing_documents:
@@ -292,6 +351,7 @@ def request_transition(
             to_state=definition.to_state,
             actor_id=access.user_id,
             reason=reason,
+            reason_code=reason_code.strip() if reason_code else None,
             created_at=now,
         )
     )
@@ -343,6 +403,9 @@ def request_transition(
         after={
             "state": definition.to_state,
             "baseline_version": application.baseline_version,
+            # FR-28: the structured code rides in the audit too, so §11's
+            # "returns by reason code" metric never has to parse free text.
+            "reason_code": (reason_code.strip() if reason_code else None),
         },
         request_id=request_id,
     )
@@ -431,6 +494,10 @@ def available_transitions(
                 "from_state": definition.from_state,
                 "to_state": definition.to_state,
                 "requires_reason": definition.requires_reason,
+                # FR-28: which actions will also demand a structured code
+                # (config-scoped — reason_codes.required_for_actions).
+                "requires_reason_code": definition.action
+                in reason_codes_policy().get("required_for_actions", ()),
                 "available": not unmet,
                 "blocked_by": unmet,
             }
@@ -487,6 +554,7 @@ def revert_last_transition(
     access: EffectiveAccess,
     application_id: str,
     reason: str,
+    reason_code: str | None = None,
     request_id: str | None = None,
     expected_baseline_version: int | None = None,
 ) -> TransitionDecision:
@@ -554,6 +622,20 @@ def revert_last_transition(
             action="revert",
             from_state=from_state,
             reasons=["undoing a step requires a recorded reason"],
+            request_id=request_id,
+        )
+
+    # FR-28 covers undo too: an undo carries a code AND free text, from the
+    # codes that apply to 'revert' (a return-only code does not satisfy it).
+    code_errors = _reason_code_error("revert", reason_code)
+    if code_errors:
+        return _reject(
+            db,
+            application=application,
+            access=access,
+            action="revert",
+            from_state=from_state,
+            reasons=code_errors,
             request_id=request_id,
         )
 
@@ -631,6 +713,7 @@ def revert_last_transition(
             to_state=target_state,
             actor_id=access.user_id,
             reason=reason.strip(),
+            reason_code=reason_code.strip() if reason_code else None,
             created_at=now,
         )
     )
@@ -648,6 +731,8 @@ def revert_last_transition(
         before=before,
         after={
             "state": target_state,
+            # FR-28: the undo's structured code, for the same §11 metric.
+            "reason_code": (reason_code.strip() if reason_code else None),
             "undone_transition": {
                 "action": undone_action,
                 "from_state": (target.before or {}).get("state"),

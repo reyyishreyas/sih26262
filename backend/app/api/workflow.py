@@ -10,7 +10,7 @@ from ..core.permissions import APPLICATION_READ, CASE_READ
 from ..schemas.api import TransitionRequest
 from ..services import routing, workflow_service
 from ..services.authorization_service import EffectiveAccess, require_application
-from ..services.policy import workflow_routes
+from ..services.policy import reason_codes_policy, workflow_routes
 from .deps import get_access, require_any
 
 router = APIRouter(tags=["workflow"])
@@ -20,6 +20,9 @@ class RevertRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     reason: str = ""
+    # FR-28: the undo needs a structured reason code (from
+    # GET /workflow/reason-codes) alongside the free text.
+    reason_code: str | None = None
     # Same optimistic-concurrency contract as TransitionRequest.
     expected_baseline_version: int | None = None
 
@@ -45,6 +48,23 @@ def list_routes(access: EffectiveAccess = Depends(get_access)) -> list[dict]:
         }
         for key, route in catalogue.items()
     ]
+
+
+@router.get("/workflow/reason-codes")
+def list_reason_codes(access: EffectiveAccess = Depends(get_access)) -> dict:
+    """FR-28's structured reason-code vocabulary for returns and reverts.
+
+    Served straight from `rules/reason_codes.json` — a clearly-labelled
+    placeholder until AICTE confirms the official list (the PRD mandates a
+    code but never enumerates the codes). Signed-in users only.
+    """
+    config = reason_codes_policy()
+    return {
+        "status": config.get("status"),
+        "placeholder": config.get("placeholder", False),
+        "source": config.get("source"),
+        "codes": config.get("codes", []),
+    }
 
 
 @router.get("/workflow/table-2-3-scoreboard")
@@ -74,6 +94,7 @@ def request_transition(
         application_id,
         payload.action,
         payload.reason,
+        reason_code=payload.reason_code,
         request_id=current_request_id(),
         expected_baseline_version=payload.expected_baseline_version,
     )
@@ -93,6 +114,7 @@ def revert_last_transition(
         access,
         application_id,
         payload.reason,
+        reason_code=payload.reason_code,
         request_id=current_request_id(),
         expected_baseline_version=payload.expected_baseline_version,
     )
