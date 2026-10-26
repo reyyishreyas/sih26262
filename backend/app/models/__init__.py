@@ -25,7 +25,7 @@ from .identity import (
 )
 from .rehearsal import SimInputSnapshot, SimMetric, SimRuleResult, SimRun
 from .rules import Rule, RuleTest, RuleVersion
-from .workflow import WorkflowTransition, WorkflowTransitionDefinition
+from .workflow import StageInstance, WorkflowTransition, WorkflowTransitionDefinition
 
 __all__ = [
     "Alert",
@@ -57,6 +57,7 @@ __all__ = [
     "SimMetric",
     "SimRuleResult",
     "SimRun",
+    "StageInstance",
     "Undertaking",
     "User",
     "UserRoleAssignment",

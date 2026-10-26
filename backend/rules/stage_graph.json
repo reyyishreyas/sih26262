@@ -1,0 +1,215 @@
+{
+  "version": "2026.1",
+  "status": "unverified",
+  "advisory_only": true,
+  "recorded_on": "2026-10-26",
+  "source": "md/1_PRD.md FR-09 ('Auto-advance when authorised user marks stage complete', PS A) and the §7 stage table (lines 118-127); PRD line 20 records the prototype's workflow states as the BASELINE SUBSET the PRD stage list extends.",
+  "note": "The per-route stage list and each stage's state mapping. A StageInstance row is a DERIVED record of where an already-authorised transition left the case: the stage service never moves a case, never gates a transition and never changes baseline_version (DEC-0003, PRD §0 — people decide, the system routes). 'active_states' may only name states that route's own transition config (workflow_routes.json) actually defines; a cross-config test enforces this. 'draft' deliberately owns no stage: a case that has not been submitted is not in any PRD stage.",
+  "statuses_note": "The only StageInstance statuses. There is no 'blocked', 'failed' or 'overdue' status — pendency and alerts are computed separately (Phase 3.3/3.4), never baked into the stage row.",
+  "statuses": ["pending", "active", "completed"],
+  "terminal_states_note": "A terminal decision completes only the stages the case actually entered; stages with empty active_states (unreachable in the prototype state machine) or stages the case was never in stay 'pending' — 'approved' must never read as 'Appeal completed'. Mirrors workflow_service.TERMINAL_STATES; a cross-config test enforces it.",
+  "terminal_states": ["approved", "rejected"],
+  "unreachable_note": "Stages with empty active_states cannot be reached by the prototype state machine (workflow_routes.json defines no state mapping to them; PRD line 20: withdrawal, appeal, reopening etc. are unimplemented until verified). They ship with a label and stay 'pending'. Adding a real state for them is a NEW REGULATORY ROUTE — a human approval gate, not a config tweak.",
+  "routes": {
+    "new_technical": [
+      {
+        "stage_key": "readiness",
+        "active_states": ["submitted"],
+        "source": "PRD §7 stage 'Readiness checks' — 'Starts when: Final submission + TER received'; the route's submit transition lands in 'submitted'.",
+        "note": null
+      },
+      {
+        "stage_key": "scrutiny",
+        "active_states": ["scrutiny"],
+        "source": "PRD §7 stage 'Scrutiny / Re-Scrutiny' — 'Starts when: Assigned'; the route's start_scrutiny transition lands in 'scrutiny'. Re-entry (after return/resubmit) reactivates this same row — Re-Scrutiny is not a second stage row.",
+        "note": null
+      },
+      {
+        "stage_key": "compliance_cycle",
+        "active_states": ["returned"],
+        "source": "PRD §7 stage 'Compliance cycle' — 'Starts when: Deficiency issued'; the route's return_for_clarification transition lands in 'returned', which is the prototype's deficiency-out state.",
+        "note": null
+      },
+      {
+        "stage_key": "evc",
+        "active_states": ["evc_scheduled", "evc_completed"],
+        "source": "PRD §7 stage 'EVC' — 'Starts when: Scrutiny done and route needs EVC'; both EVC states of this route (visit booked, visit held) belong to the one EVC stage.",
+        "note": null
+      },
+      {
+        "stage_key": "shc",
+        "active_states": [],
+        "source": "PRD §7 stage 'Hearing (SHC)'.",
+        "note": "Unreachable in the prototype: this route's state machine (workflow_routes.json) defines no hearing state — PRD line 20 lists SHC as part of the baseline subset's extension, unimplemented until verified. Never activated, never completed by a decision it was never in."
+      },
+      {
+        "stage_key": "executive_committee",
+        "active_states": [],
+        "source": "PRD §7 stage 'Executive Committee decision + Speaking Order'.",
+        "note": "Unreachable in the prototype: this route decides via approve/reject straight from scrutiny/EVC with no committee-review state. Mapping an existing state here would be a guessed regulatory label — an open question, not a config edit."
+      },
+      {
+        "stage_key": "appeal",
+        "active_states": [],
+        "source": "PRD §7 stage 'Appeal (once, 7 days, SAC, Council)'.",
+        "note": "Unreachable in the prototype (PRD line 20: appeal unimplemented until verified); its 7-day clock is Phase 3.5 work over a Speaking Order upload, which does not exist yet."
+      },
+      {
+        "stage_key": "grant",
+        "active_states": [],
+        "source": "PRD §7 stage 'Grant (list, letter, Security Deposit clock)'.",
+        "note": "Unreachable in the prototype (PRD line 20); 'approved' is the terminal state today and deliberately does not complete this stage."
+      }
+    ],
+    "existing_technical": [
+      {
+        "stage_key": "readiness",
+        "active_states": ["submitted"],
+        "source": "PRD §7 stage 'Readiness checks'; the route's submit transition lands in 'submitted'.",
+        "note": null
+      },
+      {
+        "stage_key": "scrutiny",
+        "active_states": ["scrutiny"],
+        "source": "PRD §7 stage 'Scrutiny / Re-Scrutiny'; the route's start_scrutiny transition lands in 'scrutiny'.",
+        "note": null
+      },
+      {
+        "stage_key": "compliance_cycle",
+        "active_states": [],
+        "source": "PRD §7 stage 'Compliance cycle'.",
+        "note": "This route defines no return/resubmit transition (workflow_routes.json: submit, start_scrutiny, approve, reject only), so no state maps to a compliance cycle. Never activated here."
+      },
+      {
+        "stage_key": "evc",
+        "active_states": [],
+        "source": "PRD §7 stage 'EVC'.",
+        "note": "Scrutiny-only route: workflow_routes.json defines no EVC state for it. Never activated here."
+      },
+      {
+        "stage_key": "shc",
+        "active_states": [],
+        "source": "PRD §7 stage 'Hearing (SHC)'.",
+        "note": "Unreachable in the prototype: no hearing state exists in this route's state machine (PRD line 20)."
+      },
+      {
+        "stage_key": "executive_committee",
+        "active_states": [],
+        "source": "PRD §7 stage 'Executive Committee decision + Speaking Order'.",
+        "note": "Unreachable in the prototype: the route decides from scrutiny with no committee-review state."
+      },
+      {
+        "stage_key": "appeal",
+        "active_states": [],
+        "source": "PRD §7 stage 'Appeal (once, 7 days, SAC, Council)'.",
+        "note": "Unreachable in the prototype (PRD line 20: unimplemented until verified)."
+      },
+      {
+        "stage_key": "grant",
+        "active_states": [],
+        "source": "PRD §7 stage 'Grant (list, letter, Security Deposit clock)'.",
+        "note": "Unreachable in the prototype (PRD line 20); 'approved' does not complete this stage."
+      }
+    ],
+    "evc_only": [
+      {
+        "stage_key": "readiness",
+        "active_states": ["submitted"],
+        "source": "PRD §7 stage 'Readiness checks'; the route's submit transition lands in 'submitted'.",
+        "note": null
+      },
+      {
+        "stage_key": "scrutiny",
+        "active_states": [],
+        "source": "PRD §7 stage 'Scrutiny / Re-Scrutiny'.",
+        "note": "EVC-only route: workflow_routes.json defines no scrutiny state for it (submit, schedule_evc, return, resubmit, complete_evc, approve, reject). Never activated here."
+      },
+      {
+        "stage_key": "compliance_cycle",
+        "active_states": ["returned"],
+        "source": "PRD §7 stage 'Compliance cycle'; the route's return_for_clarification transition lands in 'returned'.",
+        "note": null
+      },
+      {
+        "stage_key": "evc",
+        "active_states": ["evc_scheduled", "evc_completed"],
+        "source": "PRD §7 stage 'EVC' — this route exists to run it; both EVC states belong to the one stage.",
+        "note": null
+      },
+      {
+        "stage_key": "shc",
+        "active_states": [],
+        "source": "PRD §7 stage 'Hearing (SHC)'.",
+        "note": "Unreachable in the prototype: no hearing state exists in this route's state machine (PRD line 20)."
+      },
+      {
+        "stage_key": "executive_committee",
+        "active_states": [],
+        "source": "PRD §7 stage 'Executive Committee decision + Speaking Order'.",
+        "note": "Unreachable in the prototype: the route decides from evc_completed with no committee-review state."
+      },
+      {
+        "stage_key": "appeal",
+        "active_states": [],
+        "source": "PRD §7 stage 'Appeal (once, 7 days, SAC, Council)'.",
+        "note": "Unreachable in the prototype (PRD line 20: unimplemented until verified)."
+      },
+      {
+        "stage_key": "grant",
+        "active_states": [],
+        "source": "PRD §7 stage 'Grant (list, letter, Security Deposit clock)'.",
+        "note": "Unreachable in the prototype (PRD line 20); 'approved' does not complete this stage."
+      }
+    ],
+    "evc_sac_shc": [
+      {
+        "stage_key": "readiness",
+        "active_states": ["submitted"],
+        "source": "PRD §7 stage 'Readiness checks'; the route's submit transition lands in 'submitted'.",
+        "note": null
+      },
+      {
+        "stage_key": "scrutiny",
+        "active_states": ["scrutiny"],
+        "source": "PRD §7 stage 'Scrutiny / Re-Scrutiny'; the route's start_scrutiny transition lands in 'scrutiny'.",
+        "note": null
+      },
+      {
+        "stage_key": "compliance_cycle",
+        "active_states": ["returned"],
+        "source": "PRD §7 stage 'Compliance cycle'; the route's return_for_clarification transition lands in 'returned'.",
+        "note": null
+      },
+      {
+        "stage_key": "evc",
+        "active_states": ["evc_scheduled", "evc_completed"],
+        "source": "PRD §7 stage 'EVC'; both EVC states belong to the one stage.",
+        "note": null
+      },
+      {
+        "stage_key": "shc",
+        "active_states": [],
+        "source": "PRD §7 stage 'Hearing (SHC)'.",
+        "note": "Unreachable in the prototype: no hearing state exists in this route's state machine (PRD line 20). The route is named for SAC/SHC involvement but defines no hearing state — mapping one here would be inventing a regulatory step."
+      },
+      {
+        "stage_key": "executive_committee",
+        "active_states": [],
+        "source": "PRD §7 stage 'Executive Committee decision + Speaking Order'.",
+        "note": "OPEN MAPPING QUESTION: this route defines a 'sac_review' state before approve/reject, but the PRD §7 order (EVC -> SHC -> Executive Committee -> Appeal (SAC)) does not say which stage 'sac_review' is — SHC, Executive Committee, or a prototype-only step. No stage is mapped to it rather than mislabelled: a case in 'sac_review' shows no ACTIVE stage (the case's stages read evc-completed, everything after pending). Resolving this is a human regulatory question, not a config edit."
+      },
+      {
+        "stage_key": "appeal",
+        "active_states": [],
+        "source": "PRD §7 stage 'Appeal (once, 7 days, SAC, Council)'.",
+        "note": "Unreachable in the prototype (PRD line 20: unimplemented until verified). 'sac_review' is NOT this stage: appeal follows a decision, sac_review precedes one."
+      },
+      {
+        "stage_key": "grant",
+        "active_states": [],
+        "source": "PRD §7 stage 'Grant (list, letter, Security Deposit clock)'.",
+        "note": "Unreachable in the prototype (PRD line 20); 'approved' does not complete this stage."
+      }
+    ]
+  }
+}

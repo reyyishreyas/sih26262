@@ -35,7 +35,7 @@ from ..models import (
     WorkflowTransition,
     WorkflowTransitionDefinition,
 )
-from . import audit_service, compliance_service
+from . import audit_service, compliance_service, stages
 from .authorization_service import EffectiveAccess, can_access_application
 from .case_assignment_service import assign_next_actors
 from .evidence_service import build_snapshot
@@ -346,6 +346,13 @@ def request_transition(
         },
         request_id=request_id,
     )
+    # FR-09 auto-advance: the stage list follows this authorised move in the
+    # same transaction — derived bookkeeping, never a second decision point.
+    # Runs only on the accepted path (a refused transition returns earlier
+    # and changes no stage row).
+    stages.sync_stage_instances(
+        db, application, actor_id=access.user_id, from_state=from_state
+    )
     db.commit()
 
     return TransitionDecision(
@@ -648,6 +655,13 @@ def revert_last_transition(
             },
         },
         request_id=request_id,
+    )
+    # The stage rows rewind with the case, in the same transaction: a revert
+    # that left compliance_cycle "active" while the case sits back in
+    # scrutiny would make the graph lie about where the case is. retract=True
+    # marks the pulled-back stage's stint as retracted, not completed.
+    stages.sync_stage_instances(
+        db, application, actor_id=access.user_id, from_state=from_state, retract=True
     )
     db.commit()
 

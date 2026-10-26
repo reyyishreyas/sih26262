@@ -53,6 +53,11 @@ def portal_feed_policy() -> dict[str, Any]:
     return _load("portal_feed.json")
 
 
+@lru_cache
+def stage_graph_policy() -> dict[str, Any]:
+    return _load("stage_graph.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

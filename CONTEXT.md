@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 403 passing
+make test      # pytest — 421 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -308,10 +308,11 @@ in `styles.css`, icons are **inline SVG** in `components/Icon.tsx`.
 
 ---
 
-## 5. Data model (27 tables)
+## 5. Data model (28 tables)
 
 `regions · institutions · applications · documents · extracted_fields ·
-committees · evc_visits · deficiencies · readiness_flags · users · roles · permissions ·
+committees · evc_visits · deficiencies · readiness_flags · stage_instances ·
+users · roles · permissions ·
 role_permissions · user_role_assignments · jurisdiction_assignments ·
 case_assignments · login_attempts · undertakings · rule_evaluations · alerts ·
 alert_deliveries · audit_events · audit_chain_head · workflow_transition_defs ·
@@ -322,7 +323,7 @@ Migrations: `backend/migrations/versions/` — `075aed043fd2_initial_schema`,
 `0002_sim_schema_and_finding_labels`, `0003_auth_hardening`,
 `0004_rule_immutability_trigger`, `0005_alert_lifecycle`, `0006_revert_support`,
 `0007_document_upload_reason`, `0008_deficiencies_and_evc_visits`,
-`0009_application_items`, `0010_readiness_flags`.
+`0009_application_items`, `0010_readiness_flags`, `0011_stage_instances`.
 
 ---
 
@@ -360,7 +361,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **403 passing** (~360 test functions; some parametrised).
+- `make test` → **421 passing** (~378 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -426,7 +427,13 @@ tamper-evidence).
   `test_portal_feed` (17 — Phase 2.5: FR-01 stubbed portal feed; the
   seven PRD fields in order, PID/institution-type/TER-status served
   null (never guessed), `as_of` from the clock, scope-filtered so an
-  other-institution case never leaks).
+  other-institution case never leaks) ·
+  `test_stage_graph` (18 — Phase 3.1: FR-09 stage graph; per-route
+  ordered PRD §7 stages, `active_states` cross-checked against each
+  route's real transitions, authorised completion auto-advances
+  (re-entry reactivates one row), a terminal decision completes only
+  entered stages, a refused transition changes nothing, a revert
+  rewinds the graph; derived rows never gate or move a case).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `4e596f6`.
