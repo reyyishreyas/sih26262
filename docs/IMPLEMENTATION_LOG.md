@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0009 | 2026-10-26 | Implementation | Phase 1.3: one parametrised routing test per Table 2.3 row (21 rows) against the PRD | Tested | Phase 1 1.3 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
 | IMPL-0008 | 2026-10-26 | Implementation | Phase 1.2: `services/routing.py` — Table 2.3 category → ordered stage list for the four PRD patterns | Tested | Phase 1 1.2 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
 | IMPL-0007 | 2026-10-26 | Implementation | Phase 1.1: all 21 Table 2.3 rows encoded in `workflow_routes.json` as unverified advisory configuration | Tested | Phase 1 1.1 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
 | IMPL-0006 | 2026-10-26 | Verification | Phase 0.5 exit check: all four hardening regression suites re-run green; limitations consolidated | Verified | Phase 0.5 exit check (H.1–H.4) | MiMo (OpenCode agent) |
@@ -62,6 +63,35 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0009 — Phase 1.3: one routing test per Table 2.3 row (21 rows, against the PRD)
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / fad38c4 (work uncommitted at implementation)
+- Task ID and PRD IDs: Phase 1 **1.3** (AGENT-02); PRD **FR-07** and its acceptance criterion "Routing accuracy vs Table 2.3: 100% (one test per row)".
+- Goal: prove routing accuracy row by row — each of the 21 Table 2.3 categories resolves to the route pattern, application window and stage order the PRD says it should.
+- What existed before: `test_routing.py` pinned the service and the four patterns' stage lists in aggregate, and `test_table_2_3_data.py` pinned the data shape, but nothing checked the 21 rows individually against the PRD table.
+- What I did:
+  - **Tests** — `backend/tests/test_routing_table_2_3.py` (24 items from 4 functions, first run green):
+    - `test_row_routes_and_stages_match_the_prd[×21]`: the PRD's Table 2.3 is transcribed **independently in the test file** (`PRD_TABLE`: row → category_id, route, window), so drift in either the config or the transcription is caught; each row checks its `row` number, `route`, `window` (rows 1–13 `public_notice`, 14–21 `year_round`) and the full stage order from `stages_for_category` against the pattern's expected list (imported from `test_routing`, the single source for the §6/§7 flow).
+    - `test_the_fn_oci_gulf_row_runs_scrutiny_without_evc`: row 8 carries `evc_not_applicable` and its SCR stage list contains no `evc`.
+    - `test_only_that_row_carries_the_evc_not_applicable_flag`: exactly `["t23-08"]`.
+    - `test_every_prd_row_is_present_and_resolvable`: 21 rows in, 21 resolvable, none dropped or renumbered.
+  - No product or config change was needed — the data and service from 1.1/1.2 passed every row on the first run (the only fix was ruff's import-sort, `ruff check --fix`).
+- Files changed: `backend/tests/test_routing_table_2_3.py` (new, 24), `md/6_IMPLEMENTATION_PLAN.md` (1.3 ticked — untracked), `README.md` + `CONTEXT.md` (221 → 245, suite list), this log.
+- Migrations / API / config / rule-file changes: none.
+- Decisions made: the expected PRD table is a second, independent transcription inside the test rather than a read-back of the config under test — a test that reads its expectations from the file it validates would pass even if the file were emptied.
+- Permission and audit effects: none (pure lookup service; no endpoints touched).
+- Verification: exact commands + results:
+  - `pytest tests/test_routing_table_2_3.py -q -p no:randomly` → **24 passed** (first run; 21 of them are the per-row parametrisation)
+  - `make lint` → first run flagged import sort in the new file → `ruff check --fix` → `All checks passed!`
+  - `make test` → **245 passed, 1 warning in 32.73s** (0 skipped; +24 vs 221)
+  - Not run: `npm run build` (no frontend change), Alembic, Compose.
+- Status per requirement touched: Plan 1.3 "one parametrised test per row (21 passing)" — **Tested**; PRD FR-07 acceptance "routing accuracy 100%" — **Tested** against the PRD transcription (official-APH verification remains the blocked human step).
+- Limitations / assumptions / manual steps:
+  - Accuracy is proven against the PRD's transcription of Table 2.3, not against the official APH PDF — same blocked verification as 1.1 (docs/SOURCES.md).
+  - The stage *behaviours* (running readiness, opening SHC only on deficiencies, appeal timing) are not exercised here; they arrive with the stage graph (Phase 3.1) and the AA gate (1.7).
+- Related bugs: none.
+- Open questions for a human: none new.
+- Next suggested task: Phase 1 **1.4** — combined applications: `ApplicationItem` model + migration; union of stages; per-category outcome (FR-08).
 
 ### IMPL-0008 — Phase 1.2: `services/routing.py` — category → ordered stage list
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 0975417 (work uncommitted at implementation)
