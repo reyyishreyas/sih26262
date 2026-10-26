@@ -110,6 +110,20 @@ class Alert(Base):
         String(1024), default="", server_default=""
     )
 
+    # Snooze-once-with-reason (Phase 3.7, PRD §11 line 293: "One snooze with a
+    # reason, no second"). An alert may be snoozed once until `snoozed_until`;
+    # while snoozed and unexpired the reminder is suppressed (not delivered),
+    # the same way an acknowledged/closed alert is. A second snooze is refused
+    # — `snoozed_until` non-NULL is the "already snoozed" signal, so no extra
+    # flag is needed and the one-snooze limit is enforced by the data.
+    snoozed_until: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    snooze_reason: Mapped[str] = mapped_column(
+        String(1024), default="", server_default=""
+    )
+    snoozed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+
     deliveries: Mapped[list[AlertDelivery]] = relationship(
         back_populates="alert", cascade="all, delete-orphan"
     )

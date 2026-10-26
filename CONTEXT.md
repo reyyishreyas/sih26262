@@ -473,8 +473,17 @@ tamper-evidence).
    existing Undertaking model so day-1/10/14 come free from the
    `undertaking_due` ladder, advisory read-only snapshot +
    `GET .../security-deposit` (no gate/audit/migration, never withdraws —
-   the withdrawal marker is advisory, an actual withdrawal is the rule-15
-   gate).
+    the withdrawal marker is advisory, an actual withdrawal is the rule-15
+    gate) ·
+   `test_alert_snooze` (5 — Phase 3.7: PRD §11 line 293 one snooze with a
+   reason, no second; `Alert` gains `snoozed_until`/`snooze_reason`/
+   `snoozed_by` (migration 0013), `POST /alerts/{id}/snooze` with a mandatory
+   reason and a caller-bounded 1–30-day hold, "no second" enforced by data
+   (`snoozed_until` set ⇒ the handler answers with the current state, never
+   extends); a snooze is a temporary hold, not a terminal — `status` is left
+   alone so an expired snooze makes the alert deliverable again, unlike
+   ack/close; writes an `alert.snoozed` audit event; suppressed while
+   unexpired).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `38da1e5`.

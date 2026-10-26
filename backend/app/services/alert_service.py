@@ -12,6 +12,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..adapters.notifications.mock import MockNotificationAdapter
+from ..core.clock import get_clock, to_utc
 from ..models import (
     Alert,
     Application,
@@ -138,6 +139,18 @@ def deliver(db: Session, alert: Alert, *, max_attempts: int = 3) -> DeliveryOutc
         # Already sent, seen, or dealt with. Only "open" is eligible for a
         # (re)delivery attempt — a reminder must not nag after an officer
         # acknowledged or closed it.
+        return DeliveryOutcome(
+            delivered=False,
+            attempt=attempts,
+            provider_ref="suppressed",
+            suppressed=True,
+        )
+    snoozed_until = to_utc(alert.snoozed_until)
+    if snoozed_until is not None and get_clock().now() < snoozed_until:
+        # Snoozed once with a reason (PRD §11 line 293) and the window has
+        # not expired yet — suppress the reminder, exactly as an acknowledged
+        # or closed alert is suppressed. Once the clock passes snoozed_until
+        # the alert is eligible to be delivered again (it was never closed).
         return DeliveryOutcome(
             delivered=False,
             attempt=attempts,

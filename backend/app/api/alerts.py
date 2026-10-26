@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import timedelta
+
 from fastapi import APIRouter, Depends, HTTPException, Response, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import select
@@ -59,6 +61,9 @@ def list_alerts(
                 "closed_at": iso(alert.closed_at),
                 "closed_by": alert.closed_by,
                 "close_reason": alert.close_reason,
+                "snoozed_until": iso(alert.snoozed_until),
+                "snooze_reason": alert.snooze_reason,
+                "snoozed_by": alert.snoozed_by,
                 "recipients": alert.recipients,
                 "payload": alert.payload,
                 "deliveries": [
@@ -90,6 +95,21 @@ class AlertActionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     reason: str = Field(default="", max_length=1024)
+
+
+class SnoozeRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    # PRD §11 line 293: "One snooze with a reason, no second." The reason is
+    # mandatory (same idea as the close reason — an alert that disappears
+    # silently is indistinguishable from one nobody looked at), and the caller
+    # says how long to hold it, so the hold is explicit rather than a fixed
+    # silent window the officer cannot see.
+    reason: str = Field(default="", max_length=1024)
+    # Snooze length in days; bounded so a caller cannot park a reminder for a
+    # decade. The exact window is a policy choice (no PRD figure), so it is
+    # capped here and the resulting `snoozed_until` is always returned.
+    days: int = Field(default=1, ge=1, le=30)
 
 
 def _load_scoped_alert(db: Session, access: EffectiveAccess, alert_id: str) -> Alert:
@@ -190,6 +210,63 @@ def close_alert(
     return _serialise_alert(alert)
 
 
+@router.post("/alerts/{alert_id}/snooze")
+def snooze_alert(
+    alert_id: str,
+    payload: SnoozeRequest,
+    access: EffectiveAccess = Depends(require(MONITORING_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Hold this reminder for a while — once, and say why.
+
+    PRD §11 line 293: "One snooze with a reason, no second." An alert may be
+    snoozed exactly once; a second snooze is refused rather than silently
+    extending the hold. The reason is mandatory. While snoozed and unexpired
+    the reminder is suppressed by `alert_service.deliver`, the same way an
+    acknowledged or closed alert already is; once `snoozed_until` passes the
+    alert is eligible to be delivered again (it was never closed).
+    """
+    alert = _load_scoped_alert(db, access, alert_id)
+    if alert.snoozed_until is not None:
+        # "no second" — the hold already happened. Answer with the current
+        # state (idempotent read) rather than an error, so a retry is safe and
+        # the caller can see when the existing hold expires.
+        return _serialise_alert(alert)
+    if not payload.reason.strip():
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "say why you are snoozing this alert before snoozing it",
+        )
+
+    now = get_clock().now()
+    snoozed_until = now + timedelta(days=payload.days)
+    # A snooze is a temporary hold, not a lifecycle terminal: the alert stays
+    # "open" so it can be delivered again once the window passes. Only the
+    # snoozed_* fields mark the hold, and `alert_service.deliver` suppresses
+    # the reminder while `snoozed_until` is still in the future.
+    before = {"status": alert.status, "snoozed_until": iso(alert.snoozed_until)}
+    alert.snoozed_until = snoozed_until
+    alert.snooze_reason = payload.reason.strip()
+    alert.snoozed_by = access.user_id
+    AuditService(db).append(
+        action="alert.snoozed",
+        entity_type="alert",
+        entity_id=alert.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        reason=alert.snooze_reason,
+        before=before,
+        after={
+            "status": alert.status,
+            "snoozed_until": iso(snoozed_until),
+            "alert_type": alert.alert_type,
+        },
+    )
+    db.commit()
+    return _serialise_alert(alert)
+
+
 def _serialise_alert(alert: Alert) -> dict:
     return {
         "id": alert.id,
@@ -199,6 +276,9 @@ def _serialise_alert(alert: Alert) -> dict:
         "closed_at": iso(alert.closed_at),
         "closed_by": alert.closed_by,
         "close_reason": alert.close_reason,
+        "snoozed_until": iso(alert.snoozed_until),
+        "snooze_reason": alert.snooze_reason,
+        "snoozed_by": alert.snoozed_by,
     }
 
 

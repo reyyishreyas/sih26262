@@ -169,6 +169,7 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("GET", "/api/v1/alerts"): frozenset({MONITORING_READ}),
     ("POST", "/api/v1/alerts/{alert_id}/ack"): frozenset({MONITORING_READ}),
     ("POST", "/api/v1/alerts/{alert_id}/close"): frozenset({MONITORING_READ}),
+    ("POST", "/api/v1/alerts/{alert_id}/snooze"): frozenset({MONITORING_READ}),
     ("POST", "/api/v1/internal/deadline-sweep"): frozenset({ADMIN_USERS}),
     ("GET", "/api/v1/internal/deadline-preview"): frozenset({MONITORING_READ}),
     # audit
@@ -254,6 +255,10 @@ JSON_BODIES: dict[tuple[str, str], dict] = {
     ): {"evidence_note": "Authorisation matrix probe"},
     ("POST", "/api/v1/alerts/{alert_id}/close"): {
         "reason": "Authorisation matrix probe"
+    },
+    ("POST", "/api/v1/alerts/{alert_id}/snooze"): {
+        "reason": "Authorisation matrix probe",
+        "days": 1,
     },
     ("POST", "/api/v1/applications/{application_id}/evc/visits"): {
         "scheduled_date": "2026-11-05",
