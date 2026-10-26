@@ -399,7 +399,7 @@ tamper-evidence).
   authority guessed).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `9962297`.
+  repo is currently green at `f699646`.
 
 ---
 
