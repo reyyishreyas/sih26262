@@ -190,6 +190,11 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
         "/api/v1/admin/assignments/{assignment_id}/revoke",
     ): frozenset({ADMIN_ASSIGNMENTS}),
     ("GET", "/api/v1/admin/audit"): frozenset({AUDIT_READ}),
+    # demo clock: Phase 3.8 — admin-only time control (refuses in production)
+    ("GET", "/api/v1/admin/demo-clock"): frozenset({ADMIN_USERS}),
+    ("POST", "/api/v1/admin/demo-clock/advance"): frozenset({ADMIN_USERS}),
+    ("POST", "/api/v1/admin/demo-clock/set"): frozenset({ADMIN_USERS}),
+    ("POST", "/api/v1/admin/demo-clock/reset"): frozenset({ADMIN_USERS}),
     # expert visit committee
     ("GET", "/api/v1/evc/committees"): CASE_OR_MONITORING_OR_READ,
     ("GET", "/api/v1/applications/{application_id}/evc/visits"): (

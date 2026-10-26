@@ -447,3 +447,16 @@ export interface EvcQueue {
   visit_overdue: number;
   rows: EvcQueueRow[];
 }
+
+/** Demo clock control (admin only). */
+export interface DemoClockStatus {
+  enabled: boolean;
+  production: boolean;
+  mode: "fixed" | "system";
+  now: string;
+}
+
+export interface DemoClockMove {
+  mode: string;
+  now: string;
+}

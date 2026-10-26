@@ -6,6 +6,8 @@ import type {
   CaseDetail,
   ComplianceBatch,
   DeficiencyRow,
+  DemoClockMove,
+  DemoClockStatus,
   DocumentRow,
   EvcCommittee,
   EvcQueue,
@@ -358,6 +360,20 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  // --- Demo clock (admin only; refuses in production on the server) ---
+  demoClockStatus: () => request<DemoClockStatus>("/admin/demo-clock"),
+  demoClockAdvance: (days: number) =>
+    request<DemoClockMove>("/admin/demo-clock/advance", {
+      method: "POST",
+      body: JSON.stringify({ days }),
+    }),
+  demoClockSet: (moment: string) =>
+    request<DemoClockMove>("/admin/demo-clock/set", {
+      method: "POST",
+      body: JSON.stringify({ moment }),
+    }),
+  demoClockReset: () => request<DemoClockMove>("/admin/demo-clock/reset", { method: "POST" }),
 };
 
 export { BASE as API_BASE };

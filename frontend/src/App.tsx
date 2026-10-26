@@ -10,6 +10,7 @@ import {
 import { AlertList } from "./components/AlertList";
 import { CaseView } from "./components/CaseView";
 import { DashboardView } from "./components/DashboardView";
+import { DemoClock } from "./components/DemoClock";
 import { Icon } from "./components/Icon";
 import { Login } from "./components/Login";
 import { NewApplicationForm } from "./components/NewApplicationForm";
@@ -26,7 +27,7 @@ import type {
   WorkflowRoute,
 } from "./types";
 
-type View = "cases" | "monitoring" | "reports" | "routing";
+type View = "cases" | "monitoring" | "reports" | "routing" | "demo";
 
 /**
  * The URL is the source of truth for where you are, so a case can be shared as
@@ -36,7 +37,7 @@ type View = "cases" | "monitoring" | "reports" | "routing";
  */
 function routeFromHash(): { view: View; selected: string | null } {
   const match = window.location.hash.match(
-    /^#\/(cases|monitoring|reports|routing)(?:\/(.+))?$/,
+    /^#\/(cases|monitoring|reports|routing|demo)(?:\/(.+))?$/,
   );
   if (!match) return { view: "cases", selected: null };
   const view = match[1] as View;
@@ -100,6 +101,7 @@ export default function App() {
 
   const canMonitor = user?.permissions.includes("monitoring.read") ?? false;
   const canCreate = user?.permissions.includes("application.create") ?? false;
+  const isAdmin = user?.permissions.includes("admin.users") ?? false;
   const isCollege = useMemo(
     () => user?.roles.includes("institution_representative") ?? false,
     [user],
@@ -293,6 +295,15 @@ export default function App() {
               <Icon name="mapPin" size={18} /> Routing table
             </button>
           )}
+          {isAdmin && (
+            <button
+              type="button"
+              className={view === "demo" ? "nav active" : "nav"}
+              onClick={() => setView("demo")}
+            >
+              <Icon name="clock" size={18} /> Demo clock
+            </button>
+          )}
         </nav>
 
         <div className="who">
@@ -454,6 +465,20 @@ export default function App() {
               </p>
             </div>
             <RouteScoreboardView />
+          </>
+        )}
+
+        {view === "demo" && isAdmin && (
+          <>
+            <div className="hello">
+              <h2 className="hello-title">
+                <Icon name="clock" size={26} /> Demo clock
+              </h2>
+              <p className="muted">
+                Jump the clock forward to demonstrate reminders and escalation.
+              </p>
+            </div>
+            <DemoClock />
           </>
         )}
       </main>
