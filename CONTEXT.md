@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 163 passing
+make test      # pytest — 170 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -153,6 +153,11 @@ in `styles.css`, icons are **inline SVG** in `components/Icon.tsx`.
 - `GET /workflow/routes` publishes the catalogue the UI renders.
 - Automatic case hand-off: `case_assignment_service` assigns the case to
   whoever may act next (the role allowed on the outgoing transition).
+- **Optimistic concurrency (H.1):** `POST .../transitions` and `.../revert`
+  accept an optional `expected_baseline_version`; a mismatch is rejected with
+  the standard `{accepted: false, reasons:[...]}` envelope, an audit event and
+  no partial write. Omitting the field keeps last-write-wins (UI adopts it in
+  AGENT-11). See `IMPL-0002`.
 
 ### 4.3 Documents and evidence
 - Upload: `POST /applications/{id}/documents` with `doc_type`. Safety chain:
@@ -352,7 +357,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **163 passing** (~158 test functions; some parametrised).
+- `make test` → **170 passing** (~165 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -364,7 +369,8 @@ tamper-evidence).
   `test_evidence_flow` (8) · `test_undertakings_and_gate` (11) ·
   `test_deficiency_loop` (1) · `test_alerts` (12) · `test_rehearsal` (8) ·
   `test_reports` (6) · `test_case_assignment` (5) · `test_hardening` (27) ·
-  `test_ai_copilot` (1).
+  `test_ai_copilot` (1) · `test_concurrency` (7 — Phase 0.5 H.1: stale
+  `expected_baseline_version` rejected and audited on transition/revert).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `eb4d051`.
