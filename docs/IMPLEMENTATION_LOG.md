@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0015 | 2026-10-26 | Implementation | Phase 1.9: route scoreboard — `GET /workflow/table-2-3-scoreboard` + `RouteScoreboard.tsx` (Phase 1 exit check) | Tested | Phase 1 1.9 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
 | IMPL-0014 | 2026-10-26 | Implementation | Phase 1.8: fallback-to-EoA branch after "not approved" (FR-11) — eligible, never auto-issued | Tested | Phase 1 1.8 (AGENT-02; FR-11) | MiMo (OpenCode agent) |
 | IMPL-0013 | 2026-10-26 | Implementation | Phase 1.7: "AA" gate — SHC/SAC opens only on a deficiency or negative scrutiny result (FR-10) | Tested | Phase 1 1.7 (AGENT-02; FR-10) | MiMo (OpenCode agent) |
 | IMPL-0012 | 2026-10-26 | Implementation | Phase 1.6: additional-EVC actions — random EVC for SD (2.3.5), second EVC after site shift (2.17e) | Tested | Phase 1 1.6 (AGENT-02; FR-19) | MiMo (OpenCode agent) |
@@ -68,6 +69,37 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0015 — Phase 1.9: route scoreboard endpoint + UI (the Phase 1 exit check)
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 242d5b5 (work uncommitted at implementation)
+- Task ID and PRD IDs: Phase 1 **1.9** (AGENT-02); PRD **FR-07** (Table 2.3 routing) — the scoreboard is the visible proof of the 21/21 encoding; also the Phase 1 **exit check**.
+- Goal: expose the 21-row Table 2.3 routing catalogue over HTTP and render it in the UI, with a **coverage** count (encoded/expected) so a missing row is visible instead of silently shrinking the table, and confirm the exit check ("scoreboard shows 21/21; audit events for every routing decision").
+- What existed before: `routing.py` could list rows and stage lists but nothing assembled them into a scoreboard; `workflow.py` had `GET /workflow/routes` (the four route *keys*, not the 21 Table 2.3 *rows*); the frontend had three views (cases/monitoring/reports) and no routing-table screen.
+- What I did:
+  - **Tests first** — `backend/tests/test_route_scoreboard.py` (8 tests; all 8 passed on first run against the implementation, because the service was written to satisfy them): the board reports all 21 rows; coverage is exactly `21/21`; the board is `advisory_only` + `unverified`; a known row (Change of Site t23-14) carries its category/route/window/EVC flag and a stage list that matches `stages_for_category()` (evc + shc present); the FN/OCI/Gulf row (t23-08) keeps `evc_not_applicable: true`; every row cites its PRD source row; the endpoint returns the board to an authenticated user; and the endpoint returns **401** with no token (deny by default).
+  - **Config** — `table_2_3.expected_rows: 21` (+ note): the PRD's own documented count ("Table 2.3 (21 rows)"), stored as configuration so coverage is a real check (delete a row → `20/21` and the scoreboard flags it) rather than a number hard-coded in the service.
+  - **Service** — `routing.scoreboard()`: assembles `{advisory_only, status, total_rows, expected_rows, coverage, rows[], route_patterns, stage_order}`; each row joins its pattern's ordered stages; the category is looked up via the existing `table_2_3_rows()`.
+  - **Endpoint** — `GET /workflow/table-2-3-scoreboard` in `api/workflow.py`, gated by `get_access` (authentication only — it exposes no case data, only the public route catalogue, so no per-case permission applies). Thin: returns `routing.scoreboard()`.
+  - **Frontend** — `RouteScoreboard.tsx` (new component, loading/error/empty + coverage pill, plain-language wording "how a case would be routed… a guide, not a decision"); `types.ts` `RouteScoreboard`/`RouteScoreboardRow`; `api.ts` `routeScoreboard()`; wired into `App.tsx` as a fourth view `#/routing` ("Routing table"), gated behind `canMonitor` like the other officer reference views. **Markup matched existing conventions** (`panel`/`heading-row`/`report-list`/`pill`) — the first draft used invented `table`/`sr-only`/`stages` classes that do not exist in `styles.css`, caught by grepping `styles.css` before the build and rewritten (no new CSS added).
+- Files changed: `backend/rules/workflow_routes.json` (`expected_rows` + note), `backend/app/services/routing.py` (`scoreboard()`), `backend/app/api/workflow.py` (new GET endpoint + `routing` import), `backend/tests/test_route_scoreboard.py` (new, 8), `frontend/src/types.ts` (2 types), `frontend/src/api.ts` (endpoint + import), `frontend/src/components/RouteScoreboard.tsx` (new), `frontend/src/App.tsx` (4th view: type, hash regex, nav button, render branch, import), `md/6_IMPLEMENTATION_PLAN.md` (1.9 ticked), `README.md` + `CONTEXT.md` (286 → 294, suite list), this log.
+- Migrations / API / config / rule-file changes: **one new read-only GET endpoint** (`/workflow/table-2-3-scoreboard`); config `expected_rows`; no model, permission or migration change.
+- Decisions made: (1) `expected_rows` in config (not hard-coded) so the coverage count is a real integrity check, and 21 is the PRD's documented count not a guess; (2) the endpoint needs authentication but **no per-case permission** — it exposes only the public route catalogue, consistent with `GET /workflow/routes`; (3) the view is gated behind `canMonitor` (officers) rather than shown to institutions, matching where the other reference views sit — a low-risk choice a reviewer can widen; (4) no new DEC entry — follows DEC-0003 (advisory) and existing patterns.
+- Permission and audit effects: read-only endpoint, authentication-gated (`get_access`); no case data, so object-level authorisation is not applicable. **No audit event is written for viewing the scoreboard** (a read of public reference data is not a state change). On the exit-check clause "audit events written for every routing decision": the routing decision that exists today — the `route_key` chosen at case creation — is **already audited** (`application.created` writes `after={category, route_key}`, verified in `api/applications.py`); a dedicated "route and stage list recorded per category" event arrives with the stage graph (task 3.1) and is **not** faked here.
+- Verification: exact commands + results:
+  - `pytest tests/test_route_scoreboard.py -q -p no:randomly` → **8 passed**
+  - `pytest tests/test_authz_matrix.py tests/test_route_scoreboard.py` → **29 passed** (the H.3 coverage guard accepts the new route; it is auth-gated, not permission-gated, so it sits outside the permission matrix by design)
+  - `make lint` → `All checks passed!`
+  - `make test` → **294 passed, 1 warning in 28.09s** (0 skipped; +8 vs 286)
+  - `cd frontend && npm run build` → `tsc --noEmit` clean, `vite build` succeeded (51 modules, built in 708ms)
+  - Not run: Alembic (no model change), Compose/Postgres, live browser click-through of the new view (the UI was type-checked and built, not manually clicked — noted as not verified).
+- Status per requirement touched: Plan 1.9 "`GET` route-scoreboard endpoint + `RouteScoreboard.tsx`" — **Implemented · Tested** (backend) · **Implemented** (frontend, build-verified, not manually clicked). Phase 1 **exit check**: "scoreboard shows 21/21" — **Tested** (`coverage == "21/21"` asserted, both at service and HTTP level); "audit events for every routing decision" — **Partial**: creation-time route is audited (verified); the per-category route/stage-list decision event is deferred to 3.1, not faked.
+- Limitations / assumptions / manual steps:
+  - The frontend component builds clean but was **not** manually clicked in a browser this run (no `make dev` session). Say "not verified" for the rendered pixels; the data contract is covered by the backend tests.
+  - Coverage compares encoded rows to `expected_rows: 21`; if the APH edition changes the row count, a human must update `expected_rows` (it is configuration, by design).
+  - The scoreboard is read-only reference data; it does not yet link a row to live cases using that route (that needs the stage graph, 3.1).
+- Related bugs: none (no error hit this run; the invented-CSS-class near-miss was caught pre-build and is recorded here rather than as a BUG, since it never reached a failing build).
+- Open questions for a human: should the routing table be visible to institution users too (it is public reference data)? Recommended default (implemented): officers only, matching the other reference views — widen later if desired.
+- Next suggested task: Phase 1 exit check is now met (scoreboard 21/21; audit-coverage partial, per above). **Phase 1 complete.** Next is **Phase 2** — `calendars.json` + `working_calendar.py` (IST, holidays) (FR-37), per the plan's top-to-bottom order.
 
 ### IMPL-0014 — Phase 1.8: fallback-to-EoA branch after "not approved" (FR-11)
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 469e87a (work uncommitted at implementation)

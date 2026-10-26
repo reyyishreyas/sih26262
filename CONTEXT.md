@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 286 passing
+make test      # pytest — 294 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -287,7 +287,7 @@ in `styles.css`, icons are **inline SVG** in `components/Icon.tsx`.
   workload (+ a consolidated payload) — computed through the caller's scope,
   never cached or synthetic.
 
-### 4.12 Frontend (17 components)
+### 4.12 Frontend (18 components)
 - `App.tsx` shell: auth gate, sidebar, **hash routing** `#/cases`,
   `#/monitoring`, `#/reports`, `#/cases/<id>` (back/forward honoured),
   session-expiry event handling, case list + search.
@@ -297,6 +297,7 @@ in `styles.css`, icons are **inline SVG** in `components/Icon.tsx`.
   verify/mark-wrong/manual deficiency · `FindingsTable` + `OutcomeBadge` ·
   `UndertakingList` · `AlertList` · `AuditTimeline` · `DashboardView` ·
   `ReportsView` · `EvcPanel` · `RehearsalPanel` · `NewApplicationForm` ·
+  `RouteScoreboard` (Table 2.3 scoreboard, `#/routing`) ·
   `Icon.tsx` inline SVG set (279 lines).
 - `labels.ts` is the **plain-language dictionary**: every backend code (state,
   action, outcome, rule key, doc type, alert, role, verification) maps to a
@@ -357,7 +358,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **286 passing** (~220 test functions; some parametrised).
+- `make test` → **294 passing** (~221 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -402,10 +403,12 @@ tamper-evidence).
   results answer `needs_review`, never a guessed open/closed) ·
   `test_fallback_eoa` (9 — Phase 1.8: the fallback-to-EoA branch is
   eligible after "not approved" on three categories (FR-11) but never
-  auto-issued; "requirements are met" is an unevaluated placeholder).
+  auto-issued; "requirements are met" is an unevaluated placeholder) ·
+  `test_route_scoreboard` (8 — Phase 1.9: `GET /workflow/table-2-3-scoreboard`
+  returns all 21 rows with coverage `21/21`, auth-gated, read-only).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `f699646`.
+  repo is currently green at `242d5b5`.
 
 ---
 
@@ -485,7 +488,7 @@ applications  GET|POST /applications · GET /applications/{id} · GET .../eviden
 documents     GET|POST /applications/{id}/documents · GET .../{doc}/content · POST .../{doc}/fields/{f}/verify
 compliance    POST /applications/{id}/compliance/evaluate
 deficiencies  GET|POST /applications/{id}/deficiencies · PATCH .../{id} · POST .../{id}/close
-workflow      GET /workflow/routes · POST /applications/{id}/transitions · POST .../revert · GET .../transitions
+workflow      GET /workflow/routes · GET /workflow/table-2-3-scoreboard · POST /applications/{id}/transitions · POST .../revert · GET .../transitions
 undertakings  GET|POST /applications/{id}/undertakings · POST .../{id}/waive|submit|verify
 rehearsals    POST /applications/{id}/rehearsals · GET /rehearsals/{run_id}
 evc           GET /evc/committees · GET|POST /applications/{id}/evc/visits · GET /evc/queue

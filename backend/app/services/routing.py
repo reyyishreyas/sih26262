@@ -249,6 +249,52 @@ def aa_stage_is_due(
     return "closed"
 
 
+def scoreboard() -> dict[str, Any]:
+    """The full Table 2.3 scoreboard (Phase 1.9 / exit check).
+
+    A read-only view of the routing catalogue: every encoded row with its
+    identity, route pattern, window, EVC flag, and the ordered stages that
+    pattern runs, plus a **coverage** count (encoded/expected) so a missing
+    row is visible instead of silently shrinking the table. ``expected_rows``
+    is the PRD's own documented count ("Table 2.3 (21 rows)"), stored as
+    configuration — not a number hard-coded here.
+
+    Advisory like the rest of this module: it displays configuration and
+    makes no routing decision.
+    """
+    rows = table_2_3_rows()
+    patterns = route_patterns()
+    section = _section()
+    expected = int(section.get("expected_rows", len(rows)))
+
+    board_rows: list[dict[str, Any]] = []
+    for row in rows:
+        pattern = patterns.get(row["route"], {})
+        board_rows.append(
+            {
+                "row": row.get("row"),
+                "category_id": row.get("category_id"),
+                "category": row.get("category"),
+                "route": row.get("route"),
+                "window": row.get("window"),
+                "evc_not_applicable": bool(row.get("evc_not_applicable")),
+                "stages": [stage["stage"] for stage in pattern.get("stages", [])],
+                "source": row.get("source"),
+            }
+        )
+
+    return {
+        "advisory_only": is_advisory(),
+        "status": section.get("status"),
+        "total_rows": len(rows),
+        "expected_rows": expected,
+        "coverage": f"{len(rows)}/{expected}",
+        "rows": board_rows,
+        "route_patterns": patterns,
+        "stage_order": stage_order(),
+    }
+
+
 def fallback_eoa_rule() -> dict[str, Any]:
     """The fallback-to-EoA rule (PRD FR-11 / §6 routing rule 3).
 

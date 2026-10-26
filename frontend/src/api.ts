@@ -14,6 +14,7 @@ import type {
   Institution,
   OfficerDashboard,
   RehearsalReport,
+  RouteScoreboard,
   SessionUser,
   Undertaking,
   UploadResult,
@@ -113,6 +114,7 @@ export const api = {
   application: (id: string) => request<CaseDetail>(`/applications/${id}`),
   institutions: () => request<Institution[]>("/institutions"),
   routes: () => request<WorkflowRoute[]>("/workflow/routes"),
+  routeScoreboard: () => request<RouteScoreboard>("/workflow/table-2-3-scoreboard"),
   createApplication: (payload: {
     institution_id: string;
     category: string;

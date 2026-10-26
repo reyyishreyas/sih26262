@@ -14,6 +14,7 @@ import { Icon } from "./components/Icon";
 import { Login } from "./components/Login";
 import { NewApplicationForm } from "./components/NewApplicationForm";
 import { ReportsView } from "./components/ReportsView";
+import { RouteScoreboardView } from "./components/RouteScoreboard";
 import { plainRole, plainState, stateIcon, stateTone } from "./labels";
 import { useRefreshOnFocus } from "./useRefreshOnFocus";
 import type {
@@ -25,7 +26,7 @@ import type {
   WorkflowRoute,
 } from "./types";
 
-type View = "cases" | "monitoring" | "reports";
+type View = "cases" | "monitoring" | "reports" | "routing";
 
 /**
  * The URL is the source of truth for where you are, so a case can be shared as
@@ -35,7 +36,7 @@ type View = "cases" | "monitoring" | "reports";
  */
 function routeFromHash(): { view: View; selected: string | null } {
   const match = window.location.hash.match(
-    /^#\/(cases|monitoring|reports)(?:\/(.+))?$/,
+    /^#\/(cases|monitoring|reports|routing)(?:\/(.+))?$/,
   );
   if (!match) return { view: "cases", selected: null };
   const view = match[1] as View;
@@ -283,6 +284,15 @@ export default function App() {
               <Icon name="fileText" size={18} /> Reports
             </button>
           )}
+          {canMonitor && (
+            <button
+              type="button"
+              className={view === "routing" ? "nav active" : "nav"}
+              onClick={() => setView("routing")}
+            >
+              <Icon name="mapPin" size={18} /> Routing table
+            </button>
+          )}
         </nav>
 
         <div className="who">
@@ -430,6 +440,20 @@ export default function App() {
               </p>
             </div>
             <ReportsView />
+          </>
+        )}
+
+        {view === "routing" && (
+          <>
+            <div className="hello">
+              <h2 className="hello-title">
+                <Icon name="mapPin" size={26} /> Routing table
+              </h2>
+              <p className="muted">
+                The 21 handbook categories and the stages each one runs.
+              </p>
+            </div>
+            <RouteScoreboardView />
           </>
         )}
       </main>

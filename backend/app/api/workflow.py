@@ -8,7 +8,7 @@ from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import APPLICATION_READ, CASE_READ
 from ..schemas.api import TransitionRequest
-from ..services import workflow_service
+from ..services import routing, workflow_service
 from ..services.authorization_service import EffectiveAccess, require_application
 from ..services.policy import workflow_routes
 from .deps import get_access, require_any
@@ -45,6 +45,20 @@ def list_routes(access: EffectiveAccess = Depends(get_access)) -> list[dict]:
         }
         for key, route in catalogue.items()
     ]
+
+
+@router.get("/workflow/table-2-3-scoreboard")
+def table_2_3_scoreboard(
+    access: EffectiveAccess = Depends(get_access),
+) -> dict:
+    """The 21 Table 2.3 rows, their stages, and coverage (Phase 1.9).
+
+    A read-only scoreboard of the routing catalogue — no case data, so it
+    needs only an authenticated user, not a per-case permission. Advisory
+    like the rows themselves (Unverified, DEC-0003): it displays
+    configuration and makes no routing decision.
+    """
+    return routing.scoreboard()
 
 
 @router.post("/applications/{application_id}/transitions")

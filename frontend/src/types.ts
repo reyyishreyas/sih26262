@@ -300,6 +300,33 @@ export interface WorkflowRoute {
   states: string[];
 }
 
+// ---------------------------------------------------------------------------
+// Table 2.3 route scoreboard (Phase 1.9)
+// ---------------------------------------------------------------------------
+
+export interface RouteScoreboardRow {
+  row: number;
+  category_id: string;
+  category: string;
+  route: string;
+  window: string;
+  evc_not_applicable: boolean;
+  stages: string[];
+  source: string;
+}
+
+/** A read-only view of the 21 Table 2.3 rows and their stages. Advisory. */
+export interface RouteScoreboard {
+  advisory_only: boolean;
+  status: string;
+  total_rows: number;
+  expected_rows: number;
+  coverage: string;
+  rows: RouteScoreboardRow[];
+  route_patterns: Record<string, { stages: Array<{ stage: string; when: string }> }>;
+  stage_order: string[];
+}
+
 export interface ExtractedField {
   id: string;
   document_id: string;

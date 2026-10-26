@@ -199,6 +199,8 @@
         "note": "PRD: year round, processed twice a year per UGC timeline."
       }
     ],
+    "expected_rows": 21,
+    "expected_rows_note": "PRD \u00a76 heading: 'Table 2.3 (21 rows) \u2014 routing test source of truth'. The scoreboard compares the rows actually encoded (len(rows)) against this expected count so a deleted row shows as a coverage gap (e.g. 20/21) instead of silently shrinking the table. 21 is the PRD's own documented row count, not a guessed number.",
     "route_patterns_note": "Stage composition per PRD \u00a76 pattern, in the \u00a77 end-to-end flow order. 'when': always | if_deficiencies (PRD \u00a76: AA opens SHC/SAC only if the earlier outcome has deficiencies \u2014 FR-10) | on_decision (PRD \u00a77: the appeal window follows the decision). Advisory like the rest of this section.",
     "route_patterns": {
       "SD": {
