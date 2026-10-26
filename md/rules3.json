@@ -1,0 +1,421 @@
+
+{
+  "metadata": {
+    "document_id": "AICTE-PS26262-CRITICAL-ARCHITECTURE-CONSTRAINTS",
+    "title": "AICTE PS 26262 Critical Architecture Constraints",
+    "version": "1.0",
+    "status": "architecture_requirement_specification",
+    "purpose": "Supplement the detailed rules and supplementary rules with three critical architecture requirements.",
+    "important_notice": "This is an implementation specification, not proof of implementation or an official AICTE rulebook. Inspect the existing repository and original architecture documents before coding.",
+    "merge_with": [
+      "AICTE_PS26262_DETAILED_RULES.json",
+      "AICTE_PS26262_SUPPLEMENTARY_RULES.json"
+    ]
+  },
+  "requirements": [
+    {
+      "requirement_id": "ARCH-REHEARSAL-001",
+      "name": "Isolated Rehearsal and Crash-Test Engine",
+      "priority": "critical",
+      "status": "required_by_architecture",
+      "objective": "Allow hypothetical application changes to be tested without mutating production data.",
+      "database_architecture": {
+        "production_schema": "public",
+        "simulation_schema": "sim",
+        "production_access": "read_only_for_rehearsal",
+        "simulation_access": "write_allowed_only_in_simulation_context"
+      },
+      "required_behavior": [
+        "Read the production baseline without modifying it.",
+        "Create or use an isolated snapshot for each rehearsal.",
+        "Perform all rehearsal writes in the sim schema or another explicitly approved isolated simulation store.",
+        "Compute a finding-level difference between baseline and simulated results.",
+        "Return production_modified=false only when isolation has been enforced and verified for the rehearsal.",
+        "Record the rehearsal ID, baseline version, hypothetical inputs, results, findings diff, timestamps, and execution status.",
+        "Mark a rehearsal stale when its baseline changes, according to the documented versioning policy.",
+        "Keep rehearsal operations separate from ordinary production workflow transitions."
+      ],
+      "isolation_constraints": [
+        "The rehearsal execution path must not insert, update, or delete production application, workflow, evidence, assignment, or decision records.",
+        "Use explicitly schema-qualified simulation writes.",
+        "Do not rely on an implicit database search_path to enforce isolation.",
+        "Do not accept arbitrary caller-provided schema names in SQL.",
+        "Use database permissions or an equivalent enforceable boundary to prevent simulation code from writing production tables.",
+        "A transaction rollback alone is not sufficient isolation.",
+        "Never copy simulation results into production automatically."
+      ],
+      "suggested_result_fields": [
+        "rehearsal_id",
+        "baseline_version",
+        "status",
+        "production_modified",
+        "started_at",
+        "completed_at",
+        "input_changes",
+        "baseline_findings",
+        "simulated_findings",
+        "finding_diff",
+        "failure_reason"
+      ],
+      "acceptance_tests": [
+        {
+          "test_id": "TEST-REHEARSAL-001",
+          "scenario": "Run a rehearsal with hypothetical application changes.",
+          "expected": "Simulation results and finding-level differences are returned without production changes."
+        },
+        {
+          "test_id": "TEST-REHEARSAL-002",
+          "scenario": "Compare production record versions or hashes before and after a rehearsal.",
+          "expected": "Production application, workflow, and evidence data remain unchanged."
+        },
+        {
+          "test_id": "TEST-REHEARSAL-003",
+          "scenario": "Attempt a rehearsal write to a production table.",
+          "expected": "Database permissions or the enforced isolation boundary reject the write."
+        },
+        {
+          "test_id": "TEST-REHEARSAL-004",
+          "scenario": "Change the production baseline after a rehearsal snapshot is created.",
+          "expected": "The rehearsal is marked stale or handled according to the documented baseline-version policy."
+        },
+        {
+          "test_id": "TEST-REHEARSAL-005",
+          "scenario": "A rehearsal fails halfway through execution.",
+          "expected": "Partial simulation data is contained or cleaned up, the failure is recorded, and production data remains unchanged."
+        }
+      ],
+      "implementation_notes": [
+        "Inspect existing database migrations, ORM models, schema configuration, and rehearsal services before changing anything.",
+        "Verify whether public and sim schemas already exist.",
+        "Inspect existing sim_* models and reuse them when appropriate.",
+        "Do not claim isolation is implemented until database-level or equivalent isolation tests pass.",
+        "Do not invent a Rehearsal Load Factor formula. If the architecture leaves it undefined, keep it null until its formula, units, and test matrix are approved."
+      ]
+    },
+    {
+      "requirement_id": "ARCH-GROUNDING-001",
+      "name": "OCR Grounding, Fuzzy Matching, and Bounding Boxes",
+      "priority": "critical",
+      "status": "required_by_architecture",
+      "objective": "Ensure model-extracted values are supported by document evidence and preserve source locations for reviewer verification.",
+      "required_pipeline": [
+        "Validate and classify the uploaded document.",
+        "Extract native PDF text when usable.",
+        "Run OCR on scanned or low-text pages when required.",
+        "Preserve OCR text, page numbers, word or span confidence, and bounding-box coordinates.",
+        "If vision-model extraction is enabled, validate its response against the configured JSON schema.",
+        "For every extracted field, identify candidate supporting OCR text on the same page.",
+        "Normalize values conservatively for comparison without overwriting the original candidate value.",
+        "Fuzzy-match the candidate value against the relevant OCR text using a documented algorithm.",
+        "If the value cannot be adequately grounded, mark it review_required or equivalent.",
+        "Persist grounding evidence, match score, algorithm version, page number, and bounding box.",
+        "Expose page and bounding-box data to the frontend for source highlighting.",
+        "Preserve earlier extraction runs when a document is replaced or reprocessed."
+      ],
+      "grounding_contract": {
+        "default_matching_scope": "Same document version and same page",
+        "cross_page_matching": "Only when an explicit field-specific rule allows it",
+        "normalization_steps": [
+          "Unicode normalization",
+          "Trim leading and trailing whitespace",
+          "Collapse repeated whitespace",
+          "Apply punctuation normalization only when safe for the field",
+          "Apply date or identifier normalization only through explicit field-specific rules"
+        ],
+        "matching_strategy": {
+          "preferred_method": "Token or span-aware matching with fuzzy similarity to tolerate OCR noise",
+          "high_risk_fields": [
+            "Registration numbers",
+            "Application identifiers",
+            "Official identifiers where in scope",
+            "Dates",
+            "Amounts",
+            "Lease durations"
+          ],
+          "high_risk_policy": "Generic fuzzy similarity alone must not validate high-risk fields. Require exact or field-specific normalized matching, or human review.",
+          "threshold_policy": "Store the threshold and algorithm version. Calibrate thresholds on labelled examples. If 0.75 is specified in the original architecture, treat it as a proposed starting point until validated."
+        },
+        "bounding_box_contract": {
+          "required_fields": [
+            "page_number",
+            "x0",
+            "y0",
+            "x1",
+            "y1",
+            "coordinate_space",
+            "page_width",
+            "page_height"
+          ],
+          "rules": [
+            "Document the coordinate origin and units.",
+            "Ensure coordinates are finite, ordered, and within page bounds.",
+            "Specify whether coordinates use PDF coordinates or rendered-image pixels.",
+            "Use consistent coordinate conversion in the frontend.",
+            "If multiple OCR tokens support a value, store a combined region or a list of token regions.",
+            "Never invent bounding-box coordinates when no reliable region is available."
+          ]
+        }
+      },
+      "suggested_extracted_field_fields": [
+        "document_id",
+        "document_version_id",
+        "processing_run_id",
+        "field_name",
+        "candidate_value",
+        "normalized_value_for_matching",
+        "page_number",
+        "bbox",
+        "ocr_evidence_text",
+        "ocr_token_refs",
+        "match_score",
+        "grounding_algorithm",
+        "grounding_algorithm_version",
+        "grounding_status",
+        "confidence",
+        "engine_name",
+        "engine_version",
+        "model_name",
+        "model_version",
+        "review_status",
+        "reviewed_by",
+        "reviewed_at"
+      ],
+      "failure_policy": [
+        "If OCR is unavailable, mark grounding unavailable and require review where needed.",
+        "If no supporting OCR span exists, do not mark the field grounded.",
+        "If multiple matches are ambiguous, preserve candidate locations and require review when necessary.",
+        "If output is malformed or confidence is insufficient, reject it or route it to review.",
+        "If OCR, model, or provider processing fails, record the failure; never infer compliance.",
+        "When a document is replaced, create a new version and processing run while retaining prior results."
+      ],
+      "acceptance_tests": [
+        {
+          "test_id": "TEST-GROUND-001",
+          "scenario": "The model returns a value supported by OCR text on the same page.",
+          "expected": "The value is grounded according to the configured field policy and has valid page and bounding-box provenance."
+        },
+        {
+          "test_id": "TEST-GROUND-002",
+          "scenario": "The model invents a value absent from the OCR evidence.",
+          "expected": "The field is not marked grounded or verified and requires review."
+        },
+        {
+          "test_id": "TEST-GROUND-003",
+          "scenario": "A date or official identifier differs by one character.",
+          "expected": "A generic fuzzy threshold cannot silently validate the value."
+        },
+        {
+          "test_id": "TEST-GROUND-004",
+          "scenario": "OCR text matches but the bounding box is missing or invalid.",
+          "expected": "The system does not fabricate coordinates; the field is flagged or review is required as appropriate."
+        },
+        {
+          "test_id": "TEST-GROUND-005",
+          "scenario": "A reviewer opens a grounded field in the frontend.",
+          "expected": "The correct page and supporting region are highlighted using the documented coordinate conversion."
+        },
+        {
+          "test_id": "TEST-GROUND-006",
+          "scenario": "A document is replaced and processed again.",
+          "expected": "New results reference the new document version, and previous results remain auditable."
+        }
+      ]
+    },
+    {
+      "requirement_id": "ARCH-LLM-GUARD-001",
+      "name": "External LLM Guardrails and ExternalCallLog",
+      "priority": "critical",
+      "status": "required_by_architecture",
+      "objective": "Constrain and audit external model calls so model output cannot bypass grounding, deterministic rules, or human decision authority.",
+      "required_behavior": [
+        "Route external model calls through a provider adapter rather than calling providers directly from API routes or business rules.",
+        "Explicitly set temperature to 0 for the required extraction calls.",
+        "Validate every model response against a strict, versioned JSON schema before accepting it.",
+        "Reject malformed JSON, missing required fields, invalid types, unexpected fields in strict mode, and out-of-range values.",
+        "Ground extracted values against OCR evidence after schema validation.",
+        "Record model and provider metadata, prompt version, schema version, request purpose, document/version references, timestamps, duration, outcome, retries, and normalized error codes.",
+        "Provide an explicit configuration switch to enable or disable external model calls.",
+        "If the architecture requires external calls to be disabled by default, preserve that default.",
+        "Apply timeouts, bounded retries, rate and cost limits, and safe failure handling.",
+        "Do not allow model output to directly change application status, assignments, permissions, regulatory rules, or final decisions.",
+        "Minimize sensitive document data sent externally and follow approved privacy requirements.",
+        "Keep API keys and secrets out of source code and logs."
+      ],
+      "external_call_log_contract": {
+        "model_name": "ExternalCallLog",
+        "minimum_fields": [
+          "id",
+          "provider",
+          "model",
+          "model_version",
+          "purpose",
+          "document_id",
+          "document_version_id",
+          "processing_run_id",
+          "prompt_version",
+          "schema_version",
+          "temperature",
+          "request_id",
+          "started_at",
+          "completed_at",
+          "duration_ms",
+          "status",
+          "retry_count",
+          "response_validation_status",
+          "grounding_status",
+          "error_code",
+          "created_at"
+        ],
+        "suggested_status_values": [
+          "started",
+          "succeeded",
+          "schema_rejected",
+          "grounding_rejected",
+          "provider_error",
+          "timeout",
+          "rate_limited",
+          "disabled",
+          "cancelled"
+        ],
+        "privacy_rules": [
+          "Never log API keys or authorization headers.",
+          "Do not persist full document contents or full prompts and responses by default.",
+          "If detailed payload retention is approved for debugging, apply redaction, access controls, and retention limits.",
+          "Prefer protected evidence references and bounded metadata where sufficient.",
+          "Restrict access to sensitive call logs."
+        ]
+      },
+      "schema_validation_contract": {
+        "strict": true,
+        "schema_must_be_versioned": true,
+        "validate_before_grounding": true,
+        "validate_after_transformations": true,
+        "unknown_or_missing_fields": "Reject or route to review; do not silently coerce materially different data.",
+        "numeric_and_date_fields": "Apply field-specific type, range, and format checks.",
+        "final_decision_fields": "The extraction schema must not let a model authorize final approval or rejection."
+      },
+      "acceptance_tests": [
+        {
+          "test_id": "TEST-LLM-001",
+          "scenario": "Inspect extraction request configuration.",
+          "expected": "Temperature is explicitly set to 0 for the required extraction call path."
+        },
+        {
+          "test_id": "TEST-LLM-002",
+          "scenario": "The provider returns malformed JSON or schema-invalid output.",
+          "expected": "The output is rejected or marked review-required, and ExternalCallLog records the validation failure."
+        },
+        {
+          "test_id": "TEST-LLM-003",
+          "scenario": "The provider times out, rate-limits, or becomes unavailable.",
+          "expected": "Retries remain bounded, failure is logged, and no compliance pass is inferred."
+        },
+        {
+          "test_id": "TEST-LLM-004",
+          "scenario": "The external-call switch is disabled.",
+          "expected": "No external request is sent and the operation returns a safe disabled or manual-review outcome."
+        },
+        {
+          "test_id": "TEST-LLM-005",
+          "scenario": "The model returns schema-valid but OCR-ungrounded data.",
+          "expected": "Grounding checks prevent the value from being accepted as verified."
+        },
+        {
+          "test_id": "TEST-LLM-006",
+          "scenario": "Inspect ExternalCallLog after successful and failed calls.",
+          "expected": "Required metadata and normalized outcomes are present, without secrets or unapproved raw content."
+        },
+        {
+          "test_id": "TEST-LLM-007",
+          "scenario": "Model output attempts to approve or reject an application.",
+          "expected": "The service boundary prevents the model output from performing the decision."
+        }
+      ]
+    }
+  ],
+  "global_invariants": [
+    {
+      "invariant_id": "INV-PROD-001",
+      "statement": "A rehearsal must never mutate production application, workflow, document, evidence, assignment, or decision data.",
+      "verification": "Database isolation tests and before/after production version or hash comparisons."
+    },
+    {
+      "invariant_id": "INV-GROUND-001",
+      "statement": "Schema-valid model output is not verified unless grounding and field-specific validation also pass.",
+      "verification": "Tests for invented values, OCR noise, high-risk fields, missing bounding boxes, and ambiguous matches."
+    },
+    {
+      "invariant_id": "INV-LLM-001",
+      "statement": "Every attempted external model call must have an auditable outcome, including failures, timeouts, schema rejections, and grounding rejections.",
+      "verification": "Call-log tests across success and failure paths."
+    },
+    {
+      "invariant_id": "INV-HUMAN-001",
+      "statement": "OCR and LLM output may support preliminary checks but cannot make final regulatory approval or rejection decisions.",
+      "verification": "Backend authorization and workflow tests."
+    }
+  ],
+  "implementation_order": [
+    {
+      "phase": 1,
+      "name": "Inspect repository before coding",
+      "tasks": [
+        "Inspect database schemas, migrations, ORM models, and rehearsal services.",
+        "Inspect all database sessions and write paths used by rehearsal execution.",
+        "Inspect OCR output and whether word-level bounding boxes are retained.",
+        "Inspect fuzzy_grounding.py and grounded_lease_extractor if present.",
+        "Inspect the LLM adapter, external-call switch, ExternalCallLog model, migrations, and tests.",
+        "Document existing, partial, and missing implementation before changing code."
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Enforce rehearsal isolation",
+      "tasks": [
+        "Verify or implement enforceable separation between production and simulation writes.",
+        "Verify or implement finding-level diff output.",
+        "Ensure production_modified is derived from verified behavior, not hardcoded.",
+        "Add isolation and failure-path tests."
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "Implement OCR grounding and bounding boxes",
+      "tasks": [
+        "Verify or implement token/span matching with field-specific high-risk rules.",
+        "Persist page and bounding-box provenance with explicit coordinate conventions.",
+        "Expose source-region highlighting to the frontend.",
+        "Add hallucinated-value, OCR-noise, and bounding-box tests."
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "Harden external LLM integration",
+      "tasks": [
+        "Verify or implement provider-adapter-only calls.",
+        "Set temperature to 0 for the required extraction path.",
+        "Validate responses against strict versioned JSON schemas.",
+        "Verify or implement ExternalCallLog and the external-call enable/disable switch.",
+        "Add timeout, bounded retry, privacy-safe logging, schema rejection, and grounding rejection tests."
+      ]
+    },
+    {
+      "phase": 5,
+      "name": "Verify end-to-end behavior",
+      "tasks": [
+        "Run targeted tests for all three architecture requirements.",
+        "Run the relevant full test suite.",
+        "Record test results, skipped tests, environment limitations, and remaining gaps.",
+        "Update requirement traceability without claiming unverified behavior is complete."
+      ]
+    }
+  ],
+  "agent_instructions": [
+    "Read the original PRD, architecture, scaffold, detailed rules JSON, supplementary rules JSON, and this file before editing.",
+    "Inspect the current repository before creating duplicate models, services, migrations, schemas, or endpoints.",
+    "Do not weaken database isolation, OCR grounding, schema validation, external-call logging, or human decision authority to make tests pass.",
+    "Do not claim a requirement is implemented until code inspection and acceptance tests prove it.",
+    "Report files changed, database/API changes, tests run, skipped tests, and unresolved risks.",
+    "If an original document conflicts with this specification, identify the conflict explicitly rather than silently choosing one."
+  ]
+}

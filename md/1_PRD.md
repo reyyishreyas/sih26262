@@ -2,6 +2,28 @@
 
 **Status:** Prototype in progress · **Repo:** reyyishreyas/sih26262 · **Source:** APH 2024-27, Chapter II
 **Rule for readers (human or AI):** this file says *what* and *why*. It contains no code. How it is built is in `2_ARCHITECTURE.md`.
+**Companion source:** `AICTE_PS26262_TECHNICAL_DESIGN_AND_IMPLEMENTATION_SPECIFICATION.md` (v0.1, 26 Oct 2026). Where it and this PRD differ, §0 below says how they were reconciled.
+
+## 0. Verification policy (applies to every rule, fee, route and deadline in this document)
+> The official, currently applicable AICTE APH, notices, regulations and portal instructions take precedence over this document. **Do not present an assumption, a project proposal or an AI-generated result as an official rule.**
+
+**Status vocabulary** (not interchangeable): **Verified** (checked against an authoritative source or inspected code/tests with evidence) · **Implemented** (code exists) · **Tested** (specified tests ran and passed in a recorded environment) · **Partial** · **Proposed** · **Unverified** · **Blocked** (awaiting decision/dependency) · **Deprecated**.
+
+**Default status for everything copied from the APH in this PRD (Table 2.3 routes, Table 2.1 fees, 7-day appeal, 15-day deposit, penalty dates, cut-offs, clause numbers, the 6-year / hibernation rules): _Unverified_ until a named reviewer checks the exact clause in the exact edition and records it in the source register (Appendix A).** Unverified rules stay **disabled or advisory** in configuration and never block, return or reject an application. Operational thresholds in §11 (70/90/100/125%, 1-/3-day escalation, alert lead times) are **project proposals, not AICTE rules**.
+
+**Source hierarchy:** (1) current official AICTE regulations/APH/notices/portal instructions → (2) official PS 26262 wording → (3) approved project PRD and recorded team decisions → (4) the technical specification → (5) informal notes, code comments, agent text. On conflict: record both, ask the designated human/domain owner, version the result, add a regression test. Never resolve a regulatory ambiguity silently in code.
+
+**Reconciliation with the technical specification**
+| Topic | Earlier PRD | Spec | Resolution |
+|---|---|---|---|
+| Regulatory values | stated as facts | all unverified until clause-checked | Spec wins: tag Unverified, config-gated |
+| Workflow states | 8-stage lifecycle | prototype has `draft, submitted, scrutiny, returned, evc_scheduled, evc_completed, sac_review, approved, rejected` | Treat the prototype states as the **baseline subset**; PRD stages extend them. Withdrawal, appeal, reopening, post-decision correction are **unimplemented until verified** |
+| Outcome words | "decision" | "recorded outcome by authorised decision-maker"; system never auto-rejects | Same; `approved`/`rejected` are set only by a named authority |
+| Supabase | not mentioned | "verify actual configuration" | Decision taken: Supabase Postgres (see addendum 7) |
+| LLM | OpenRouter | OpenRouter/Gemini "unverified" | Decision taken: Gemini primary, OpenRouter + others backup (addendum 7), off by default |
+| Test baseline | 159 tests | historical 154 passed, 2 skipped (Tesseract missing) | **Rerun and record**; skipped ≠ passed |
+| Alert thresholds | proposed defaults | "not official unless confirmed" | Keep as proposals, labelled |
+
 
 ---
 
@@ -336,7 +358,58 @@ Prototype (sample data, stubbed portal feed) → Release 1 (live portal integrat
 6. Can the portal expose APIs, or only exports?
 7. Confirm Table 2.1 change-and-addition column mapping.
 8. Which APH sections beyond Chapter II and Annexure-2 lists load into the checklist engine first?
-9. Can the system read the EoA letter and University as structured data? Are Format-2/3 templates available? Is any external model service allowed? Who maintains the University jurisdiction table?
+9. Exact official URL/version of APH 2024-27 Chapter II and annexures; any later amendments?
+10. Official meaning/applicability of SD, SCR, EVC, SHC, SAC; category-to-route and academic-year windows; combined-application outcomes?
+11. Exact appeal, reopening, withdrawal and final-decision rules; verified deposit, lease, penalty and expiry requirements for the applicable year?
+12. Conditions for random/additional EVC, second EVC, fallback EoA, conversion, site relocation, intake increase, cut-off handling?
+13. Can the system read the EoA letter and University as structured data? Are Format-2/3 templates available? Is any external model service allowed? Who maintains the University jurisdiction table?
+
+## 19a. Decision log (template; fill as decisions are made)
+| ID | Decision / question | Options | Decision & rationale | Owner | Date | Evidence |
+|---|---|---|---|---|---|---|
+| DEC-001 | Database host | local Postgres / Supabase | Supabase (managed Postgres only, own auth) | Project lead | 2026-10-26 | addendum 7 |
+| DEC-002 | LLM chain | single / chain | Gemini → OpenRouter → more → deterministic | Project lead | 2026-10-26 | addendum 7 |
+| DEC-003 | OCR fallback provider | pending | Pending | Project lead | Pending | Pending |
+Governance questions still open: who approves regulatory interpretations and rule changes; who approves role/route/deadline changes; which features are mandatory for evaluation; which repo/remote is authoritative and who has write access; acceptance date and sign-off.
 
 ## 20. Repo-specific addendum: Approval Crash-Test
 The repo adds one capability beyond the source PRD: the **Approval Rehearsal (Crash-Test) Engine**. Before a real action, an officer can rehearse hypothetical evidence changes against the same immutable rule versions and see a finding-level diff, with the production application never written to (`production_modified: false`). This is retained as a differentiator and must not weaken any safeguard in §14.
+
+## Appendix A. Source register (maintain in `docs/SOURCES.md`)
+Columns: `source_id`, exact title, issuer, version/effective date, official URL or repo path, access date, exact clause/table/page, authority level, notes. **Do not invent URLs, clauses, quotations or API contracts.**
+Initial IDs: `SRC-PS-26262` (official PS wording; record exact URL), `SRC-APH-2024-27` (Chapter II, tables, annexures; check whether later notices supersede), `SRC-PRD-26262` (this PRD), `SRC-REPO` (code, migrations, tests); add one ID per official notice/circular.
+Requirement ID prefixes: `REG-###` official regulatory · `PS-###` problem statement · `PRD-###` project · `DES-###` design decision · `PROP-###` proposed · `TEST-###` · `RISK-###` · `OPEN-###`. For each important requirement record source + exact clause, applicability, input/output, owner, status, implementation location, test IDs and verification evidence. Missing or ambiguous source → **Unverified/Blocked**, not enabled as a binding rule.
+
+## Appendix B. Feature inventory baseline (recheck status in the repo; a screen or mock endpoint alone ≠ complete)
+| ID | Feature | Initial status per spec |
+|---|---|---|
+| FEAT-01 | Application intake/readiness | Existing; verify coverage |
+| FEAT-02 | Workflow state machine | Implemented in prototype |
+| FEAT-03 | Document upload/access | Implemented; tests reported |
+| FEAT-04 | OCR/field extraction | Verify dependency status |
+| FEAT-05 | Compliance rule engine | Partial / config-dependent |
+| FEAT-06 | Evidence-linked review | Partial |
+| FEAT-07 | Structured deficiencies | Partial (free-text correction reported) |
+| FEAT-08 | Resubmission/revalidation | Partial |
+| FEAT-09 | Role/jurisdiction authorisation | Backend controls exist; verify matrix |
+| FEAT-10 | Automatic assignment | Service reported; verify edge cases |
+| FEAT-11 | Manual reassignment | Reported missing |
+| FEAT-12 | Deadlines/SLA | Service/config reported; verify policy |
+| FEAT-13 | Notifications | Partial/mock in-app |
+| FEAT-14 | Audit chain/verification | Reported |
+| FEAT-15 | Dashboards/reports | Summary/pendency reported |
+| FEAT-16 | EVC/committee/appeals | Route coverage unconfirmed |
+| FEAT-17 | Lease/security-deposit monitoring | Verify |
+| FEAT-18 | Admin/rule configuration | Partial/proposed |
+
+## Appendix C. Structured deficiency schema (Proposed; reconcile with current models first)
+ID, application, finding/rule, type (field/document/inconsistency/other), title, description, required action, evidence references, severity, status, creator/time, due date **only if verified**, institution response, response document IDs, reviewer/time, resolution reason, version. Flow: officer creates/confirms finding → system validates permission and evidence refs → institution sees deficiency → institution responds/uploads replacement → prior versions preserved → extraction/rules rerun on new versions → officer accepts, requests further correction if permitted, or records why insufficient → everything audited. Institution users cannot edit officer-only fields. Do not invent notice wording or deadlines. If only free-text correction exists, document it as a limitation.
+
+## Appendix D. Measuring success (no unmeasured claims)
+Measure, don't assume: extraction precision/recall on labelled documents; % findings with valid evidence; workflow correctness; access-control test pass rate; processing time; false-positive/negative rate; recovery from provider failure. **Do not claim accuracy, time savings or production readiness without measured evidence.** Problems listed in §2 must be validated with source material/stakeholders before being presented as universal facts.
+
+## Appendix E. Conflict-of-interest
+Proposed fields: declaration, type, timestamp, reviewer, exclusion, reassignment. **Do not claim COI handling exists without approved policy and tests.**
+
+## Appendix F. Release readiness checklist
+- [ ] Official source URLs, versions, clauses recorded · [ ] Unverified rules disabled or advisory · [ ] All spec sections reviewed against actual code · [ ] Workflow states/routes match approved config · [ ] API schemas match frontend/backend · [ ] Migrations and seeds work · [ ] Authorisation tests cover sensitive resources · [ ] Document versioning/access verified · [ ] OCR/AI failure paths tested · [ ] Findings link to evidence and rule versions · [ ] Audit coverage and limits documented · [ ] Deadlines cite approved policy versions · [ ] Alert scheduling/delivery described accurately · [ ] Tests/build rerun, results recorded · [ ] Synthetic demo data only · [ ] Deployment, backup, recovery documented · [ ] Limitations/open questions disclosed · [ ] No unsupported claims about official integrations, accuracy, performance or compliance.

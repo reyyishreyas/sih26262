@@ -2,6 +2,8 @@
 
 Overrides the matching parts of `2_ARCHITECTURE.md` and `3_ARCHITECTURE_ESSENTIALS.md`. Supabase specifics (pooler ports, username format, Data API behaviour) change over time: **verify against current Supabase docs before each step.**
 
+> Per the technical specification, "Supabase/PostGIS/PgBouncer appeared in project context; verify actual configuration". Your decision to use Supabase is now **DEC-001**. PostGIS is not needed by anything in the PRD (no geocoding); do not enable it unless a feature requires it. Also: before sending real documents to any LLM provider, confirm legal authority, user notice, provider terms, retention and data region; minimise what is sent; core manual review must keep working with AI disabled.
+
 ## A. Supabase as the database
 
 ### What stays the same

@@ -16,6 +16,10 @@ sih26262/
 │   ├── ARCHITECTURE.md USER_JOURNEY.md RULES.md REHEARSAL_ENGINE.md
 │   │   ROLE_MODEL.md DATA_MODEL.md ACCEPTANCE_TESTS.md DEMO_SCRIPT.md
 │   │   EVIDENCE_INTELLIGENCE.md PRODUCTION.md DEFERRALS.md         (exist)
+│   ├── SOURCES.md                    (new)  source register: SRC-PS-26262, SRC-APH-2024-27, notices
+│   ├── TRACEABILITY.md               (new)  requirement → source/clause → design → code → test → status
+│   ├── DECISIONS.md                  (new)  decision log (DEC-###) and open questions (OPEN-###)
+│   ├── RELEASE_CHECKLIST.md          (new)  Appendix F of the PRD as a live checklist
 │   └── prd/                          (new)
 │       ├── 1_PRD.md
 │       ├── 2_ARCHITECTURE.md
@@ -29,7 +33,7 @@ sih26262/
 ├── backend/
 │   ├── requirements.txt  ruff.toml  alembic.ini                    (exist)
 │   ├── rules/
-│   │   ├── compliance_rules.json     (exists)  add E01–E03, SITE-01/02, LEASE-01, DOC-01
+│   │   ├── compliance_rules.json     (exists)  add E01–E03, SITE-01/02, LEASE-01, DOC-01 — each with source_id, clause, status (Unverified by default)
 │   │   ├── workflow_routes.json      (exists)  extend to all 21 Table 2.3 rows
 │   │   ├── deadline_policy.json      (exists)  add appeal 7d, deposit 15d, penalty dates
 │   │   ├── fee_table.json            (new)  TER Table 2.1 + additional-fee heads
@@ -91,7 +95,13 @@ sih26262/
 │       ├── test_escalation.py        (new)
 │       ├── test_three_value.py       (new)
 │       ├── test_noc_rules.py         (new)
-│       └── test_clock_reconciliation.py (new)
+│       ├── test_clock_reconciliation.py (new)
+│       ├── test_authz_matrix.py      (new)  every sensitive route × role × scope; 404 policy
+│       ├── test_concurrency.py       (new)  stale baseline_version, duplicate request, rollback
+│       ├── test_document_versions.py (new)  replace, immutable priors, partial-storage failure
+│       ├── test_llm_failover.py      (new)  see addendum 7
+│       ├── test_audit_tamper.py      (new)  altered, deleted AND reordered records
+│       └── fixtures/                 (new)  synthetic PDFs, labelled expected values, corrupt/oversized files
 │
 ├── frontend/
 │   ├── package.json  vite.config.ts  tsconfig.json  Dockerfile  Dockerfile.prod  nginx.conf  (exist)
@@ -111,6 +121,9 @@ sih26262/
 │
 └── storage/                          (runtime, gitignored)  uploads, notifications.log
 ```
+
+## Reference IDs used across files
+`FEAT-01…18` features · `FR-xx` PRD requirements · `REG-/PS-/PRD-/DES-/PROP-/TEST-/RISK-/OPEN-###` per Appendix A of the PRD · `AGENT-01…12` agent tasks · `DEC-###` decisions · `RULE-*` rule IDs.
 
 ## Where does new code go? (decision table)
 | You are adding | Put it in |

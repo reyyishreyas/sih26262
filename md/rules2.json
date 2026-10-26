@@ -1,0 +1,549 @@
+{
+  "metadata": {
+    "document_id": "AICTE-PS26262-SUPPLEMENTARY-RULES",
+    "title": "AICTE PS 26262 — Supplementary Rules to Add or Verify",
+    "filename": "AICTE_PS26262_SUPPLEMENTARY_RULES.json",
+    "version": "1.0",
+    "created_date": "2026-10-26",
+    "status": "supplementary_working_specification",
+    "purpose": "Supplement the existing AICTE_PS26262_DETAILED_RULES.json with additional system rules and AICTE-specific rule areas that should be implemented or verified for the prototype.",
+    "important_notice": "This file is not an official AICTE rulebook. AICTE-specific regulatory rules remain unverified until mapped to the applicable official handbook, amendments, notices, tables, and annexures. Do not enforce unverified regulatory rules as binding decisions.",
+    "merge_instruction": "Merge or reference this file alongside AICTE_PS26262_DETAILED_RULES.json. Preserve the original rule IDs and avoid duplicate IDs when integrating."
+  },
+  "status_vocabulary": {
+    "verified": "Confirmed against an authoritative source with exact source reference and applicability recorded.",
+    "implemented": "Code exists; this does not establish regulatory correctness.",
+    "tested": "A named test ran and passed in a recorded environment.",
+    "proposed": "Suggested system behavior that needs team approval.",
+    "unverified": "Insufficient evidence to confirm the exact regulatory requirement or implementation.",
+    "blocked": "Requires an authoritative source, product decision, or human approval.",
+    "advisory_only": "May surface information but must not determine approval, rejection, or compliance automatically."
+  },
+  "important_rules_to_add_or_verify": [
+    {
+      "rule_id": "SYS-ROUTE-001",
+      "name": "Application eligibility and route selection",
+      "category": "application_routing",
+      "status": "proposed",
+      "priority": "critical",
+      "rule": "Determine the applicable processing route from verified application attributes and the applicable official route matrix. If a required attribute is missing, contradictory, or unsupported, route the case to manual review rather than guessing.",
+      "inputs": [
+        "academic_year",
+        "application_type",
+        "institution_type",
+        "institution_category",
+        "programme_details",
+        "requested_change",
+        "applicable_official_route_matrix"
+      ],
+      "expected_behavior": [
+        "record route and route-matrix version",
+        "record the input facts supporting route selection",
+        "block automatic routing when required facts are unknown",
+        "allow authorized review of ambiguous cases"
+      ],
+      "must_not": [
+        "infer a binding route from an LLM response",
+        "apply one generic workflow to all application types"
+      ],
+      "acceptance_tests": [
+        "known supported case selects the expected configured route",
+        "missing required route attribute creates a review-needed result",
+        "unsupported application type is not silently routed to approval"
+      ],
+      "source_requirement": "Map each route to the exact applicable AICTE handbook table/clause and any applicable notice.",
+      "activation": "Do not treat as a regulatory rule until the official route matrix is verified."
+    },
+    {
+      "rule_id": "SYS-DEF-001",
+      "name": "Structured deficiency records",
+      "category": "deficiencies",
+      "status": "proposed",
+      "priority": "critical",
+      "rule": "Represent each deficiency as a structured record rather than free text alone.",
+      "required_fields": [
+        "deficiency_id",
+        "application_id",
+        "rule_id",
+        "description",
+        "severity",
+        "evidence_refs",
+        "created_by",
+        "created_at",
+        "status",
+        "response_due_at_if_applicable",
+        "resolution_reason",
+        "resolved_by",
+        "resolved_at"
+      ],
+      "expected_behavior": [
+        "preserve the original finding",
+        "link finding to the relevant rule and evidence version",
+        "track institution response and officer resolution separately",
+        "retain history after correction or closure"
+      ],
+      "acceptance_tests": [
+        "finding is traceable to rule and evidence",
+        "institution response does not overwrite officer finding",
+        "closure requires authorized actor and resolution reason"
+      ],
+      "source_requirement": "Product/system requirement; regulatory severity and response periods require source confirmation."
+    },
+    {
+      "rule_id": "SYS-REVAL-001",
+      "name": "Revalidation after resubmission",
+      "category": "resubmission",
+      "status": "proposed",
+      "priority": "critical",
+      "rule": "When an institution uploads a corrected or replacement document, rerun applicable checks against the new document version and preserve prior results.",
+      "expected_behavior": [
+        "create a new immutable document version",
+        "mark impacted findings as requiring revalidation",
+        "record which checks were rerun",
+        "do not automatically close findings without successful rule evaluation or authorized review"
+      ],
+      "acceptance_tests": [
+        "replacement document creates a new version",
+        "prior OCR/rule results remain auditable",
+        "failed OCR or unavailable source leaves the finding unresolved"
+      ],
+      "source_requirement": "System behavior; align resubmission limits and process with the applicable official workflow."
+    },
+    {
+      "rule_id": "SYS-AUTH-001",
+      "name": "Decision authority and human oversight",
+      "category": "decision_authority",
+      "status": "proposed",
+      "priority": "critical",
+      "rule": "Only authorized human roles may perform final regulatory decisions. OCR, deterministic checks, and AI may produce evidence or preliminary findings but must not independently approve or reject an application.",
+      "expected_behavior": [
+        "enforce authority on the backend for each transition",
+        "record actor, role, action, reason, timestamp, and relevant evidence",
+        "separate recommendation from final decision where the workflow requires it"
+      ],
+      "acceptance_tests": [
+        "AI output cannot trigger final approval/rejection",
+        "unauthorized role cannot execute a restricted transition",
+        "decision records the authorized human actor"
+      ],
+      "source_requirement": "Confirm the precise decision authority and stage permissions against the applicable official process and approved project scope."
+    },
+    {
+      "rule_id": "SYS-DOC-001",
+      "name": "Document status, validity, and version handling",
+      "category": "document_management",
+      "status": "proposed",
+      "priority": "critical",
+      "rule": "A document must not be considered valid merely because a file exists. Track document type, version, processing status, validity dates where applicable, verification outcome, and reviewer status.",
+      "expected_behavior": [
+        "distinguish missing, uploaded, unreadable, processing, flagged, verified, rejected, and expired states as appropriate",
+        "tie extraction and findings to a specific version",
+        "require review for contradictions or uncertain extraction",
+        "keep replaced versions in audit history"
+      ],
+      "acceptance_tests": [
+        "expired document is flagged when a verified rule requires validity",
+        "unreadable document is not marked compliant",
+        "replaced document does not erase previous evidence"
+      ],
+      "source_requirement": "Required document types and validity conditions must be configured by application category and official source."
+    },
+    {
+      "rule_id": "SYS-ASSIGN-001",
+      "name": "Safe assignment and reassignment",
+      "category": "assignment",
+      "status": "proposed",
+      "priority": "high",
+      "rule": "Assignment must enforce active-user status, role eligibility, jurisdiction/scope, and uniqueness rules. Reassignment must record the actor, reason, old assignee, new assignee, and timestamp.",
+      "expected_behavior": [
+        "handle no eligible officer without silently dropping the case",
+        "prevent duplicate active assignments where prohibited",
+        "preserve assignment history",
+        "apply conflict-of-interest exclusion only when an approved policy and implementation exist"
+      ],
+      "acceptance_tests": [
+        "ineligible role cannot be assigned",
+        "no-eligible-assignee condition is visible",
+        "reassignment leaves an audit event and history"
+      ],
+      "source_requirement": "Confirm official assignment policy and conflict-of-interest rules; do not invent them."
+    },
+    {
+      "rule_id": "SYS-DEADLINE-001",
+      "name": "Deterministic deadline calculation",
+      "category": "deadlines",
+      "status": "proposed",
+      "priority": "high",
+      "rule": "Every deadline policy must define the triggering event, applicable case types, duration, calendar/working-day convention, timezone, holiday calendar if relevant, extensions, pause/resume behavior, escalation policy, and source/version.",
+      "expected_behavior": [
+        "store the policy version used for each calculated deadline",
+        "recalculate only under an explicit policy/event rule",
+        "preserve previous deadline values and reasons for changes",
+        "distinguish official deadlines from internal reminder thresholds"
+      ],
+      "acceptance_tests": [
+        "same inputs and policy version yield same deadline",
+        "deadline changes record reason and actor/system event",
+        "internal reminder thresholds are not labelled as official regulatory deadlines"
+      ],
+      "source_requirement": "All regulatory durations and trigger dates require exact official source confirmation."
+    },
+    {
+      "rule_id": "SYS-NOTIFY-001",
+      "name": "Reliable and idempotent notifications",
+      "category": "notifications",
+      "status": "proposed",
+      "priority": "high",
+      "rule": "Notification processing must not duplicate alerts on repeated sweeps and must not corrupt workflow state when delivery fails.",
+      "expected_behavior": [
+        "record event, recipient, channel, attempt count, result, and timestamps",
+        "use an idempotency key",
+        "retry according to configured policy",
+        "expose failed delivery for operations review"
+      ],
+      "acceptance_tests": [
+        "repeated sweep does not create duplicate active alerts for the same event/key",
+        "delivery failure is recorded",
+        "workflow transaction remains consistent when notification provider is unavailable"
+      ],
+      "source_requirement": "Channel, retry schedule, and escalation recipients are product decisions unless official requirements specify otherwise."
+    },
+    {
+      "rule_id": "SYS-CONCUR-001",
+      "name": "Concurrent edit and transition protection",
+      "category": "concurrency",
+      "status": "proposed",
+      "priority": "high",
+      "rule": "Reject or safely resolve stale updates so simultaneous officers cannot silently overwrite each other's decisions or transition a case from an outdated state.",
+      "expected_behavior": [
+        "check expected state/version on writes",
+        "use transactions for workflow state, assignment, and required audit records",
+        "return a clear conflict response for stale writes",
+        "avoid partial commits"
+      ],
+      "acceptance_tests": [
+        "two conflicting concurrent transitions cannot both succeed",
+        "stale update receives a conflict response",
+        "failed transaction does not leave inconsistent state or audit records"
+      ]
+    },
+    {
+      "rule_id": "SYS-EXCEPT-001",
+      "name": "Explicit exception and terminal-state handling",
+      "category": "exceptions",
+      "status": "proposed",
+      "priority": "high",
+      "rule": "Withdrawal, reopening, appeal, closure, rejection, failed processing, and other exceptional paths must have explicit permitted transitions, authority, reasons, and audit behavior; do not infer these from ordinary transitions.",
+      "expected_behavior": [
+        "configure each supported exception separately",
+        "reject unsupported transitions",
+        "record required reason and authority",
+        "preserve prior decisions and workflow history"
+      ],
+      "acceptance_tests": [
+        "unsupported transition is denied",
+        "reopening requires configured authorization and reason",
+        "withdrawal does not erase application or audit history"
+      ],
+      "source_requirement": "The existence, authority, and conditions for each regulatory route must be verified."
+    },
+    {
+      "rule_id": "SYS-COI-001",
+      "name": "Conflict-of-interest controls for committee assignments",
+      "category": "assignment_integrity",
+      "status": "blocked",
+      "priority": "high",
+      "rule": "Before implementing conflict-of-interest declarations, exclusions, or automatic reassignment, confirm the approved policy and the committee/assignment data model.",
+      "expected_behavior": [
+        "keep feature disabled or advisory until approved",
+        "if enabled, record declaration, decision, reviewer, exclusion, and reassignment history"
+      ],
+      "acceptance_tests": [
+        "no automatic exclusion is applied using an unapproved rule",
+        "enabled policy is tested for declaration, review, exclusion, and audit"
+      ],
+      "source_requirement": "Obtain the applicable official or project-approved conflict-of-interest policy."
+    }
+  ],
+  "aicte_specific_rules_to_verify": [
+    {
+      "rule_id": "REG-ROUTE-001",
+      "name": "Application-type and processing-route matrix",
+      "category": "regulatory_routing",
+      "status": "blocked",
+      "priority": "critical",
+      "rule": "Create a versioned matrix mapping each in-scope application type and relevant institution/programme attributes to the applicable processing stages and decision authority.",
+      "candidate_cases_to_review": [
+        "Extension of Approval through self-disclosure",
+        "intake increase",
+        "new programme or course",
+        "NRI/foreign-national intake where applicable",
+        "institution or site changes",
+        "restoration after interruption",
+        "closure or withdrawal",
+        "other categories explicitly in scope"
+      ],
+      "required_outputs": [
+        "eligibility conditions",
+        "required fields/documents",
+        "applicable stages",
+        "decision authority",
+        "submission window",
+        "fee applicability if relevant",
+        "official source references"
+      ],
+      "source_requirement": "Verify against the applicable APH version, tables, clauses, annexures, notices, and approved project scope. The candidate list is not a claim that every item is in prototype scope."
+    },
+    {
+      "rule_id": "REG-STAGE-001",
+      "name": "Stage-specific scrutiny, visit, committee, and appeal paths",
+      "category": "regulatory_workflow",
+      "status": "blocked",
+      "priority": "critical",
+      "rule": "Specify exactly which application categories and outcomes require SCR/re-SCR, EVC, hearing committee, Executive Committee, appeal committee, or other stages. Do not route all cases through all stages by default.",
+      "required_fields": [
+        "application_type",
+        "trigger_condition",
+        "stage_sequence",
+        "allowed_transition",
+        "responsible_role",
+        "decision_outcome",
+        "source_clause"
+      ],
+      "source_requirement": "Confirm exact official terminology, conditions, order, and authority for the applicable academic year."
+    },
+    {
+      "rule_id": "REG-SUBMIT-001",
+      "name": "Submission windows, cut-offs, fees, and tracking",
+      "category": "submission",
+      "status": "blocked",
+      "priority": "high",
+      "rule": "Where in scope, record official application windows/cut-offs, fee requirements, submission timestamp, receipt/reference number, and any published exceptions. Enforce a cutoff only when the applicable notice and time basis are verified.",
+      "expected_behavior": [
+        "store source and effective period",
+        "distinguish draft from successfully submitted applications",
+        "preserve submission receipt and timestamp",
+        "do not hardcode annual dates without versioning"
+      ],
+      "source_requirement": "Use the applicable official public notice, APH, and fee schedule. Do not assume dates or fee amounts."
+    },
+    {
+      "rule_id": "REG-LEASE-001",
+      "name": "Lease duration and extension requirements",
+      "category": "lease_compliance",
+      "status": "blocked",
+      "priority": "high",
+      "rule": "Implement lease-duration and extension checks only after confirming the applicable clause, required remaining duration, relevant programme/course duration, exception conditions, and accepted evidence.",
+      "inputs": [
+        "lease_start_date_if_required",
+        "lease_end_date",
+        "programme_or_course_duration_if_relevant",
+        "application_date",
+        "document_version",
+        "applicable_rule_version"
+      ],
+      "expected_behavior": [
+        "calculate remaining duration using a documented date convention",
+        "flag missing or contradictory dates",
+        "show calculation and source clause",
+        "route uncertain cases to human review"
+      ],
+      "source_requirement": "Do not use a generic 'lease nearing expiry' threshold as an official compliance rule without the applicable clause."
+    },
+    {
+      "rule_id": "REG-APPEAL-001",
+      "name": "Appeal eligibility, authority, and deadline",
+      "category": "appeal",
+      "status": "blocked",
+      "priority": "high",
+      "rule": "Define which decision/outcome is appealable, who may file, the deadline trigger, permitted submission window, receiving authority, required evidence, and resulting workflow path.",
+      "expected_behavior": [
+        "calculate deadline only from verified trigger and duration",
+        "preserve appeal submission receipt",
+        "reject or flag late submissions according to confirmed policy",
+        "record the authority and outcome"
+      ],
+      "source_requirement": "The seven-day period mentioned in project notes is an example requiring clause and applicability verification; do not activate it based on notes alone."
+    },
+    {
+      "rule_id": "REG-DOCS-001",
+      "name": "Required documents by application category",
+      "category": "document_requirements",
+      "status": "blocked",
+      "priority": "critical",
+      "rule": "Maintain a versioned checklist of required documents and accepted alternatives by application category, institution type, programme, and applicable academic year.",
+      "required_fields": [
+        "document_type",
+        "applicability_condition",
+        "mandatory_or_conditional",
+        "accepted_format_or_evidence",
+        "validity_rule_if_any",
+        "signatory_or_issuer_if_required",
+        "source_clause",
+        "effective_from",
+        "effective_to"
+      ],
+      "expected_behavior": [
+        "distinguish missing from not applicable",
+        "allow documented exception only where permitted",
+        "record checklist version on the application",
+        "do not auto-reject solely because a proposed checklist has not been verified"
+      ],
+      "source_requirement": "Extract from the applicable APH clauses/tables/annexures and notices; cite exact references for each item."
+    },
+    {
+      "rule_id": "REG-AUTH-001",
+      "name": "Stage and role decision-authority matrix",
+      "category": "regulatory_authority",
+      "status": "blocked",
+      "priority": "critical",
+      "rule": "Map each workflow action and decision outcome to the authority specified by the applicable process, separately from generic software roles.",
+      "required_fields": [
+        "stage",
+        "action",
+        "authorized_role_or_body",
+        "delegation_if_permitted",
+        "required_reason_or_record",
+        "source_clause"
+      ],
+      "expected_behavior": [
+        "deny unauthorized decision actions on the backend",
+        "separate recommendation from decision where applicable",
+        "record acting user and capacity"
+      ],
+      "source_requirement": "Confirm authority and delegation from official sources and approved institutional workflow."
+    },
+    {
+      "rule_id": "REG-CUTOFF-001",
+      "name": "Regulatory deadline and penalty schedule",
+      "category": "regulatory_deadlines",
+      "status": "blocked",
+      "priority": "critical",
+      "rule": "Maintain versioned schedules for submission deadlines, appeal periods, security-deposit proof milestones, penalties, and withdrawal or other cutoff consequences only where confirmed applicable.",
+      "expected_behavior": [
+        "store the source clause, trigger, academic year, category, duration, amount/rate if applicable, and effective dates",
+        "calculate with deterministic logic",
+        "show calculation to reviewer",
+        "keep internal reminders separate from official penalties"
+      ],
+      "source_requirement": "The 15-day security-deposit proof period and penalty/cutoff dates mentioned in project notes are unverified examples until checked against the applicable official source."
+    },
+    {
+      "rule_id": "REG-SECDEP-001",
+      "name": "Security deposit and post-grant evidence tracking",
+      "category": "post_grant_compliance",
+      "status": "blocked",
+      "priority": "medium",
+      "rule": "If security-deposit/FDR tracking is included in the prototype, define required evidence, issuer/bank details where applicable, amount, validity, submission trigger, due date, review status, and escalation/penalty handling from verified policy.",
+      "expected_behavior": [
+        "track evidence separately from initial approval checks",
+        "record evidence version and reviewer",
+        "avoid calculating penalties until the applicable schedule is verified",
+        "show upcoming and overdue items with source traceability"
+      ],
+      "source_requirement": "Confirm scope and official requirements before enabling regulatory consequences."
+    },
+    {
+      "rule_id": "REG-LEASE-MON-001",
+      "name": "Lease and document expiry monitoring",
+      "category": "ongoing_compliance",
+      "status": "proposed",
+      "priority": "medium",
+      "rule": "Where ongoing monitoring is in scope, track verified expiry dates and generate configurable advance reminders and overdue flags without representing internal reminders as official deadlines.",
+      "expected_behavior": [
+        "store the extracted date, source document version, confidence/review status",
+        "require human confirmation for low-confidence or contradictory dates",
+        "make reminder thresholds configurable",
+        "record each alert and prevent duplicates"
+      ],
+      "source_requirement": "Confirm which documents and expiry events must be monitored; reminder lead times are product settings unless prescribed officially."
+    }
+  ],
+  "cross_cutting_requirements": [
+    {
+      "requirement_id": "XREQ-SOURCE-001",
+      "name": "Source traceability for every regulatory rule",
+      "requirement": "Each regulatory rule must record source ID, exact clause/table/annexure/page, official URL or file reference, effective date range, applicable academic year and category, verification status, and verifier/date.",
+      "acceptance": "No regulatory rule can be enabled if its required source metadata is absent."
+    },
+    {
+      "requirement_id": "XREQ-AI-001",
+      "name": "AI output is advisory and evidence-linked",
+      "requirement": "OCR/LLM results must be linked to the document version and extraction metadata. Low confidence, malformed output, conflicts, provider failure, or missing source data must remain unresolved and require review.",
+      "acceptance": "No model output can directly change final workflow state or silently mark a case compliant."
+    },
+    {
+      "requirement_id": "XREQ-AUDIT-001",
+      "name": "Audit all material changes",
+      "requirement": "Audit material changes to route, rule version, evidence version, findings, assignment, deadline, override, transition, and final decision.",
+      "acceptance": "Audit records include actor/system identity, event, timestamp, reason where required, and references to affected entities."
+    },
+    {
+      "requirement_id": "XREQ-TEST-001",
+      "name": "Test positive, negative, and ambiguous cases",
+      "requirement": "For each rule, test passing evidence, failing evidence, missing evidence, contradictory evidence, unauthorized actions, and processing/service failure where relevant.",
+      "acceptance": "Tests state expected status, permitted next action, audit event, and whether human review is required."
+    }
+  ],
+  "implementation_order": [
+    {
+      "phase": 1,
+      "name": "Verify scope and route matrix",
+      "deliverables": [
+        "approved in-scope application categories",
+        "official source register",
+        "route/stage matrix",
+        "decision-authority matrix"
+      ]
+    },
+    {
+      "phase": 2,
+      "name": "Structured evidence and deficiencies",
+      "deliverables": [
+        "versioned evidence model",
+        "structured deficiency model",
+        "resubmission/revalidation behavior",
+        "human review and override audit"
+      ]
+    },
+    {
+      "phase": 3,
+      "name": "Deterministic deadlines and assignments",
+      "deliverables": [
+        "verified deadline policy",
+        "assignment/reassignment rules",
+        "idempotent alert behavior",
+        "exception handling"
+      ]
+    },
+    {
+      "phase": 4,
+      "name": "Regulatory checks and edge cases",
+      "deliverables": [
+        "category-specific document checklist",
+        "verified lease and appeal rules where applicable",
+        "verified security-deposit/post-grant checks if in scope"
+      ]
+    },
+    {
+      "phase": 5,
+      "name": "Test and demonstrate",
+      "deliverables": [
+        "rule-to-source traceability",
+        "negative/ambiguous-case tests",
+        "end-to-end demo",
+        "documented limitations"
+      ]
+    }
+  ],
+  "open_questions": [
+    "Which application categories are explicitly in the prototype scope for evaluation?",
+    "Which exact APH version and later amendments/notices apply on the target academic year/date?",
+    "What are the authoritative stage sequences and decision authorities for each supported route?",
+    "What exact documents and accepted alternatives apply to each supported category?",
+    "Which deadlines, date triggers, penalty schedules, and exceptions are officially applicable?",
+    "Are lease-duration checks, security-deposit/FDR tracking, post-grant monitoring, appeal handling, and reopening required in the evaluated prototype or only future scope?",
+    "What assignment and conflict-of-interest policy is approved for the prototype?",
+    "Which external OCR/LLM services may receive document content, and what data-handling constraints apply?"
+  ]
+}

@@ -2,11 +2,13 @@
 
 Companion to `1_PRD.md`. Items marked **[BUILT]** exist in the repo today; **[NEW]** are required by the PRD and not yet built. Verify a **[BUILT]** claim in code before relying on it for anything subtle.
 
+> **Status vocabulary** (from the technical specification): Verified · Implemented · Tested · Partial · Proposed · Unverified · Blocked · Deprecated. They are not interchangeable: "implemented" ≠ "regulatory verified"; "tested" requires a recorded run. Where this file says **[BUILT]** it means *Implemented per README/user report*, not Tested or Verified. The spec's own reported baseline (154 passed, 2 skipped for missing Tesseract) is historical; **rerun and record** the current numbers.
+
 ## 1. Stack (pinned, verified)
 | Layer | Choice |
 |---|---|
 | Runtime | Python 3.13.9 (`.venv/`), Node 26 / npm 11 (README says Python 3.10+/Node 20+ minimum) |
-| API | FastAPI 0.159.1, uvicorn[standard] 0.54.0, routes under `/api/v1`, OpenAPI at `/docs` only when `SIH_DOCS_ENABLED=true` (off by default — it would be a second sign-in door) |
+| API | FastAPI 0.159.1, uvicorn[standard] 0.54.0, routes under `/api/v1`, OpenAPI at `/docs` |
 | ORM / migrations | SQLAlchemy 2.1.6 (2.0 declarative, `Mapped[]`), Alembic 1.20.1 (6 migrations) |
 | Config / schemas | pydantic 2.14.1, pydantic-settings 2.16.1, typed `.env` with `SIH_*` prefix |
 | Auth | python-jose 3.5.0 (HS256 JWT, issuer/audience/leeway); passwords via stdlib `hashlib.pbkdf2_hmac` SHA-256, 260,000 iterations. bcrypt/passlib are installed but **never imported** |
@@ -114,5 +116,31 @@ Existing tables cover applications, documents, extracted fields, findings, rule 
 ## 14. Integrations
 AICTE portal: **none, deliberately** (stub feed; "as of" timestamp on screens). Payment gateway: stub status lookup. DSC verification: stub. Email/SMS: mock → pluggable provider. SSO: not built. Video platform: store link only.
 
+## 14a. Boundary, trust and transaction rules (from the specification)
+- **Untrusted:** browser input, uploaded files, OCR text, model output, external providers. Validate at every boundary. **Document text is data, not instructions** (prompt-injection defence); the model gets no tools and cannot touch workflow state.
+- **Atomicity:** state change + transition record + assignment change + required audit record commit in one transaction. An invalid transition writes nothing. If the required audit write fails, **fail the high-impact operation**.
+- **Concurrency:** `Application.baseline_version` (or equivalent) must be *enforced*, not just present: stale writes are rejected with a reload message; test concurrent transitions. Use ETag/version checks where available.
+- **Idempotency:** uploads, transitions, alert sweeps and background jobs are retry-safe (idempotency keys).
+- **Partial failures** to define and test: file stored but metadata failed (compensate/clean up); metadata saved but processing failed; transition succeeded but notification failed (use outbox/retry, never corrupt state); DB outage; provider timeout. Processing failure is **never** a compliance pass.
+- **Object-level authorisation on every endpoint**; scope by institution, assignment, region, committee and jurisdiction; deny by default; return **404** (not 403) for unauthorised resources where the existing policy does. Never trust client-supplied role/institution/region/assignment.
+- **Request lifecycle:** authenticate → resolve role/scope server-side → load resource → verify ownership/assignment/jurisdiction/action → validate state → execute transaction → audit → return permitted fields only.
+- **Documents:** upload flow = authenticate/authorise → validate scope+category → size/type + **file-signature** check → safe server-side storage key → scan if enabled → private storage → metadata + hash + uploader + time + version → queue processing → audit. All versions preserved; each extraction/finding links to an exact document version; replacement requires a reason and re-runs affected checks; no predictable public URLs; retention/deletion only after privacy/legal review.
+- **Extraction runs:** reprocessing creates a new run and preserves old output. Confidence is an *uncalibrated* signal; the 0.75 threshold is **unvalidated** — calibrate on labelled samples and use it only to route review.
+- **Audit limits (state honestly):** a hash chain detects some alterations; it does **not** stop a privileged actor rewriting the whole chain. Add restricted DB writes, backups and **external checkpoints** (periodically publish the latest chain hash somewhere the DB admin cannot edit). Test altered, deleted **and reordered** records. Never claim absolute immutability. Keep audit records, diagnostic logs, metrics and correlation IDs as four separate things.
+- **RLS:** if Supabase RLS is used, document and test policies **separately** from API authorisation; do not claim RLS without evidence.
+- **Source-backed rules only:** each rule record carries `source_id`, `clause`, `status` (Verified/Unverified/…), `effective_from`, `version`, applicability, inputs, predicate, outcomes, human-review flag. `status != Verified` ⇒ the rule is advisory-only and cannot gate any action.
+
+## 14b. Endpoint inventory
+**Reported existing:** `POST /api/v1/applications/{id}/transitions`, `POST /api/v1/alerts/sweep`, `GET /api/v1/audit/verify` (+ the rehearsal, evidence, undertakings, officer, auth routes in the README).
+**Proposed (search for an existing equivalent before adding any):** `GET/POST /applications`, `GET/PATCH /applications/{id}`, `POST /applications/{id}/submit`, `GET/POST /applications/{id}/documents`, `GET /documents/{id}`, `GET /documents/{id}/content`, `POST /documents/{id}/process`, `GET/POST /applications/{id}/findings`, `POST /findings/{id}/resolve`, `POST /applications/{id}/deficiencies`, `POST /deficiencies/{id}/responses`, `GET /assignments`, `POST /applications/{id}/reassign`, `GET /deadlines`, `GET /dashboard/summary`, `GET /reports/pendency`, `GET /audit`.
+Every endpoint spec records: method/path, auth, roles/scope, path/query/body schemas, validation, response schema, success/error codes, side effects, audit events, pagination, concurrency/idempotency, limits, and examples **taken from actual code/OpenAPI**.
+Error shape (proposed standard): `{"error": {"code": "VALIDATION_ERROR", "message": "...", "details": [], "request_id": "..."}}`. Reconcile with the repo's existing envelope first. No stack traces, secrets or unauthorised-resource details in errors.
+
+## 14c. Security threat list
+Cross-institution leakage; forged roles/scopes; malicious or oversized uploads; parser vulnerabilities; **prompt injection in documents**; external AI leakage; SQL/command injection; XSS; CSRF/session theft; audit tampering; provider abuse; leaked secrets. Controls: deny-by-default authz, strict validation/encoding, signature/size/type checks, private storage, least-privilege DB credentials, secret management, HTTPS + CORS allowlist, rate limits, safe errors, dependency scanning, sensitive-log minimisation. Identify personal/financial/institutional data and define access, retention, export and deletion rules.
+
+## 14d. Observability
+Monitor API latency/error rate, auth failures, upload failures, OCR duration/failures, provider rate limits/timeouts, pending jobs, **alert-sweep last-run/result**, notification retries, DB pool usage, storage capacity, audit verification failures. Liveness/readiness checks must **not** call an LLM provider. A sweep endpoint alone does not prove a recurring scheduler is configured: document whether the worker's scheduler runs it.
+
 ## 15. Known limits
-Not security-audited or load-tested; not validated against APH by a competent authority; Rehearsal Load Factor null; LLM explanations unwired; ClamAV off; notifications mocked; no geocoding. Demo data is synthetic.
+Not security-audited or load-tested (workload and performance targets are **not yet agreed**: do not invent numbers); no backup/restore or recovery targets tested; manual reassignment reported missing; committee COI not implemented; withdrawal/appeal/reopening unimplemented until verified; Tesseract is a host dependency (document whether required or optional); not validated against APH by a competent authority; Rehearsal Load Factor null; LLM explanations unwired; ClamAV off; notifications mocked; no geocoding. Demo data is synthetic.
