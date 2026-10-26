@@ -411,7 +411,7 @@ tamper-evidence).
   unconfigured year answers `None`, never a guessed window).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `447c674`.
+  repo is currently green at `12cd8be`.
 
 ---
 
