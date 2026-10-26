@@ -108,3 +108,41 @@ def test_an_unknown_category_or_pattern_fails_loudly_not_silently():
 
 def test_routing_reports_itself_as_advisory_until_the_clauses_are_verified():
     assert routing.is_advisory() is True
+
+
+def test_creating_a_case_audits_its_route_decision(client, db, as_user):
+    """Phase 1 exit check: the routing decision is written to the audit trail.
+
+    The route is chosen once, at creation, and the `application.created`
+    event carries `route_key` + `category` — so "why is this case on this
+    route?" is answerable from the audit trail alone. The per-category
+    *stage list* is derived from configuration on read (IMPL-0021) and is
+    deliberately not a stored decision.
+    """
+    from sqlalchemy import select
+
+    from app.models import AuditEvent
+
+    headers = as_user("institution@demo.local")
+    institution_id = client.get("/api/v1/institutions", headers=headers).json()[0]["id"]
+    created = client.post(
+        "/api/v1/applications",
+        headers=headers,
+        json={
+            "institution_id": institution_id,
+            "category": "existing_technical",
+            "route_key": "existing_technical",
+        },
+    )
+    assert created.status_code == 201
+    application_id = created.json()["id"]
+
+    event = db.scalar(
+        select(AuditEvent).where(
+            AuditEvent.entity_id == application_id,
+            AuditEvent.action == "application.created",
+        )
+    )
+    assert event is not None
+    assert event.after["route_key"] == "existing_technical"
+    assert event.after["category"] == "existing_technical"

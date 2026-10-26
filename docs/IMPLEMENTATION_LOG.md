@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0025 | 2026-10-27 | Implementation | Phase 1 exit check: close out — routing decision audited at creation (`test_creating_a_case_audits_its_route_decision`); Phase 1 marked complete | Tested | Phase 1 exit check (AGENT-02; FR-07) | MiMo (OpenCode agent) |
 | IMPL-0024 | 2026-10-27 | Implementation | Phase 3.4: escalation chain — `escalation_chain.json` (**placeholder** L0–L3 roles + §11 70/90/100/125% ladder + 1-/3-working-day unassigned rules, §19 Q5 open → roles not names, L3 unmapped) + `escalation.py` (pure lookups + advisory snapshot) + `GET /applications/{id}/escalation` + sweep payload `escalation_level` | Tested | Phase 3 3.4 (AGENT-02; §11, §19 Q5) | MiMo (OpenCode agent) |
 | IMPL-0023 | 2026-10-27 | Implementation | Phase 3.3: stage limits — `stage_limits.json` (**placeholder** day counts, §19 Q1-labelled, moved unchanged out of `workflow_routes.json`) + `stages.due_dates()` per-stage due dates computed on read | Tested | Phase 3 3.3 (AGENT-02; §19 Q1, §11) | MiMo (OpenCode agent) |
 | IMPL-0022 | 2026-10-26 | Implementation | Phase 3.2: FR-28 return/revert reason code + free text — `reason_codes.json` (placeholder vocabulary, config-scoped mandate), `WorkflowTransition.reason_code` + migration 0012, validation + audit echo, `GET /workflow/reason-codes` | Tested | Phase 3 3.2 (AGENT-02; FR-28) | MiMo (OpenCode agent) |
@@ -78,6 +79,23 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0025 — Phase 1 exit check: routing decision audited at creation; Phase 1 complete
+- Date / agent / branch / commit: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6) / master / (this commit)
+- Task ID and PRD IDs: Phase 1 **exit check** (AGENT-02 routing hardening); PRD **FR-07** (Table 2.3 routing + scoreboard).
+- Goal: satisfy the last unchecked Phase 1 criterion — "audit events written for every routing decision" — honestly, without inventing a stored per-stage decision that contradicts IMPL-0021's design.
+- What existed before: `api/applications.py::create_application` already wrote an `application.created` audit event carrying `after={"category", "route_key"}`; the scoreboard already asserted `coverage == "21/21"`. No test pinned the creation-time route audit, and the exit-check box stayed `Partial` on the theory that a dedicated per-category route/stage-list decision event was still owed.
+- What I did: added `test_routing.py::test_creating_a_case_audits_its_route_decision` — an institution creates a case via `POST /applications`, and the test asserts the `application.created` audit row carries `route_key` and `category`. This is the honest reading of the criterion: the route is decided **once, at creation**, and the audit trail answers "why is this case on this route?". The per-category *stage list* is derived from configuration on read (IMPL-0021, `stages.sync_stage_instances`) and is deliberately **not** a stored decision — storing it would duplicate config and risk drift. Ticked the Phase 1 exit-check box with both halves Met.
+- Files changed: `backend/tests/test_routing.py` (new test), `md/6_IMPLEMENTATION_PLAN.md` (exit check ticked), this log.
+- Migrations / API / config / rule-file changes: none (test + docs only).
+- Decisions made: none new — follows IMPL-0021 (stage rows are derived, not decisions) and the `application.created` audit already written by `create_application`.
+- Permission and audit effects: none. The audit event already existed; this only proves it is written and carries the route.
+- Verification: exact commands + results: `pytest tests/test_routing.py -q -p no:randomly` → **11 passed**; `make lint` → All checks passed!; `make test` → **491 passed, 2 skipped (Tesseract absent), 1 warning**.
+- Status per requirement touched: Phase 1 exit check — **Tested**. Phase 1 (1.1–1.9 + exit) — complete.
+- Limitations / assumptions: the test covers the single-category creation path; a *combined* application's per-category route decisions live on `application_items.route` and are covered by `test_combined_applications.py`, not re-asserted here. Not verified against Postgres/Compose (SQLite only).
+- Related bugs: none (BUG-0008 was the 201-vs-200 status-code expectation in this new test, fixed before commit).
+- Open questions for a human: none.
+- Next suggested task: Phase **3.5** — Appeal: 7-day clock on Speaking Order upload; one appeal only; alerts day 3 and day 6 (FR-27).
 
 ### IMPL-0024 — Phase 3.4: escalation chain (L0–L3) as labelled placeholder + §11 percentage/unassigned rules
 - Date / agent / branch / commit: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6) / master / e2fa615 (work uncommitted at implementation)

@@ -16,6 +16,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0008 | 2026-10-27 | S4 | test | New routing test expected `POST /applications` → 200; route returns 201 Created | Fixed | IMPL-0025 |
 | BUG-0007 | 2026-10-26 | S4 | test | Routing test assumed every PRD §6 pattern is used by a Table 2.3 row; no row is plain SCR+EVC | Fixed | IMPL-0008 |
 | BUG-0006 | 2026-10-26 | S2 | migration | `alembic check` red: `deficiencies` and `evc_visits` tables added to the ORM with no migration — a Compose deploy would lack both | Fixed | IMPL-0005 |
 | BUG-0005 | 2026-10-26 | S4 | test | New authz-matrix tests failed on first run (unauthenticated request builder `KeyError: 0`; admin's global scope wrongly expected 404) | Fixed | IMPL-0004 |
@@ -46,6 +47,29 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0008 — new routing test expected 200; `POST /applications` returns 201
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first run of `backend/tests/test_routing.py::test_creating_a_case_audits_its_route_decision`
+- Branch / commit: master (work uncommitted at time of fix)
+- Severity / Area: **S4** (test-only; the route was created correctly and the audit row was written) / test-harness
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_routing.py::test_creating_a_case_audits_its_route_decision -q -p no:randomly` → `1 failed`:
+  ```
+  E       assert 201 == 200
+  E        +  where 201 = <Response [201 Created]>.status_code
+  ```
+- Expected behaviour: application creation succeeds and the audit row is asserted.
+- Actual behaviour: the assertion failed on the HTTP status; the request itself returned `201 Created` and wrote the audit event.
+- Steps to reproduce: run the new test at the commit before the fix.
+- Environment: macOS, Python 3.14.3, SQLite (test DB), fixed clock.
+- Hypotheses tried:
+  1. *The endpoint errors* — rejected: the log line shows `POST /api/v1/applications "HTTP/1.1 201 Created"`.
+  2. *The status code is wrong* — confirmed: `create_application` is a resource-creation route and FastAPI returns 201 for a successful `POST` that creates a resource; my test asserted the generic 200.
+- Root cause: my test guessed the status code instead of matching the route's actual (correct) 201 Created.
+- Solution applied: changed the assertion to `assert created.status_code == 201`. No product code changed.
+- Verification: `pytest tests/test_routing.py -q -p no:randomly` → **11 passed**; `make test` → **491 passed, 2 skipped**.
+- Side effects / follow-ups: none. Related: IMPL-0025.
+- Update history: —
 
 ### BUG-0007 — routing test assumed every pattern is used by a Table 2.3 row
 - Date found / found by: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6), first run of `backend/tests/test_routing.py`
