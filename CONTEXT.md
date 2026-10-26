@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 492 passing
+make test      # pytest — 552 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **492 passing** (~449 test functions; some parametrised).
+- `make test` → **552 passing** (~480 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -484,9 +484,20 @@ tamper-evidence).
    alone so an expired snooze makes the alert deliverable again, unlike
    ack/close; writes an `alert.snoozed` audit event; suppressed while
    unexpired).
+   `test_demo_clock.py` (12 — Phase 3.8: admin-only demo clock.
+   `demo_clock.py` service (`status_view`/`advance`/`set_to`/`reset`) with a
+   **hard production refusal** (403 before anything runs, even for an
+   administrator) and a refusal to pretend when no `FixedClock` is installed
+   (409 on a live `SystemClock`); every move audited with before/after instants;
+   `reset` re-reads the `SIH_CLOCK_FIXED_AT` baseline and refuses loudly if
+   none; `GET/POST /admin/demo-clock/*` all gated `ADMIN_USERS` (4 matrix rows);
+   the required prod-refuses test monkeypatches a production-shaped `Settings`;
+   `DemoClock.tsx` admin panel (Jump 1/3/7 days + Reset) wired into `App.tsx`
+   as a `demo` hash view gated on `admin.users`, rendering a switched-off
+   message when the API reports `enabled:false`).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `77cdb87`.
+  repo is currently green at `9e99f9c`.
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on
@@ -581,7 +592,7 @@ alerts        GET /alerts · POST /alerts/{id}/ack · POST /alerts/{id}/close ·
 audit         GET /applications/{id}/audit · GET /audit/verify
 officer       GET /officer/{dashboard,pendency,ageing,escalations,assignments}
 reports       GET /reports (+ /pendency /regions /evc /undertakings /documents /overdue /workload)
-admin         GET /admin/{roles,users,audit} · POST /admin/assignments · POST /admin/assignments/{id}/revoke
+admin         GET /admin/{roles,users,audit} · POST /admin/assignments · POST /admin/assignments/{id}/revoke · GET|POST /admin/demo-clock{,/advance,/set,/reset} (admin.users)
 institutions  GET /institutions
 app-level     GET / · /health · /health/live · /health/ready · /metrics
 ```
