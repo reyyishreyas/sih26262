@@ -477,7 +477,7 @@ tamper-evidence).
    gate).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `dcf921d`.
+  repo is currently green at `38da1e5`.
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on
