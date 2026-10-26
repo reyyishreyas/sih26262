@@ -388,7 +388,7 @@ tamper-evidence).
   category/pattern fails loudly).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `eeb4330`.
+  repo is currently green at `1137a0b`.
 
 ---
 
