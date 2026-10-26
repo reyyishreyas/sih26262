@@ -367,7 +367,27 @@
         "source": "md/1_PRD.md \u00a76 routing rule 5 (APH cl. 2.17e)",
         "note": "APH cl. 2.17e cited as the PRD cites it; not independently verified. The PRD says a second EVC 'may be needed' \u2014 an officer judgement after the shift, so this records eligibility for the action, never an automatic second visit."
       }
-    ]
+    ],
+    "aa_gate_note": "PRD FR-10 ('Open SAC/SHC only on deficiency or negative outcome', T2.3) and \u00a76 pattern note: the 'AA' (as applicable) gate on the SCR+EVC+AA pattern \u2014 SHC/SAC opens only when the earlier outcome has a deficiency or a negative scrutiny result. The gate answers 'is SHC due?' as open / closed / needs_review. An undecided or unrecognised scrutiny result is 'needs_review', never a guessed open or closed (missing data must not silently pass). The result vocabulary ('nil_deficiency' / 'deficiency') is taken from PRD FR-14's own wording, not invented. Advisory like the rest of this section \u2014 the answer is input to the stage graph, never a transition this service performs.",
+    "aa_gate": {
+      "opens_on": [
+        "deficiency",
+        "negative_outcome"
+      ],
+      "scrutiny_results": {
+        "clean": [
+          "nil_deficiency"
+        ],
+        "negative": [
+          "deficiency"
+        ]
+      },
+      "undecided_result": "needs_review",
+      "unrecognised_result": "needs_review",
+      "status": "unverified",
+      "advisory_only": true,
+      "source": "md/1_PRD.md FR-10 (Table 2.3) and \u00a76 SCR+EVC+AA pattern note"
+    }
   },
   "routes": {
     "new_technical": {

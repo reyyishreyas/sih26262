@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0013 | 2026-10-26 | Implementation | Phase 1.7: "AA" gate — SHC/SAC opens only on a deficiency or negative scrutiny result (FR-10) | Tested | Phase 1 1.7 (AGENT-02; FR-10) | MiMo (OpenCode agent) |
 | IMPL-0012 | 2026-10-26 | Implementation | Phase 1.6: additional-EVC actions — random EVC for SD (2.3.5), second EVC after site shift (2.17e) | Tested | Phase 1 1.6 (AGENT-02; FR-19) | MiMo (OpenCode agent) |
 | IMPL-0011 | 2026-10-26 | Implementation | Phase 1.5: sequencing rule — Women's conversion must clear before the merger starts (cl. 2.13.1m) | Tested | Phase 1 1.5 (AGENT-02; FR-08) | MiMo (OpenCode agent) |
 | IMPL-0010 | 2026-10-26 | Implementation | Phase 1.4: combined applications — `ApplicationItem` (outcome per category), stage union, migration 0009 | Tested | Phase 1 1.4 (AGENT-02; FR-08) | MiMo (OpenCode agent) |
@@ -66,6 +67,35 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0013 — Phase 1.7: the "AA" gate — SHC/SAC opens only on a deficiency or negative outcome
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 2b4411d (work uncommitted at implementation)
+- Task ID and PRD IDs: Phase 1 **1.7** (AGENT-02); PRD **FR-10** "Open SAC/SHC only on deficiency or negative outcome" (Table 2.3); §6 SCR+EVC+AA pattern note ("AA" = as applicable); FR-14 for the result vocabulary.
+- Goal: give the SCR+EVC+AA route's `shc` stage (already marked `when: if_deficiencies` by task 1.2) a real answer to "is SHC due for this case?" — open, closed, or needs review — driven by configuration, with missing data never becoming a guessed open or closed.
+- What existed before: the four route patterns already carried `shc` with `when: if_deficiencies` (`workflow_routes.json::table_2_3.route_patterns`), and `routing.py` could list/merge stage conditions, but nothing evaluated a condition against a case's actual scrutiny result or open-deficiency count, and no config said what "deficiency or negative outcome" means in words the engine can compare.
+- What I did:
+  - **Tests first** — `backend/tests/test_aa_gate.py` (8 tests; all 8 first failed with the service absent, then passed once implemented): the gate config exists and is `unverified` + `advisory_only`; it cites FR-10 in its `source`; a clean result (`nil_deficiency`) with zero open deficiencies keeps the gate **closed**; an open deficiency opens it even with a clean result (the two conditions are OR'd, per FR-10's "or"); a negative result (`deficiency`) opens it on its own; an undecided result (`None`) is **never** a guessed open or closed — it answers `needs_review` (both with and without deficiencies); an unrecognised result outside the configured vocabulary is treated as uncertain, not as a pass; and the result vocabulary itself comes from config (`scrutiny_results.clean` / `.negative`), not from a hard-coded assumption.
+  - **Config** — `table_2_3.aa_gate` (+ `_note`): `{opens_on: [deficiency, negative_outcome], scrutiny_results: {clean: [nil_deficiency], negative: [deficiency]}, undecided_result: needs_review, unrecognised_result: needs_review, status: unverified, advisory_only: true, source: "md/1_PRD.md FR-10 (Table 2.3) and §6 SCR+EVC+AA pattern note"}`. The `nil_deficiency` / `deficiency` words are PRD FR-14's own wording ("Nil Deficiency / Deficiency"), not invented regulatory vocabulary.
+  - **Service** — `routing.aa_gate()` (raises `KeyError` if the config is missing, so a deleted gate fails loudly rather than silently answering "closed") and `routing.aa_stage_is_due(scrutiny_result, deficiencies_remaining) -> "open" | "closed" | "needs_review"`. The uncertainty branch is evaluated **first**, before the open/closed logic, so an unknown or absent result can never fall through into a clean verdict.
+- Files changed: `backend/rules/workflow_routes.json` (`aa_gate` + note, additive), `backend/app/services/routing.py` (`aa_gate()`, `aa_stage_is_due()`), `backend/tests/test_aa_gate.py` (new, 8), `md/6_IMPLEMENTATION_PLAN.md` (1.7 ticked), `README.md` + `CONTEXT.md` (269 → 277, suite list), this log.
+- Migrations / API / config / rule-file changes: config only. No model, endpoint, permission or audit change. The stage graph that will *consume* this answer arrives with task 3.1; until then this is a lookup, exactly like 1.5/1.6.
+- Decisions made: (1) three-valued answer (`open`/`closed`/`needs_review`) rather than a boolean, because rule 4 forbids a guessed pass/fail on missing data and a boolean would force one; (2) the uncertainty branch runs first so an unrecognised result can never be read as "clean" (defensive ordering); (3) no new DEC entry — follows DEC-0003 (advisory) and the existing policy-as-data pattern. The `when: if_deficiencies` marker from 1.2 is unchanged; `aa_stage_is_due` interprets it, it does not replace it.
+- Permission and audit effects: none — no endpoint, so no permission applies and no audit event is written. When the stage graph (3.1) consumes this to open/close SHC, that transition must carry its own permission and audit event — noted for 3.1.
+- Verification: exact commands + results:
+  - `pytest tests/test_aa_gate.py -q -p no:randomly` → **8 passed** (after implementation; 8 failed first, service absent)
+  - `make lint` → `All checks passed!`
+  - `make test` → **277 passed, 1 warning in 27.41s** (0 skipped; +8 vs 269)
+  - JSON re-validated after the config edit (`json.load` OK).
+  - Not run: `npm run build` (no frontend change), Alembic (no model change), Compose/Postgres.
+- Status per requirement touched: Plan 1.7 "'AA' gate: SHC/SAC opens only on deficiency or negative outcome (FR-10)" — **Implemented · Tested** as advisory configuration + a three-valued service lookup.
+- Limitations / assumptions / manual steps:
+  - Advisory only: nothing opens or blocks SHC yet; the stage graph (3.1) must consult this and still needs a human decision point.
+  - The gate reads a *scrutiny result* and an *open-deficiency count* supplied by the caller; it does not itself query the database, so correctness of the inputs is the caller's responsibility (kept pure for testability, matching `unmet_prerequisites`).
+  - FR-10's "negative outcome" is interpreted here as a negative *scrutiny result* (`deficiency`). Whether other outcomes (e.g. an EVC report flagging problems, cl. 2.3.5b / FR-22) should also open the gate is not decided — that is a regulatory reading a human should confirm.
+  - Clause/FR citations are the PRD's, not independently verified against the APH edition (blocked item, docs/SOURCES.md).
+- Related bugs: none (no error hit this run).
+- Open questions for a human: does a negative **EVC** finding (FR-22, fraudulent-document flag) count as a "negative outcome" that opens the AA gate, or only the scrutiny result? Recommended default (not implemented): keep it scrutiny-only until a human confirms, to avoid widening the gate on unverified reading. Owner: regulatory reviewer.
+- Next suggested task: Phase 1 **1.8** — fallback-to-EoA branch after "not approved" (FR-11).
 
 ### IMPL-0012 — Phase 1.6: additional-EVC actions — random EVC for SD, second EVC after site shift
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / fd9affa (work uncommitted at implementation)

@@ -196,6 +196,59 @@ def _evc_action_applies(
     return category_id in applies_to.get("category_ids", [])
 
 
+def aa_gate() -> dict[str, Any]:
+    """The "AA" (as applicable) gate configuration (PRD FR-10, §6).
+
+    Decides when the SHC/SAC stage is due on a SCR+EVC+AA route: only
+    when the earlier outcome carries a deficiency or a negative scrutiny
+    result. Advisory like the rest of this module.
+    """
+    gate = _section().get("aa_gate")
+    if not gate:
+        raise KeyError(
+            f"workflow_routes.json has no {_SECTION!r}.aa_gate — the 'AA' "
+            "gate definition is missing from configuration"
+        )
+    return dict(gate)
+
+
+def aa_stage_is_due(
+    scrutiny_result: str | None, deficiencies_remaining: int
+) -> str:
+    """Is the SHC/SAC ("AA") stage due for this case?
+
+    Answers ``open``, ``closed`` or ``needs_review``.
+
+    The gate opens when *either* condition holds (FR-10: "deficiency **or**
+    negative outcome"): there is at least one open deficiency, or the
+    recorded scrutiny result is a configured negative one. It stays closed
+    only when the result is a configured clean one *and* no deficiency
+    remains.
+
+    **Missing or unrecognised data is never a guessed open or closed**
+    (Master Prompt §2 rule 4): an ``None`` (undecided) or a result outside
+    the configured vocabulary answers ``needs_review`` so a human decides,
+    rather than the gate silently opening or shutting on absent evidence.
+
+    Advisory only: this reports whether SHC looks due; it never opens the
+    stage, transitions the case or blocks anything.
+    """
+    gate = aa_gate()  # missing config fails loudly
+    vocabulary = gate["scrutiny_results"]
+
+    if scrutiny_result is None or (
+        scrutiny_result not in vocabulary["clean"]
+        and scrutiny_result not in vocabulary["negative"]
+    ):
+        return str(gate["undecided_result"])  # "needs_review"
+
+    if deficiencies_remaining > 0:
+        return "open"
+    if scrutiny_result in vocabulary["negative"]:
+        return "open"
+    return "closed"
+
+
 # How much a condition gates the stage: lower keeps the stage more tightly
 # closed. Used to merge conditions when categories disagree.
 _WHEN_RANK = {"if_deficiencies": 0, "on_decision": 1, "always": 2}

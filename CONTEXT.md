@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 269 passing
+make test      # pytest — 277 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -357,7 +357,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **269 passing** (~218 test functions; some parametrised).
+- `make test` → **277 passing** (~219 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -396,7 +396,10 @@ tamper-evidence).
   blocked until the Women's conversion clears; rule cites cl. 2.13.1m) ·
   `test_additional_evc` (9 — Phase 1.6: random EVC for SD (2.3.5) and a
   second EVC after a site shift (2.17e) as advisory configuration; no
-  authority guessed).
+  authority guessed) ·
+  `test_aa_gate` (8 — Phase 1.7: the "AA" gate opens SHC/SAC only on a
+  deficiency or negative scrutiny result (FR-10); undecided or unknown
+  results answer `needs_review`, never a guessed open/closed).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `f699646`.
