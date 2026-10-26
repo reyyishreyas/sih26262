@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 363 passing
+make test      # pytest — 386 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -360,7 +360,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **363 passing** (~320 test functions; some parametrised).
+- `make test` → **386 passing** (~343 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -417,7 +417,12 @@ tamper-evidence).
   `test_blocked_flags` (31 — Phase 2.3: the five FR-03 flags evaluate
   three-valued from config (`flagged`/`clear`/`needs_review`; unrecorded
   input is never read as false), officer clear/hold persists one audited
-  row, `rejected` is a 422, scope miss is 404).
+  row, `rejected` is a 422, scope miss is 404) ·
+  `test_lease_check` (23 — Phase 2.4: FR-05/RULE-LEASE-01 remaining
+  lease-years vs longest course duration; duration ships null (nothing
+  invented) so production answers `needs_review` with the computed
+  years; equality = "stopped unless extended"; reads the persisted
+  grounded-extractor output, never re-parses PDFs at read time).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `44dbd6e`.
@@ -500,7 +505,7 @@ applications  GET|POST /applications · GET /applications/{id} · GET .../eviden
 documents     GET|POST /applications/{id}/documents · GET .../{doc}/content · POST .../{doc}/fields/{f}/verify
 compliance    POST /applications/{id}/compliance/evaluate
 deficiencies  GET|POST /applications/{id}/deficiencies · PATCH .../{id} · POST .../{id}/close
-readiness      GET /applications/{id}/blocked-flags · POST /applications/{id}/blocked-flags/{flag_id}
+readiness      GET /applications/{id}/blocked-flags · POST /applications/{id}/blocked-flags/{flag_id} · GET /applications/{id}/lease-check
 workflow      GET /workflow/routes · GET /workflow/table-2-3-scoreboard · POST /applications/{id}/transitions · POST .../revert · GET .../transitions
 undertakings  GET|POST /applications/{id}/undertakings · POST .../{id}/waive|submit|verify
 rehearsals    POST /applications/{id}/rehearsals · GET /rehearsals/{run_id}

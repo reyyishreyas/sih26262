@@ -121,12 +121,14 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
         "POST",
         "/api/v1/applications/{application_id}/deficiencies/{deficiency_id}/close",
     ): TRANSITION_OR_VERIFY,
-    # readiness: FR-03 blocked-application flags (Phase 2.3)
+    # readiness: FR-03 blocked-application flags (Phase 2.3) and the FR-05
+    # lease check (Phase 2.4 — read-only advisory, no write route exists)
     ("GET", "/api/v1/applications/{application_id}/blocked-flags"): READ_ANY,
     (
         "POST",
         "/api/v1/applications/{application_id}/blocked-flags/{flag_id}",
     ): frozenset({CASE_TRANSITION}),
+    ("GET", "/api/v1/applications/{application_id}/lease-check"): READ_ANY,
     # rehearsals
     ("POST", "/api/v1/applications/{application_id}/rehearsals"): frozenset(
         {REHEARSAL_RUN}

@@ -181,3 +181,31 @@ class BlockedFlagOut(BaseModel):
     note: str | None
     state: str
 
+
+class LeaseCheckOut(BaseModel):
+    """FR-05 / RULE-LEASE-01 lease-years computation (advisory, read-only).
+
+    ``evaluation`` is three-valued (sufficient | insufficient | needs_review)
+    and the configuration the answer was derived from is echoed inline, so an
+    officer sees the duration actually on file (null today) alongside the
+    computed years. No request body exists: the check is a GET.
+    """
+
+    rule_id: str
+    rule: str
+    clause: str
+    source: str
+    status: str
+    advisory_only: bool
+    valid_to: str | None
+    as_of: str
+    verified: bool
+    remaining_years: float | None
+    longest_course_duration_years: int | None
+    extension_years: int | None
+    extension_on_file: bool | None
+    comparison: str
+    evaluation: str
+    reason: str
+    missing_inputs: list[str]
+

@@ -138,5 +138,25 @@
         ]
       }
     ]
+  },
+  "lease": {
+    "status": "unverified",
+    "advisory_only": true,
+    "recorded_on": "2026-10-26",
+    "rule_id": "RULE-LEASE-01",
+    "rule": "Remaining lease years > longest course duration, or 30-yr extension on file",
+    "clause": "2.1e",
+    "source": "md/1_PRD.md FR-05, FR-45 and the cl. 2.1e lease note ('EoA stops once the live lease equals the longest course duration unless extended by 30 years'); compliance_rules.json RULE-LEASE-01 (deficiency candidate)",
+    "note": "Advisory computation only (DEC-0003, PRD §0): it stores nothing, gates nothing and issues no verdict on the case. PRD FR-45 also asks that the lease end date be stored for expiry alerts — the date already lives in the document's extracted fields (validated by validation_service and reported by monitoring_service); this check reuses it rather than copying it.",
+    "longest_course_duration_years": null,
+    "duration_note": "NOT RECORDED — no longest-course-duration figure exists anywhere in this repo, and PRD §19 open question 11 still asks AICTE for the verified lease/expiry requirements for the applicable year. Until a human records an institution's longest course duration here, the comparison answers needs_review — never a guessed 'sufficient' or 'insufficient' (Master Prompt §2 rule 4). The remaining-years computation still runs, so an officer sees the real number.",
+    "extension_years": 30,
+    "extension_years_note": "PRD-carried from the cl. 2.1e note ('unless extended by 30 years'). Unverified until the clause text is recorded by a rule owner; the figure is config, not code.",
+    "extension_on_file": {
+      "modelled": false,
+      "description": "Whether a 30-year extension is on file for this lease. No extension register or document type is modelled in this repo, so this input is recorded for no case; an equal-to-duration lease therefore answers needs_review (unknown whether extended), never a silent pass. Absent data is unknown, never false."
+    },
+    "evidence_note": "Reads the PERSISTED output of the grounded lease extractor through evidence_service.build_snapshot (documents.lease_deed.valid_to, falling back to documents.lease_agreement.valid_to — the only doc type the extractor dispatches for). PDFs are never re-parsed at read time and no model is called: the check is deterministic over stored evidence. An expiry that a human has not verified is still computed but never yields 'sufficient'; the verified flag is returned so the officer sees it.",
+    "anniversary_note": "Anniversaries are computed on the calendar; a 29 February anniversary in a non-leap year is taken as 28 February (documented assumption, tested)."
   }
 }

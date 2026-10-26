@@ -1,9 +1,10 @@
-"""FR-03 blocked-application flags: read the evaluation, record a decision.
+"""FR-03 blocked-application flags and the FR-05 lease-years check.
 
-Read is advisory (evaluation is computed on read, never stored); the write
-is an officer act — permission-gated, scope-checked, audited — and records
-only the clear/hold decision from PRD §7. Nothing here transitions or blocks
-the case itself (DEC-0003, PRD §0).
+Read is advisory (evaluation is computed on read, never stored); the flag
+write is an officer act — permission-gated, scope-checked, audited — and
+records only the clear/hold decision from PRD §7. The lease check is a
+read-only computation over stored evidence. Nothing here transitions or
+blocks the case itself (DEC-0003, PRD §0).
 """
 
 from __future__ import annotations
@@ -17,7 +18,7 @@ from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import APPLICATION_READ, CASE_READ, CASE_TRANSITION
 from ..models import ReadinessFlag
-from ..schemas.api import BlockedFlagDecision, BlockedFlagOut
+from ..schemas.api import BlockedFlagDecision, BlockedFlagOut, LeaseCheckOut
 from ..services import readiness
 from ..services.audit_service import AuditService
 from ..services.authorization_service import (
@@ -26,9 +27,7 @@ from ..services.authorization_service import (
 )
 from .deps import require, require_any
 
-router = APIRouter(
-    prefix="/applications/{application_id}/blocked-flags", tags=["readiness"]
-)
+router = APIRouter(prefix="/applications/{application_id}", tags=["readiness"])
 
 
 def _merge(evaluation: dict, flag: ReadinessFlag | None) -> dict:
@@ -50,7 +49,7 @@ def _merge(evaluation: dict, flag: ReadinessFlag | None) -> dict:
     }
 
 
-@router.get("", response_model=list[BlockedFlagOut])
+@router.get("/blocked-flags", response_model=list[BlockedFlagOut])
 def list_blocked_flags(
     application_id: str,
     access: EffectiveAccess = Depends(require_any(APPLICATION_READ, CASE_READ)),
@@ -74,7 +73,7 @@ def list_blocked_flags(
     return [_merge(row, decisions.get(row["flag_id"])) for row in evaluations]
 
 
-@router.post("/{flag_id}", response_model=BlockedFlagOut)
+@router.post("/blocked-flags/{flag_id}", response_model=BlockedFlagOut)
 def decide_blocked_flag(
     application_id: str,
     flag_id: str,
@@ -150,3 +149,26 @@ def decide_blocked_flag(
     db.commit()
     db.refresh(flag)
     return _merge(known, flag)
+
+
+@router.get("/lease-check", response_model=LeaseCheckOut)
+def get_lease_check(
+    application_id: str,
+    access: EffectiveAccess = Depends(require_any(APPLICATION_READ, CASE_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """FR-05: remaining lease years vs the longest course duration.
+
+    Read-only and advisory: it computes from the *persisted* grounded
+    extractor output (evidence snapshot), writes nothing, and stores no
+    verdict. With the shipped configuration (no recorded course duration)
+    every live lease answers ``needs_review`` with the real computed years
+    attached — never a guessed sufficient/insufficient (PRD §19 Q11).
+    """
+    application = require_application(db, access, application_id)
+    valid_to, verified = readiness.lease_evidence(db, application)
+    return readiness.lease_check(
+        valid_to,
+        as_of=get_clock().now().date(),
+        verified=verified,
+    )
