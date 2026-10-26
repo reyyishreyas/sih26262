@@ -92,6 +92,49 @@ Out-of-scope cases return **404**, not 403, so the API does not confirm that a c
 exists. `require_application` performs this check for every case read and write,
 including rehearsal reads and simulation results.
 
+## 404 versus 403
+
+Four answers, in this order, and only these four:
+
+| Status | Meaning | Checked |
+|---|---|---|
+| **401** | No bearer token (or it is not valid) | `get_current_user`, before anything else |
+| **403** | The caller's roles hold **none** of the permissions the route asks for | `require(...)` / `require_any(...)` route dependency — *before* any record is loaded, so the answer never depends on which case was requested |
+| **404** | The caller holds the permission, but the record is **outside their scope** (or does not exist) | `require_application` / `can_access_application`, and `PermissionDenied(code="not_found")` |
+| *other* | Passed authorisation; a business rule refused it (wrong state, missing evidence, unknown action) | the workflow/compliance services — see below |
+
+Why 404 and not 403 for scope: an officer who may not reach a case must not be
+able to tell an existing case id from an invented one. `403 "forbidden"` on
+`/applications/{id}` would confirm the row exists; `404 "not found in your
+scope"` does not. Role failures are the opposite: there is nothing secret about
+"Il role X does not hold `document.upload`", so they are answered openly as 403.
+
+Two nuances that trip people up:
+
+- **Service-level refusals are not 403.** Once past the route gate, the
+  workflow service answers *rejections* with the standard
+  `{accepted: false, reasons: [...]}` envelope (HTTP 200) — an action that is
+  not defined for the route, a missing transition permission, a wrong state, a
+  stale `expected_baseline_version`. 403 only ever comes from a route gate (or
+  `require_permission` inside an endpoint), and 404 only from a scope or
+  record-lookup check. `POST /applications` is the one endpoint that answers
+  403 from inside its body, for an institution outside the caller's scope.
+- **Nested resource ids.** On routes addressed by `{application_id}` *plus*
+  another id (a document, deficiency, undertaking, alert), a placeholder id
+  also produces 404 from the record lookup, so for those routes a 404 proves
+  "refused", not specifically "out of scope". The scope check still runs first
+  (`require_application` is called before the nested lookup).
+
+This is enforced, not just written down: `backend/tests/test_authz_matrix.py`
+derives **every permission-gated route in the running application** (54 at the
+last count), drives each one as all six demo roles against an in-scope case
+(`app-main-0001`) and an out-of-scope one (`app-second-0002`), and asserts the
+table above. Its first test compares that list against the matrix in the file,
+so a new sensitive route — or a changed permission on an existing one — fails
+until the matrix is updated on purpose. The expectations were proved against
+deliberately broken copies of both gates (permission check removed, scope check
+removed) before the file was committed.
+
 ## Division of duties in the demo workflow
 
 - Institution representative submits.

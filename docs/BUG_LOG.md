@@ -16,6 +16,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0005 | 2026-10-26 | S4 | test | New authz-matrix tests failed on first run (unauthenticated request builder `KeyError: 0`; admin's global scope wrongly expected 404) | Fixed | IMPL-0004 |
 | BUG-0004 | 2026-10-26 | S2 | workflow | EVC visit updates ran in a second transaction after the main commit — a failure left the case and its booking contradictory | Fixed | IMPL-0003 |
 | BUG-0003 | 2026-10-26 | S4 | test-harness | Test session showed pre-request state after an API call committed in another session | Fixed | IMPL-0002 |
 | BUG-0002 | 2026-10-26 | S4 | docs | README repository map said 155 tests; actual 163 | Fixed | IMPL-0001 |
@@ -43,6 +44,36 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0005 — authz-matrix tests failed on their first run (two test-authoring defects)
+- Date found / found by: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6), first run of `backend/tests/test_authz_matrix.py`
+- Branch / commit: master @ 0b4bd11 (work uncommitted at time of fix)
+- Severity / Area: **S4** (test-only; the product behaved correctly in both cases) / test-harness
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_authz_matrix.py -q -p no:randomly` → `2 failed, 19 passed`:
+  ```
+  FAILED tests/test_authz_matrix.py::test_every_gated_route_refuses_a_request_without_a_token
+  FAILED tests/test_authz_matrix.py::test_out_of_scope_case_is_404_not_403_for_a_role_that_may_act[admin@demo.local]
+  ```
+- Expected behaviour: all 21 matrix tests green against the unmodified application.
+- Actual behaviour: two failures, both in the new tests, not in the API.
+- Exact error output (trimmed):
+  ```
+  E           KeyError: 0                      <- unauthenticated test
+  ```
+  and, for the administrator row, `got 200, expected 404`.
+- Steps to reproduce: run the new file as-is at the commit before the fix.
+- Environment: macOS, Python 3.13.9, SQLite (test DB), fixed clock.
+- Hypotheses tried:
+  1. *The product returns the wrong status for anonymous calls* — rejected: the `KeyError` came from inside the test's own request builder.
+  2. *The product leaks an out-of-scope case to the administrator* — rejected: the administrator has `SCOPE_GLOBAL`, so `app-second-0002` **is** in scope for them by design.
+- Root cause (two separate defects in the new test file):
+  1. `_request` built the `POST /api/v1/applications` body by calling `GET /api/v1/institutions` and indexing `[0]`; without a token that call answers `401 {"error": ...}` (a dict), so `listed[0]` raised `KeyError: 0` instead of letting the route gate answer 401.
+  2. The out-of-scope test assumed every role was confined to a scope. `ROLE_DEFAULT_SCOPE[administrator] == SCOPE_GLOBAL`, so the expected status for them is "passes authorisation", not 404.
+- Solution applied: `_target_institution(...)` now accepts a non-list/empty answer (401 payload, or a role whose institution list is scope-filtered to nothing) and falls back to a seeded institution id from the database — the body is only a placeholder for callers the gate will refuse anyway. The out-of-scope test branches on `ROLE_DEFAULT_SCOPE[role] == SCOPE_GLOBAL` and asserts the in-scope expectation for the administrator, with a comment saying why. No product code touched (`git diff` on `app/api/deps.py` and `app/services/authorization_service.py` empty after the temporary mutation proof was restored).
+- Verification: `pytest tests/test_authz_matrix.py -q -p no:randomly` → **21 passed**; `make lint` → `All checks passed!`; `make test` → **199 passed, 1 warning**.
+- Side effects / follow-ups: none. Related: IMPL-0004.
+- Update history: —
 
 ### BUG-0004 — EVC visit updates committed in a second transaction after the main workflow commit
 - Date found / found by: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6), Phase 0.5 H.2 code inspection, confirmed by a failing test before the fix

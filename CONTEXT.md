@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 178 passing
+make test      # pytest — 199 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -357,7 +357,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **178 passing** (~173 test functions; some parametrised).
+- `make test` → **199 passing** (~179 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -372,7 +372,10 @@ tamper-evidence).
   `test_ai_copilot` (1) · `test_concurrency` (7 — Phase 0.5 H.1: stale
   `expected_baseline_version` rejected and audited on transition/revert) ·
   `test_transaction_boundary` (8 — Phase 0.5 H.2: one commit per workflow
-  action; audit/visit-update failure rolls the whole action back).
+  action; audit/visit-update failure rolls the whole action back) ·
+  `test_authz_matrix` (21 — Phase 0.5 H.3: every permission-gated route
+  × six demo roles × in-scope/out-of-scope case, plus the coverage guard
+  that keeps the matrix in step with the routes the app actually declares).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `eb4d051`.

@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0004 | 2026-10-26 | Implementation | H.3 authorisation matrix: every gated route × role × scope; 404-vs-403 policy documented | Tested | Phase 0.5 H.3 (Essentials §2, SYS-AUTH-001) | MiMo (OpenCode agent) |
 | IMPL-0003 | 2026-10-26 | Implementation | H.2 transaction boundary: one commit per workflow action; audit failure fails the operation | Tested | Phase 0.5 H.2 (Essentials §17, BUG-0004) | MiMo (OpenCode agent) |
 | IMPL-0002 | 2026-10-26 | Implementation | H.1 optimistic concurrency: stale transitions/reverts rejected and audited | Tested | Phase 0.5 H.1 (Essentials §14a, SYS-CONCUR-001) | MiMo (OpenCode agent) |
 | IMPL-0001 | 2026-10-26 | Implementation | Phase 0 baseline, repo audit and planning-doc set | Tested | 0.1–0.8, AGENT-01 | MiMo (OpenCode agent) |
@@ -57,6 +58,46 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0004 — H.3: authorisation matrix (every gated route × role × scope) and the 404-vs-403 policy
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 0b4bd11 (work uncommitted at implementation; committed and pushed per user instruction)
+- Task ID and PRD IDs: Phase 0.5 **H.3** (AGENT-02); `md/3_ARCHITECTURE_ESSENTIALS.md` §2 (server-side check of role and state on every action), rules2 **SYS-AUTH-001** (only authorised actors decide), AGENTS.md "do not loosen authorisation".
+- Goal: prove — for *every* permission-gated route, all six demo roles, and both an in-scope and an out-of-scope case — that the server answers 401 / 403 / 404 in the documented order, and write the 404-vs-403 policy where the repo keeps the role model.
+- What existed before: `test_rbac.py` covered a handful of cases (scope of the list endpoints, 404 on an unassigned case, admin-only routes, revocation taking effect) but nothing asserted *all* gates, and nothing stopped a new route from shipping without an authorisation test. The 404 rule was one sentence in `docs/ROLE_MODEL.md`; the ordering of the checks (401 → 403 → 404), why scope failures are 404 rather than 403, and the fact that service-level refusals answer `200 {accepted:false}` rather than 403 were not written down anywhere.
+- What I did:
+  - **Tests first** — `backend/tests/test_authz_matrix.py` (21 items from 6 functions):
+    - The route list is *discovered from the running application*: every route whose dependencies call `require(...)`/`require_any(...)` (54 routes), reading the permission out of the closure the dependency was built with. `test_matrix_lists_every_permission_gated_route` compares that with the matrix written in the file — a new sensitive route, a removed gate, or a changed permission fails the test until the matrix is updated on purpose. A route composing two permission gates fails the discovery assertion rather than being modelled wrongly.
+    - `test_every_gated_route_refuses_a_request_without_a_token` → 401 on all 54.
+    - `test_role_without_the_permission_is_refused_403_everywhere[×6 roles]` → 403 on every route whose permissions the role lacks, **for both cases** (in-scope and out-of-scope), proving the gate runs before any record is loaded.
+    - `test_out_of_scope_case_is_404_not_403_for_a_role_that_may_act[×6]` → `app-second-0002` (Southern Region) answers 404 for the five scoped roles and passes for the global administrator, who is in scope everywhere by design.
+    - `test_in_scope_case_passes_authorisation_for_every_role_that_may_act[×6]` → `app-main-0001` never answers 401/403, and on application-only routes never 404 either (a 404 there would mean the scope check wrongly refused a reachable case).
+    - `test_permission_errors_map_to_403_and_scope_errors_to_404` pins `translate_permission_error` (`code="not_found"` → 404, otherwise 403); the HTTP-level mapping is covered by the loop tests through the `PermissionDenied` handler in `main.py`.
+    - Requests carry **valid bodies** (multipart upload with `pdf_factory`, deficiency/undertaking/rehearsal/EVC-visit payloads, a deliberately unknown transition action so no state moves) so a refusal comes from the permission gate and not from validation.
+  - **The tests were proved against broken code before the file was trusted.** Two temporary mutations, each run and then restored (`git diff` on both files empty afterwards):
+    - permission gate removed from `require(...)` → `11 failed` (the 403 test for five roles, the out-of-scope test where scope-404 collapsed, and the coverage guard, which also notices a gate that no longer exists);
+    - scope check removed from `require_application` → `11 failed` overall (the out-of-scope test for all five non-global roles).
+    Restored: `21 passed`.
+  - **Policy documented**: `docs/ROLE_MODEL.md` gained a **"404 versus 403"** section — the four statuses in check order (401 token → 403 route gate → 404 scope/lookup → anything else is a business refusal), why scope failures are 404 (an invented id must be indistinguishable from a real one, while "your role lacks `document.upload`" is not a secret), the two traps (service-level refusals answer `200 {accepted:false}`, not 403; `POST /applications` is the single endpoint that answers 403 from inside its body for an out-of-scope institution), and the honest limitation that on routes addressed by a *nested* resource id a 404 proves "refused" rather than specifically "out of scope".
+- Files changed: `backend/tests/test_authz_matrix.py` (created), `docs/ROLE_MODEL.md` (policy section), `md/6_IMPLEMENTATION_PLAN.md` (H.3 ticked), `README.md` + `CONTEXT.md` (178 → 199, suite list).
+- Migrations / API / config / rule-file changes: **none**. No endpoint, schema, permission or route-table change.
+- Permission and audit effects: no permission changes. Note for reviewers: the matrix probes write rejected `workflow.matrix_probe_not_a_real_action` events (and a few `application.created` / sweep / undertaking rows) — **in the per-test database only**, which `conftest.py` drops and re-seeds around every test; nothing is written anywhere in production.
+- Verification: exact commands + results:
+  - `pytest tests/test_authz_matrix.py -q -p no:randomly` → first run **2 failed, 19 passed** (BUG-0005, two test-authoring defects), after the fix **21 passed**
+  - mutation proof (gate removed, then scope removed) → **11 failed** each time; both files restored, `git diff` empty
+  - `make lint` → `All checks passed!`
+  - `make test` → **199 passed, 1 warning in 21.47s** (0 skipped; +21 vs the 178 baseline)
+  - Not run: `npm run build` (no frontend change), Alembic (no model change), Compose stack.
+- Status per requirement touched:
+  - Plan H.3 "authorisation matrix test: every sensitive route × role × scope" — **Implemented · Tested** (54 routes × 6 roles × in-scope/out-of-scope, plus anonymous)
+  - Plan H.3 "404-vs-403 policy documented" — **Implemented** (`docs/ROLE_MODEL.md` §404 versus 403)
+- Limitations / assumptions / manual steps:
+  - The matrix asserts *authorisation*, not business outcomes: a request that passes the gate may still be refused by a rule (unknown probe action, placeholder nested id → 404, duplicate sweep) and that is asserted only as "not 401/403/404 where the case is reachable".
+  - Roles are read from `ROLE_PERMISSIONS` in code; effective access is the union of a user's assignment rows, and the tests use the six seeded demo users. A *fourth* demo role or a custom grant is not covered.
+  - Nested-resource routes (`{document_id}`, `{deficiency_id}`, `{undertaking_id}`, `{alert_id}`, `{assignment_id}`, `{run_id}`) are probed with placeholder ids, so their 404 cannot distinguish scope from missing record — stated in the policy section.
+  - PostgreSQL/Compose was not exercised for this change.
+- Related bugs: BUG-0005 (fixed here).
+- Open questions for a human: none.
+- Next suggested task: Phase 0.5 **H.4** — document versioning replacement semantics, partial-storage-failure test, file-signature check.
 
 ### IMPL-0003 — H.2: transaction boundary — one commit per workflow action; audit failure fails the operation
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / a3477cb (work uncommitted at implementation; pushed later per user instruction)
