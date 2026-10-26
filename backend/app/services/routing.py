@@ -1,0 +1,78 @@
+"""Table 2.3 routing: which stages a category runs, and in what order.
+
+Answers come from configuration only — ``rules/workflow_routes.json``'s
+``table_2_3`` section (the 21 APH rows and the four PRD §6 patterns). No
+route, stage or condition is hard-coded here, and nothing in this module
+may block, return or reject an application: the rows are **Unverified**
+until a reviewer records the exact clause in ``docs/SOURCES.md``
+(DEC-0003, PRD §0), so every answer this service gives is advisory input
+to a workflow decision, never the decision itself.
+"""
+
+from __future__ import annotations
+
+from typing import Any
+
+from .policy import workflow_routes
+
+_SECTION = "table_2_3"
+
+
+def _section() -> dict[str, Any]:
+    section = workflow_routes().get(_SECTION)
+    if not section:
+        raise KeyError(
+            f"workflow_routes.json has no {_SECTION!r} section — the Table 2.3 "
+            "routing table is missing from configuration"
+        )
+    return section
+
+
+def is_advisory() -> bool:
+    """True while the APH clauses behind these rows are unverified."""
+    return bool(_section().get("advisory_only"))
+
+
+def table_2_3_rows() -> list[dict[str, Any]]:
+    """The 21 category rows, in PRD order."""
+    return list(_section().get("rows", []))
+
+
+def category(category_id: str) -> dict[str, Any]:
+    """One Table 2.3 row by its stable id (``t23-01`` … ``t23-21``).
+
+    Raises ``KeyError`` rather than answering with a default: an unknown
+    category must reach a human as 'no route known', never as a guessed one.
+    """
+    for row in table_2_3_rows():
+        if row.get("category_id") == category_id:
+            return row
+    raise KeyError(f"unknown Table 2.3 category: {category_id!r}")
+
+
+def route_patterns() -> dict[str, Any]:
+    """The four PRD §6 patterns (SD, SCR, SCR+EVC, SCR+EVC+AA)."""
+    return dict(_section().get("route_patterns", {}))
+
+
+def route_pattern(category_id: str) -> str:
+    """The route pattern a category uses (``SD`` / ``SCR`` / …)."""
+    return str(category(category_id)["route"])
+
+
+def stages(route_pattern_name: str) -> list[dict[str, Any]]:
+    """Ordered stages for a pattern; each entry is ``{stage, when}``.
+
+    ``when`` is ``always``, ``if_deficiencies`` (the PRD §6 "AA" gate) or
+    ``on_decision`` (the appeal window). Raises ``KeyError`` for an unknown
+    pattern.
+    """
+    patterns = route_patterns()
+    if route_pattern_name not in patterns:
+        raise KeyError(f"unknown route pattern: {route_pattern_name!r}")
+    return list(patterns[route_pattern_name].get("stages", []))
+
+
+def stages_for_category(category_id: str) -> list[dict[str, Any]]:
+    """Ordered stages for a category's pattern."""
+    return stages(route_pattern(category_id))

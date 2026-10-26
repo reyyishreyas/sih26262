@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0008 | 2026-10-26 | Implementation | Phase 1.2: `services/routing.py` — Table 2.3 category → ordered stage list for the four PRD patterns | Tested | Phase 1 1.2 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
 | IMPL-0007 | 2026-10-26 | Implementation | Phase 1.1: all 21 Table 2.3 rows encoded in `workflow_routes.json` as unverified advisory configuration | Tested | Phase 1 1.1 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
 | IMPL-0006 | 2026-10-26 | Verification | Phase 0.5 exit check: all four hardening regression suites re-run green; limitations consolidated | Verified | Phase 0.5 exit check (H.1–H.4) | MiMo (OpenCode agent) |
 | IMPL-0005 | 2026-10-26 | Implementation | H.4 document versioning: replacement reason recorded, immutability/partial-storage/signature tests | Tested | Phase 0.5 H.4 (AGENT-03; BUG-0006) | MiMo (OpenCode agent) |
@@ -61,6 +62,33 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0008 — Phase 1.2: `services/routing.py` — category → ordered stage list
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 0975417 (work uncommitted at implementation)
+- Task ID and PRD IDs: Phase 1 **1.2** (AGENT-02); PRD **FR-07** (route from category via configurable table), §6 pattern definitions, §7 end-to-end flow; rules2 SYS-ROUTE-001 (proposed).
+- Goal: a routing service that answers — from configuration only — which PRD §6 pattern a Table 2.3 category uses and which stages that pattern runs, in order, marking the conditional ones.
+- What existed before: task 1.1 had put the 21 rows and their `route` values in `workflow_routes.json`, but nothing mapped a pattern (SD / SCR / SCR+EVC / SCR+EVC+AA) to stages, and no service read the section.
+- What I did:
+  - **Config** — extended the `table_2_3` section with `route_patterns`: the four patterns, each with an ordered `stages` list of `{stage, when}` entries transcribed from PRD §6 (pattern definitions) and §7 (flow order): `readiness`, `nil_deficiency_report` (SD only), `scrutiny`, `evc`, `shc` (`when: if_deficiencies` — the §6 "AA" gate, FR-10), `executive_decision`, `appeal_window` (`when: on_decision` — §7), `grant`. Diff vs the 1.1 commit is additive apart from one structural `]` → `],` line.
+  - **Tests first** — `backend/tests/test_routing.py` (10 tests): per-pattern stage order for all four patterns; the conditional flags (shc `if_deficiencies`, appeal_window `on_decision`, scrutiny/evc `always`); SD has no scrutiny and SCR has no evc/shc; every route a row uses must be a defined pattern; category lookup returns the row, its pattern and its stages (`t23-08` → SCR with `evc_not_applicable`); unknown category or pattern raises `KeyError` (never a silent default); the section still reports itself advisory. First run: **1 failed, 9 passed** — the drift guard assumed every pattern is used by a row, but the PRD's 21 rows use only SD/SCR/SCR+EVC+AA; no row is plain SCR+EVC (BUG-0007). Test corrected to the true contract (`used ⊆ defined` + all four patterns defined), then all 10 green. No data or product code changed for the fix.
+  - **Service** — `backend/app/services/routing.py`: `table_2_3_rows()`, `category(category_id)`, `route_pattern(category_id)`, `route_patterns()`, `stages(pattern)`, `stages_for_category(category_id)`, `is_advisory()`. Unknown category/pattern raises `KeyError` with the id in the message — an unrecognised category must surface as "no route known", never resolve to a guess. Reads through the cached `policy.workflow_routes()`; no new dependency, no hard-coded route or stage.
+- Files changed: `backend/rules/workflow_routes.json` (`route_patterns` + note inside `table_2_3`), `backend/app/services/routing.py` (new), `backend/tests/test_routing.py` (new, 10), `md/6_IMPLEMENTATION_PLAN.md` (1.2 ticked — untracked), `README.md` + `CONTEXT.md` (211 → 221, suite list), `docs/BUG_LOG.md` (BUG-0007), this log.
+- Migrations / API / config / rule-file changes: config only (`workflow_routes.json`). No endpoint, model, permission or rule-file change.
+- Decisions made: stage lists live in the JSON, not in Python, so the admin console (Phase 9) can version them; `when` vocabulary is three values only (always / if_deficiencies / on_decision) — the re-scrutiny loop is modelled by the workflow transitions (existing `returned ⇄ resubmit`), not by a second entry in the linear stage list. Note for humans: plain `SCR+EVC` is defined but used by no current Table 2.3 row (kept for the prototype `new_technical` route and the random-EVC add, 1.6).
+- Permission and audit effects: none — the service is pure lookup, not yet called by any endpoint or workflow decision (that is 1.4+/3.1). No audit events.
+- Verification: exact commands + results:
+  - `pytest tests/test_routing.py -q -p no:randomly` → first run **1 failed, 9 passed** (BUG-0007), after the fix **10 passed**
+  - `make lint` → `All checks passed!`
+  - `make test` → **221 passed, 1 warning in 26.87s** (0 skipped; +10 vs 211)
+  - Not run: `npm run build` (no frontend change), Alembic (no model change), Compose.
+- Status per requirement touched: Plan 1.2 "routing.py: category → ordered stage list; support SD, SCR, SCR+EVC, SCR+EVC+AA" — **Implemented · Tested**.
+- Limitations / assumptions / manual steps:
+  - Advisory only, like the rows themselves (Unverified until clause verification — same blocked item).
+  - Stage names are a new vocabulary (`readiness`, `nil_deficiency_report`, …) that does not yet map to workflow *states* or `StageInstance` (Phase 3.1); no application's state is influenced by this service yet.
+  - The SCR⇄compliance re-scrutiny loop and the random-EVC add are not modelled here (tasks 3.1/1.6).
+- Related bugs: BUG-0007 (Fixed here).
+- Open questions for a human: none new.
+- Next suggested task: Phase 1 **1.3** — `test_routing_table_2_3.py`: one parametrised test per row (21 passing).
 
 ### IMPL-0007 — Phase 1.1: the 21 Table 2.3 routing rows, encoded as unverified advisory configuration
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / 64976d4 (work uncommitted at implementation)

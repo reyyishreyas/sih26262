@@ -16,6 +16,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0007 | 2026-10-26 | S4 | test | Routing test assumed every PRD §6 pattern is used by a Table 2.3 row; no row is plain SCR+EVC | Fixed | IMPL-0008 |
 | BUG-0006 | 2026-10-26 | S2 | migration | `alembic check` red: `deficiencies` and `evc_visits` tables added to the ORM with no migration — a Compose deploy would lack both | Fixed | IMPL-0005 |
 | BUG-0005 | 2026-10-26 | S4 | test | New authz-matrix tests failed on first run (unauthenticated request builder `KeyError: 0`; admin's global scope wrongly expected 404) | Fixed | IMPL-0004 |
 | BUG-0004 | 2026-10-26 | S2 | workflow | EVC visit updates ran in a second transaction after the main commit — a failure left the case and its booking contradictory | Fixed | IMPL-0003 |
@@ -45,6 +46,34 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0007 — routing test assumed every pattern is used by a Table 2.3 row
+- Date found / found by: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6), first run of `backend/tests/test_routing.py`
+- Branch / commit: master @ 0975417 (work uncommitted at time of fix)
+- Severity / Area: **S4** (test-only; the configuration and service were correct) / test-harness
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_routing.py -q -p no:randomly` → `1 failed, 9 passed`:
+  ```
+  FAILED tests/test_routing.py::test_every_route_used_by_a_table_2_3_row_has_a_stage_list
+  ```
+- Expected behaviour: all 10 routing tests green against the data written in task 1.1.
+- Actual behaviour: the drift-guard failed.
+- Exact error output (trimmed):
+  ```
+  E       AssertionError: ({'SCR', 'SCR+EVC+AA', 'SD'}, {'SCR', 'SCR+EVC', 'SCR+EVC+AA', 'SD'})
+  E       Extra items in the right set:
+  E       'SCR+EVC'
+  ```
+- Steps to reproduce: run the new file as written at the commit before the fix.
+- Environment: macOS, Python 3.13.9, SQLite (test DB), fixed clock.
+- Hypotheses tried:
+  1. *A Table 2.3 row's route value is misspelled or the patterns section lost a key* — rejected: the failing tuple shows the rows use exactly {SD, SCR, SCR+EVC+AA} and all four patterns are defined.
+  2. *The test's invariant is wrong* — confirmed: re-reading the PRD's Table 2.3 (md/1_PRD.md §6), **no row is plain SCR+EVC**; the pattern exists in §6's definitions and in the prototype state machines (e.g. `new_technical`), and is needed for the random-EVC add (2.3.5), but no category currently maps to it.
+- Root cause: the test asserted `used == defined` (every pattern used by a row, every used route defined). The true contract is `used ⊆ defined` plus "all four documented patterns exist".
+- Solution applied: the test now asserts `used <= defined` (a row may never point at an undefined pattern) **and** `defined == {SD, SCR, SCR+EVC, SCR+EVC+AA}` (all four documented patterns stay defined), with a comment recording that plain SCR+EVC is currently used by no Table 2.3 row and why it must still exist. No data or product code changed.
+- Verification: `pytest tests/test_routing.py -q -p no:randomly` → **10 passed**; `make lint` → `All checks passed!`; `make test` → **221 passed, 1 warning**.
+- Side effects / follow-ups: none. Related: IMPL-0008.
+- Update history: —
 
 ### BUG-0006 — migrations out of sync: `deficiencies` and `evc_visits` had no migration
 - Date found / found by: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6), running the mandatory `make migrate-sqlite` (which includes `alembic check`) as part of the H.4 definition of done

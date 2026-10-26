@@ -198,7 +198,122 @@
         "source": "md/1_PRD.md \u00a76 Table 2.3 row 21",
         "note": "PRD: year round, processed twice a year per UGC timeline."
       }
-    ]
+    ],
+    "route_patterns_note": "Stage composition per PRD \u00a76 pattern, in the \u00a77 end-to-end flow order. 'when': always | if_deficiencies (PRD \u00a76: AA opens SHC/SAC only if the earlier outcome has deficiencies \u2014 FR-10) | on_decision (PRD \u00a77: the appeal window follows the decision). Advisory like the rest of this section.",
+    "route_patterns": {
+      "SD": {
+        "label": "Self-Disclosure only: system generates the Nil Deficiency report; no scrutiny",
+        "stages": [
+          {
+            "stage": "readiness",
+            "when": "always"
+          },
+          {
+            "stage": "nil_deficiency_report",
+            "when": "always"
+          },
+          {
+            "stage": "executive_decision",
+            "when": "always"
+          },
+          {
+            "stage": "appeal_window",
+            "when": "on_decision"
+          },
+          {
+            "stage": "grant",
+            "when": "always"
+          }
+        ]
+      },
+      "SCR": {
+        "label": "Scrutiny / Re-Scrutiny only",
+        "stages": [
+          {
+            "stage": "readiness",
+            "when": "always"
+          },
+          {
+            "stage": "scrutiny",
+            "when": "always"
+          },
+          {
+            "stage": "executive_decision",
+            "when": "always"
+          },
+          {
+            "stage": "appeal_window",
+            "when": "on_decision"
+          },
+          {
+            "stage": "grant",
+            "when": "always"
+          }
+        ]
+      },
+      "SCR+EVC": {
+        "label": "Scrutiny then Expert Visit Committee",
+        "stages": [
+          {
+            "stage": "readiness",
+            "when": "always"
+          },
+          {
+            "stage": "scrutiny",
+            "when": "always"
+          },
+          {
+            "stage": "evc",
+            "when": "always"
+          },
+          {
+            "stage": "executive_decision",
+            "when": "always"
+          },
+          {
+            "stage": "appeal_window",
+            "when": "on_decision"
+          },
+          {
+            "stage": "grant",
+            "when": "always"
+          }
+        ]
+      },
+      "SCR+EVC+AA": {
+        "label": "Scrutiny, EVC, then SAC/SHC only if the earlier outcome has deficiencies (AA = as applicable)",
+        "stages": [
+          {
+            "stage": "readiness",
+            "when": "always"
+          },
+          {
+            "stage": "scrutiny",
+            "when": "always"
+          },
+          {
+            "stage": "evc",
+            "when": "always"
+          },
+          {
+            "stage": "shc",
+            "when": "if_deficiencies"
+          },
+          {
+            "stage": "executive_decision",
+            "when": "always"
+          },
+          {
+            "stage": "appeal_window",
+            "when": "on_decision"
+          },
+          {
+            "stage": "grant",
+            "when": "always"
+          }
+        ]
+      }
+    }
   },
   "routes": {
     "new_technical": {
