@@ -1,0 +1,31 @@
+# docs/TRACEABILITY.md — requirement → source → code → test → status (plan 0.7)
+
+- Created: 2026-10-26 (MiMo agent) · linked `IMPL-0001`, `md/GAP_NOTES.md`, `docs/SOURCES.md`
+- Rows seeded from plan 0.7's ID list. **Caveat (honesty rule):** the
+  technical specification that defines these row IDs
+  (`AICTE_PS26262_TECHNICAL_DESIGN_AND_IMPLEMENTATION_SPECIFICATION.md`) is
+  **not present in the repo**, so each row's meaning below is reconstructed
+  from the PRD/plan context and marked accordingly. When the spec file is
+  attached (SRC-SPEC-26262), reconcile the wording — do not silently rewrite
+  either side.
+- Status vocabulary: Verified · Implemented · Tested · Partial · Proposed ·
+  Unverified · Blocked. "Implemented" ≠ regulatory Verified.
+
+| Row ID | Requirement (seeded meaning) | Source | Code (file:symbol) | Test(s) | Status |
+|---|---|---|---|---|---|
+| PRD-WF-001 | Server-guarded workflow: no stage completes without role/state/document/rule checks; every accepted **and rejected** action audited | PRD §7, §14; essentials 1–2 | `services/workflow_service.py` (8-step guard order, `_reject`), `api/workflow.py` | `tests/test_workflow.py`, `test_routes_and_revert.py` | Implemented · Tested |
+| PRD-AUTH-001 | Deny-by-default RBAC + object-level scope (institution/assignment/region/committee); never trust client-supplied scope | PRD §5; rules1 PERM-001…009 | `core/permissions.py`, `services/authorization_service.py`, `api/deps.py` | `tests/test_rbac.py` (10) | Implemented · Tested; full route×role×scope matrix **Partial** (H.3 pending) |
+| PRD-DOC-001 | Private, signature-checked, hashed, versioned documents; no public URLs; prior versions preserved | PRD §8; rules1 document_processing | `api/documents.py`, `services/upload_validation.py`, `models/application.py::Document` | `test_api`, `test_hardening` (upload signature/path checks) | Implemented (version-preservation semantics to verify in H.4) |
+| PRD-OCR-001 | Hybrid extraction (text layer → Tesseract per-word conf+boxes); failure never becomes a pass; results tied to version | PRD §8; rules1 RULE-OCR-01 | `adapters/ocr/real.py`, `services/ocr_service.py`, `ExtractedField` | `tests/test_document_extraction.py` (10; 2 skip without Tesseract) | Implemented · Tested; **bbox columns + threshold calibration N** (Unverified threshold 0.75) |
+| PRD-RULE-001 | Allowlisted, versioned, immutable rules; three-valued outcomes; missing input → declared missing_outcome, never coerced to PASS | PRD §8/§9; essentials 7–11a | `services/rule_engine.py`, `backend/rules/compliance_rules.json`, migration 0004 | `tests/test_rule_engine.py` (13), `test_rules_service.py` (5) | Implemented · Tested; source metadata fields (clause/status/effective_from per rule) **Partial** |
+| PRD-DEF-001 | Structured deficiency loop: finding → open → institution response → officer resolution; responses never overwrite findings; history retained | PRD §9 FR-15; rules2 SYS-DEF-001 | `api/deficiencies.py`, Deficiency model, `return_for_clarification` draft-promotion | `tests/test_deficiency_loop.py`, `test_evidence_flow.py` | Implemented · Tested; revalidation-record-which-checks-reran **Partial** (AGENT-06) |
+| PRD-ASG-001 | Assignment by scope/eligibility; no-eligible-officer handled visibly; changes audited | PRD FR-12; rules2 SYS-ASSIGN-001 | `services/case_assignment_service.py`, `api/admin_access.py` | `tests/test_case_assignment.py` (5) | Implemented · Tested (automatic only); **manual reassignment Blocked** on approved policy; **COI not present** |
+| PRD-SLA-001 | Deterministic deadlines on the injectable clock; idempotent sweeps; official vs internal thresholds distinguished | PRD §11; rules2 SYS-DEADLINE-001/002 | `services/deadline_service.py`, `workers/scheduler.py`, `rules/deadline_policy.json` | `tests/test_alerts.py` (12: dedupe, boundaries) | Implemented · Tested; appeal 7-day + deposit 15-day clocks **N** (Unverified values — Phase 3) |
+| PRD-AUD-001 | Append-only hash-chained audit; corrections are new rows; verification endpoint; tamper-evident not tamper-proof | PRD §12; essentials 17–19 | `services/audit_service.py`, `audit_chain_head`, `GET /audit/verify` | `tests/test_audit.py` (5, incl. tamper) | Implemented · Tested; document-view logging + export/hash-check + reorder-detection **Partial** (Phase 8) |
+| PRD-UI-001 | Role-split review UI; plain language via labels.ts; backend is the authority; neutral edit wording | PRD §8/§13; essentials 30–34 | `frontend/src` (App.tsx hash router, CaseView, EvidencePanel, labels.ts) | `npm run build` (typecheck); no UI test framework | Implemented (build-level only; UI behaviour tests **N**) |
+| REG-001 | Table 2.3 category → route matrix (21 rows), versioned, one conformance test per row | APH 2024-27 Table 2.3 (via PRD §6; **clause unverified** — SRC-APH-2024-27) | **N** — only 4 illustrative routes in `rules/workflow_routes.json`; no category→route mapping | **N** (`test_routing_table_2_3.py` planned) | **Unverified/Blocked** — 0 of 21 rows encoded; advisory config only until clause verified |
+| REG-002 | Stage and decision-authority matrix (who may decide at SCR/EVC/SHC/EC/SAC/appeal) | PRD §5/§7; APH stages (**clause unverified**) | Partial: `allowed_roles` per transition in `workflow_routes.json`; no SHC/EC/SAC bodies or appeal path | Partial (`test_workflow` role guards) | **Unverified/Blocked** — prototype roles approximate the real authorities; do not present as official |
+
+## How to maintain
+- A row may only move to **Verified** when its Source cell cites an exact clause recorded in `docs/SOURCES.md` by a named verifier.
+- New rows: keep the prefix scheme (PRD-### / REG-###); link the test that proves the behaviour; if no test exists, say so rather than omitting the column.
