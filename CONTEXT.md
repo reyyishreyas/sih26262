@@ -396,7 +396,7 @@ tamper-evidence).
   blocked until the Women's conversion clears; rule cites cl. 2.13.1m).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `8e1348d`.
+  repo is currently green at `9962297`.
 
 ---
 
