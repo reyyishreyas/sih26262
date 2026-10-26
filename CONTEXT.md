@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 457 passing
+make test      # pytest — 492 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **457 passing** (~414 test functions; some parametrised).
+- `make test` → **492 passing** (~449 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -445,7 +445,15 @@ tamper-evidence).
   placeholder day counts (§19 Q1), moved unchanged out of
   workflow_routes.json (cross-config: stage sets match the stage
   graph; all 14 old values pinned), per-stage due dates computed on
-  read from active stint + configured days, nothing stored).
+  read from active stint + configured days, nothing stored) ·
+  `test_escalation` (35 — Phase 3.4: escalation chain as labelled
+  placeholder (§11 line 12 project proposals; §19 Q5 open → roles not
+  names), L0–L3 roles with L2 a labelled placeholder and L3 unmapped
+  (resolves to nobody, never an invented authority), the 70/90/100/125%
+  ladder and 1-/3-working-day unassigned rules as pure lookups,
+  working-day maths from calendars.json, recipient resolution reusing
+  regional/supervisory officers, advisory read-only snapshot + endpoint,
+  sweep payload carries the level additively).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `c97df69`.

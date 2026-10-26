@@ -1,0 +1,76 @@
+{
+  "version": "2026.1",
+  "status": "unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "recorded_on": "2026-10-27",
+  "source": "md/1_PRD.md §11 (lines 274-293: the escalation chain L0→L1→L2→L3 and the near-limit/unassigned/over-limit trigger table) and PRD line 12 (the §11 operational thresholds — 70/90/100/125%, the 1-/3-day escalation, alert lead times — are project proposals, not AICTE rules). §19 Q5 (line 357: 'Who is the designated authority at each escalation level, by Region?') is an open question, so the chain below maps ROLES, not named authorities.",
+  "note": "PLACEHOLDER ESCALATION CHAIN — the PRD names the L0–L3 ladder and the trigger percentages but the *designated authority* per level/Region is still an open question (§19 Q5), and line 12 records that these thresholds are project proposals. So this file is a clearly-labelled placeholder (the same pattern as the 3.3 stage-limit day counts and the 3.2 reason-code vocabulary): AICTE must confirm who sits at each level, by Region, before any of it is treated as Unverified. Escalation is ADVISORY ONLY (DEC-0003) — it computes who *would* be notified for display; it never gates, moves or rejects a case. Roles map to this prototype's seeded roles where one exists; where none exists the level is `unmapped` and resolves to no recipients rather than inventing an authority.",
+  "chain_note": "Ordered lowest→highest. `recipient_kind` names the resolution strategy: `assignee` = the case's assigned officer; `regional_officer` / `supervisory_officer` = users holding that role scoped to the institution's Region; `unmapped` = no role exists in the prototype, resolves to nobody (§19 Q5 open — never invent a person).",
+  "chain": [
+    {
+      "level": "L0",
+      "label": "Assignee (case owner)",
+      "recipient_kind": "assignee",
+      "source": "PRD §11 line 274: 'L0 assignee'. The case's own assigned officer — no role lookup needed, this is the owner the alert is about."
+    },
+    {
+      "level": "L1",
+      "label": "Regional officer",
+      "recipient_kind": "regional_officer",
+      "source": "PRD §11 line 274: 'L1 Regional officer'. Maps to the seeded `regional_officer` role scoped to the institution's Region — a direct role match, not a placeholder."
+    },
+    {
+      "level": "L2",
+      "label": "Regulation Bureau",
+      "recipient_kind": "supervisory_officer",
+      "placeholder": true,
+      "note": "PLACEHOLDER MAPPING (§19 Q5 open). The PRD's 'Regulation Bureau' has no explicitly named role in this prototype; the nearest existing role is `supervisory_officer` (region-scoped), so L2 resolves there. AICTE must confirm the actual Bureau authority per Region before this mapping is trusted.",
+      "source": "PRD §11 line 274: 'L2 Regulation Bureau'. Mapped to `supervisory_officer` as a labelled placeholder — the PRD names no role and §19 Q5 leaves the designated authority per Region open."
+    },
+    {
+      "level": "L3",
+      "label": "Competent authority",
+      "recipient_kind": "unmapped",
+      "placeholder": true,
+      "note": "UNMAPPED (§19 Q5 open). No 'competent authority' role exists in this prototype, and the PRD names no one. This level resolves to NO recipients — a labelled gap, never a guessed person. When AICTE names the authority, map it here.",
+      "source": "PRD §11 line 274: 'L3 competent authority'. No matching role exists; deliberately unmapped rather than invented (§19 Q5 open)."
+    }
+  ],
+  "percentage_thresholds_note": "Percentages of the configured stage limit (rules/stage_limits.json — the same day counts the ageing sweep uses, never a second clock). The highest crossed threshold wins. All four are project proposals (PRD line 12), advisory only.",
+  "percentage_thresholds": [
+    {
+      "percent": 70,
+      "level": "L0",
+      "source": "PRD §11 line 278: 'Near stage limit | Owner | 70% and 90%' — the owner (L0) is notified at 70% of the limit."
+    },
+    {
+      "percent": 90,
+      "level": "L0",
+      "source": "PRD §11 line 278: the second near-limit nudge to the owner (L0) at 90%."
+    },
+    {
+      "percent": 100,
+      "level": "L1",
+      "source": "PRD §11 line 278: 'L1 at 100%' — reaching the limit escalates to the Regional officer."
+    },
+    {
+      "percent": 125,
+      "level": "L2",
+      "source": "PRD §11 line 278: 'L2 at 125%' — overshooting the limit escalates to the Regulation Bureau (placeholder-mapped to supervisory_officer)."
+    }
+  ],
+  "unassigned_in_queue_note": "Working-day counts use rules/calendars.json (never hard-coded weekends). 'Unassigned in queue' means the case sits in a queue state with no assigned officer. Both thresholds are project proposals (PRD line 12).",
+  "unassigned_in_queue": [
+    {
+      "after_working_days": 1,
+      "notifies": ["L1"],
+      "source": "PRD §11 line 280: 'Unassigned in queue | Regional | After 1 working day' — one working day unassigned notifies the Regional officer (L1)."
+    },
+    {
+      "after_working_days": 3,
+      "notifies": ["L2"],
+      "source": "PRD §11 line 280: 'L2 after 3 days' — three working days unassigned escalates to the Regulation Bureau (L2)."
+    }
+  ]
+}

@@ -68,6 +68,11 @@ def stage_limits_policy() -> dict[str, Any]:
     return _load("stage_limits.json")
 
 
+@lru_cache
+def escalation_chain_policy() -> dict[str, Any]:
+    return _load("escalation_chain.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

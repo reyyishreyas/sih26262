@@ -163,6 +163,13 @@ def collect_items(db: Session, now: datetime) -> list[DeadlineItem]:
             continue
         since = to_utc(application.current_state_since) or now
         due_at = since + timedelta(days=sla)
+        # PRD §11 escalation ladder (Phase 3.4): the same elapsed/limit clock,
+        # expressed as the L0-L3 level the case has reached. Advisory and
+        # additive — it rides in the payload so the alert shows who it would
+        # escalate to, without a second clock, a dedupe change, or a new gate.
+        from . import escalation as _escalation
+
+        elapsed = max(0, (now - since).days)
         items.append(
             DeadlineItem(
                 entity_type="application",
@@ -174,7 +181,8 @@ def collect_items(db: Session, now: datetime) -> list[DeadlineItem]:
                 payload={
                     "state": application.current_state,
                     "sla_days": sla,
-                    "days_in_state": max(0, (now - since).days),
+                    "days_in_state": elapsed,
+                    "escalation_level": _escalation.level_for_percentage(elapsed, sla),
                 },
             )
         )

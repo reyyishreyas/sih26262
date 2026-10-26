@@ -4,11 +4,12 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
+from ..core.clock import get_clock
 from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import APPLICATION_READ, CASE_READ
 from ..schemas.api import TransitionRequest
-from ..services import routing, workflow_service
+from ..services import escalation, routing, workflow_service
 from ..services.authorization_service import EffectiveAccess, require_application
 from ..services.policy import reason_codes_policy, workflow_routes
 from .deps import get_access, require_any
@@ -129,3 +130,27 @@ def available_transitions(
 ) -> list[dict]:
     application = require_application(db, access, application_id)
     return workflow_service.available_transitions(db, access, application)
+
+
+@router.get("/applications/{application_id}/escalation")
+def case_escalation(
+    application_id: str,
+    access: EffectiveAccess = Depends(require_any(CASE_READ, APPLICATION_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Advisory escalation view for one case (Phase 3.4).
+
+    Serves the §11 L0–L3 chain (a labelled placeholder — §19 Q5 leaves the
+    designated authority per Region open) plus this case's computed level and
+    recipients: how far it is through its stage limit and whether it has been
+    sitting unassigned in the queue. Read-only — it moves no case and writes
+    nothing (DEC-0003).
+    """
+    application = require_application(db, access, application_id)
+    snapshot = escalation.escalation_snapshot(db, application, get_clock().now())
+    config = escalation.escalation_chain_policy()
+    return {
+        **snapshot,
+        "source": config.get("source"),
+        "chain": escalation.chain(),
+    }

@@ -83,6 +83,19 @@ def regional_officers(db: Session, region_id: str) -> list[str]:
     return sorted(set(direct) | set(via_jurisdiction))
 
 
+def supervisory_officers(db: Session, region_id: str) -> list[str]:
+    """Users holding the `supervisory_officer` role scoped to a region.
+
+    Used as the placeholder resolution for escalation level L2 ("Regulation
+    Bureau", Phase 3.4) — the PRD names no explicit role for the Bureau and
+    §19 Q5 leaves the designated authority per Region open, so the nearest
+    existing region-scoped role is used, clearly labelled in the config.
+    """
+    return sorted(
+        _users_with_role(db, "supervisory_officer", scope_type="region", scope_id=region_id)
+    )
+
+
 def recipients_for(
     db: Session, application: Application, *, severity: str
 ) -> list[str]:
