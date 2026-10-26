@@ -443,7 +443,7 @@ tamper-evidence).
   free-text-only, `GET /workflow/reason-codes` serves the vocabulary).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `12ca6b4`.
+  repo is currently green at `65d5850`.
 
 ---
 
