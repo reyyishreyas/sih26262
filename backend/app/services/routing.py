@@ -154,6 +154,48 @@ def unmet_prerequisites(
     return unmet
 
 
+def additional_evc_actions() -> list[dict[str, Any]]:
+    """Actions that pull a case into the EVC queue outside its route's
+    standard stages (PRD §6 routing rules 1 and 5, FR-19).
+
+    Two exist today: a "random" EVC add for a self-disclosure case
+    (cl. 2.3.5) and a second EVC after movable property is shifted on a
+    Change of Site (cl. 2.17e). Advisory like the rest of this module.
+    """
+    return list(_section().get("additional_evc_actions", []))
+
+
+def evc_actions_for_category(category_id: str) -> list[dict[str, Any]]:
+    """Which additional-EVC actions apply to a category.
+
+    An action matches when its ``applies_to`` names this category's route
+    pattern (``route_pattern``, e.g. every SD case may get a random EVC) or
+    lists the category id explicitly (``category_ids``, e.g. the second EVC
+    after a site shift). Validates the category first so an unknown id
+    fails loudly rather than silently answering "no actions".
+
+    Advisory only: this answers "may an authorised user ask for this
+    visit?", never "schedule it". Which roles may act is an open question
+    (PRD §19 #4), so each action's ``authorised_roles`` is an empty
+    labelled placeholder until a human records the authority.
+    """
+    pattern = route_pattern(category_id)  # unknown category fails loudly
+    return [
+        action
+        for action in additional_evc_actions()
+        if _evc_action_applies(action, category_id, pattern)
+    ]
+
+
+def _evc_action_applies(
+    action: dict[str, Any], category_id: str, route_pattern_name: str
+) -> bool:
+    applies_to = action.get("applies_to", {})
+    if applies_to.get("route_pattern") == route_pattern_name:
+        return True
+    return category_id in applies_to.get("category_ids", [])
+
+
 # How much a condition gates the stage: lower keeps the stage more tightly
 # closed. Used to merge conditions when categories disagree.
 _WHEN_RANK = {"if_deficiencies": 0, "on_decision": 1, "always": 2}

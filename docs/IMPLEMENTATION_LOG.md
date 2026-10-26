@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0012 | 2026-10-26 | Implementation | Phase 1.6: additional-EVC actions — random EVC for SD (2.3.5), second EVC after site shift (2.17e) | Tested | Phase 1 1.6 (AGENT-02; FR-19) | MiMo (OpenCode agent) |
 | IMPL-0011 | 2026-10-26 | Implementation | Phase 1.5: sequencing rule — Women's conversion must clear before the merger starts (cl. 2.13.1m) | Tested | Phase 1 1.5 (AGENT-02; FR-08) | MiMo (OpenCode agent) |
 | IMPL-0010 | 2026-10-26 | Implementation | Phase 1.4: combined applications — `ApplicationItem` (outcome per category), stage union, migration 0009 | Tested | Phase 1 1.4 (AGENT-02; FR-08) | MiMo (OpenCode agent) |
 | IMPL-0009 | 2026-10-26 | Implementation | Phase 1.3: one parametrised routing test per Table 2.3 row (21 rows) against the PRD | Tested | Phase 1 1.3 (AGENT-02; FR-07) | MiMo (OpenCode agent) |
@@ -65,6 +66,35 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### IMPL-0012 — Phase 1.6: additional-EVC actions — random EVC for SD, second EVC after site shift
+- Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / fd9affa (work uncommitted at implementation)
+- Task ID and PRD IDs: Phase 1 **1.6** (AGENT-02); PRD **FR-19** (authorised user adds random EVC; schedule second EVC after site shift); §6 routing rules 1 and 5; APH cl. **2.3.5** and **2.17e** (cited as the PRD cites them; not independently verified — same blocked item as 1.5).
+- Goal: model the two ways a case reaches an EVC visit *outside* its route's standard stages — an authorised user pulling a self-disclosure (SD) case into the EVC queue (2.3.5), and a second EVC judged needed after movable property is shifted on a Change of Site (2.17e) — as advisory configuration a future workflow can consult, without inventing an authority or letting anything gate a case.
+- What existed before: `table_2_3` had the 21 rows, the four PRD §6 patterns, `stage_order` and `sequencing_rules` (1.5); `routing.py` answered stage lists, unions and sequencing prerequisites. Nothing expressed "this case could get an extra EVC visit"; the `evc` stage simply appears in a route's list when the pattern says so.
+- What I did:
+  - **Tests first** — `backend/tests/test_additional_evc.py` (9 tests, all passed on first run against the implementation): the two action ids exist; `random_evc` applies to both SD categories (t23-01, t23-02) via the route pattern; `second_evc_after_site_shift` applies to Change of Site (t23-14) via an explicit category id; a category with neither action answers `[]` (never a guess); an unknown category raises `KeyError` from the lookup (fails loudly, matching `prerequisites_for`); both actions are `unverified` + `advisory_only`; each cites its clause (2.3.5 / 2.17e) so no clause can be invented silently; the second EVC's trigger is the property shift; and — critically — **no role is silently authorised**: `authorised_roles` is `[]` with `authorised_roles_status: unverified_placeholder` because PRD open question #4 ("Which roles may add a random EVC?") has no recorded answer. (All 9 initially failed with the service absent, then passed — failure-then-pass, not a first-try miracle.)
+  - **Config** — `table_2_3.additional_evc_actions` (+ `_note`): two policy-as-data rows, each `{action_id, title, applies_to{route_pattern | category_ids}, trigger, authorised_roles, authorised_roles_status, status, advisory_only, source, note}`. `random_evc` keys off the **route pattern** `SD` (so it covers both SD rows, not one hard-coded id); the second EVC keys off the **category id** `t23-14`. Both carry `status: unverified`, `advisory_only: true`, and a note explaining the empty-authority placeholder.
+  - **Service** — `routing.additional_evc_actions()` (the configured list) and `routing.evc_actions_for_category(category_id)` (which actions apply), with a small `_evc_action_applies` helper; the category is validated via `route_pattern()` first so an unknown id raises `KeyError` rather than answering "no actions".
+- Files changed: `backend/rules/workflow_routes.json` (`additional_evc_actions` + note; 33-line additive diff, no reformatting), `backend/app/services/routing.py` (two public functions + helper), `backend/tests/test_additional_evc.py` (new, 9), `md/6_IMPLEMENTATION_PLAN.md` (1.6 ticked), `README.md` + `CONTEXT.md` (260 → 269, suite list), this log.
+- Migrations / API / config / rule-file changes: config only. **No** model, endpoint, permission or audit change — the workflow still cannot *execute* either action; this is the same advisory posture as 1.5 (DEC-0003: nothing from Table 2.3 may gate a case until a human verifies the clause and, here, the authority).
+- Decisions made: (1) route-pattern matching for the random EVC rather than a hard-coded category list, so all SD rows inherit it and a future SD row is covered automatically; (2) `authorised_roles` left empty with an explicit `unverified_placeholder` status rather than guessing "regional officer" — PRD §19 #4 is an open question, and inventing an authority would breach Master Prompt §2 rule 2 and AGENTS.md ("who may add a random EVC" → labelled placeholder, move on); (3) no new DEC entry needed — follows DEC-0003 (advisory) and the established policy-as-data pattern from 1.1/1.5.
+- Permission and audit effects: none — no endpoint exists, so no permission applies and no audit event is written for a lookup. When the workflow later consumes these actions (a real "add EVC" transition), that transition must carry its own permission, reason and audit event — noted as follow-up for Phase 6.1/6.2.
+- Verification: exact commands + results:
+  - `pytest tests/test_additional_evc.py -q -p no:randomly` → **9 passed** (after implementation; 9 failed first, service absent)
+  - `make lint` → `All checks passed!`
+  - `make test` → **269 passed, 1 warning in 26.36s** (0 skipped; +9 vs 260)
+  - JSON validity re-checked after the config edit (`json.load` OK); diff is 33 added lines, nothing removed.
+  - Not run: `npm run build` (no frontend change), Alembic (no model change), Compose/Postgres.
+- Status per requirement touched: Plan 1.6 "Random EVC add for SD (2.3.5) and second EVC after site shift (2.17e) as authorised actions" — **Implemented · Tested** as advisory configuration and a service lookup. The "authorised" half is **Unverified/Proposed** on purpose: the authority is a placeholder pending a human answer (open question).
+- Limitations / assumptions / manual steps:
+  - Advisory only: nothing schedules or blocks a visit; this records *eligibility for an authorised action*, never the action itself. Enforcement arrives with Phase 6.1/6.2 once a human records who may act.
+  - The clause citations (2.3.5, 2.17e) are the PRD's, not independently verified against the APH edition (blocked item, docs/SOURCES.md).
+  - `authorised_roles` is empty by design. If a reviewer fills it in, a matching server-side permission and an audit event must be added with it — do not treat the placeholder as "any officer may act".
+  - Related PRD item deliberately not done here: **FR-21** (block an additional EVC until the additional TER fee is paid, cl. 2.3.2c) is P1 and needs `fee_engine.py` (Phase 9.3) — no fee is modelled or hard-coded in this task.
+- Related bugs: none (no error hit this run).
+- Open questions for a human: (1) PRD §19 #4 — which roles may add a random EVC / order a second EVC? Owner: regulatory reviewer. (2) Should the second EVC be *required* or *optional* after a site shift (PRD says "may be needed")? Recommended default: optional, officer-judged, recorded with a reason.
+- Next suggested task: Phase 1 **1.7** — "AA" gate: SHC/SAC opens only on deficiency or negative outcome (FR-10).
 
 ### IMPL-0011 — Phase 1.5: sequencing rule — Women's conversion clears before the merger starts
 - Date / agent / branch / commit: 2026-10-26 / MiMo (OpenCode agent, MiMo-V2.6) / master / d766bba (work uncommitted at implementation)

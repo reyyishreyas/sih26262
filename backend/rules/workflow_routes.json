@@ -334,6 +334,39 @@
         "source": "md/1_PRD.md \u00a76 routing rule 4 (APH cl. 2.13.1m)",
         "note": "Women's-to-Co-ed conversion first, merger after it clears."
       }
+    ],
+    "additional_evc_actions_note": "PRD \u00a76 routing rules 1 and 5 (FR-19): actions that pull a case into the EVC queue outside its route's standard stages \u2014 a 'random' EVC for a self-disclosure case (cl. 2.3.5), and a second EVC after movable property is shifted on a Change of Site (cl. 2.17e). 'authorised_roles' is deliberately an empty, labelled placeholder: PRD open question #4 asks which roles may add a random EVC and has no recorded answer, so no authority is guessed. Advisory like the rest of this section \u2014 these are data an officer-facing screen can read, never a transition the workflow executes on its own.",
+    "additional_evc_actions": [
+      {
+        "action_id": "random_evc",
+        "title": "Random EVC add",
+        "applies_to": {
+          "route_pattern": "SD"
+        },
+        "trigger": "An authorised user pulls a self-disclosure application into the EVC queue.",
+        "authorised_roles": [],
+        "authorised_roles_status": "unverified_placeholder",
+        "status": "unverified",
+        "advisory_only": true,
+        "source": "md/1_PRD.md \u00a76 routing rule 1 (APH cl. 2.3.5)",
+        "note": "APH cl. 2.3.5 cited as the PRD cites it; not independently verified (docs/SOURCES.md). The route pattern is SD, so this applies to every category whose route is self-disclosure (t23-01, t23-02)."
+      },
+      {
+        "action_id": "second_evc_after_site_shift",
+        "title": "Second EVC after site shift",
+        "applies_to": {
+          "category_ids": [
+            "t23-14"
+          ]
+        },
+        "trigger": "Movable property has been shifted to the new site and a further visit is judged needed.",
+        "authorised_roles": [],
+        "authorised_roles_status": "unverified_placeholder",
+        "status": "unverified",
+        "advisory_only": true,
+        "source": "md/1_PRD.md \u00a76 routing rule 5 (APH cl. 2.17e)",
+        "note": "APH cl. 2.17e cited as the PRD cites it; not independently verified. The PRD says a second EVC 'may be needed' \u2014 an officer judgement after the shift, so this records eligibility for the action, never an automatic second visit."
+      }
     ]
   },
   "routes": {
