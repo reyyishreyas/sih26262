@@ -1,5 +1,5 @@
 {
-  "note": "Prototype route table. The four routes mirror the four approval paths named in the problem statement: scrutiny only, scrutiny + EVC, EVC only, and EVC + SAC/SHC. The transitions, guards and SLAs are illustrative configuration and must be verified against the APH before production use.",
+  "note": "Prototype route table. The four routes mirror the four approval paths named in the problem statement: scrutiny only, scrutiny + EVC, EVC only, and EVC + SAC/SHC. The transitions and guards are illustrative configuration and must be verified against the APH before production use. (Since Phase 3.3 the per-state day counts live, clearly labelled as placeholders, in stage_limits.json.)",
   "table_2_3": {
     "status": "unverified",
     "advisory_only": true,
@@ -413,12 +413,6 @@
   "routes": {
     "new_technical": {
       "label": "New technical institution \u2014 Scrutiny + EVC",
-      "stage_sla_days": {
-        "submitted": 5,
-        "scrutiny": 15,
-        "evc_scheduled": 30,
-        "evc_completed": 10
-      },
       "transitions": [
         {
           "action": "submit",
@@ -542,10 +536,6 @@
     },
     "existing_technical": {
       "label": "Existing technical institution \u2014 Scrutiny only",
-      "stage_sla_days": {
-        "submitted": 5,
-        "scrutiny": 10
-      },
       "transitions": [
         {
           "action": "submit",
@@ -610,11 +600,6 @@
     },
     "evc_only": {
       "label": "Expert committee visit only (no scrutiny)",
-      "stage_sla_days": {
-        "submitted": 5,
-        "evc_scheduled": 30,
-        "evc_completed": 10
-      },
       "transitions": [
         {
           "action": "submit",
@@ -721,13 +706,6 @@
     },
     "evc_sac_shc": {
       "label": "EVC + SAC/SHC committee approval",
-      "stage_sla_days": {
-        "submitted": 5,
-        "scrutiny": 15,
-        "evc_scheduled": 30,
-        "evc_completed": 10,
-        "sac_review": 20
-      },
       "transitions": [
         {
           "action": "submit",

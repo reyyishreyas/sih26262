@@ -158,7 +158,7 @@ The demo clock is fixed by default to **2026-10-22T09:00:00Z** in `.env.example`
 ```bash
 make lint        # ruff check app tests migrations scripts
 make test        # cd backend && ../.venv/bin/python -m pytest -q
-# 442 passed
+# 457 passed
 ```
 
 The suite covers rule semantics and immutability, workflow guards, rejected-action
@@ -279,7 +279,7 @@ backend/
   migrations/     Alembic environment and revisions
   scripts/        verify_isolation.py (live PostgreSQL role proof)
   sql/            bootstrap_roles.sql, roles.sql (least-privilege grants)
-  tests/          442 tests
+  tests/          457 tests
 frontend/         React + TypeScript + Vite review UI; Dockerfile.prod + nginx.conf
 scripts/          setup.sh (one-time setup), dev.sh (start both servers), smoke.sh
 docs/             architecture, rules, rehearsal, roles, data model, tests, production

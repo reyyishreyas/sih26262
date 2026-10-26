@@ -25,16 +25,16 @@ a second stage row); stint history lives in audit/workflow_transitions.
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Any
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..core.clock import get_clock
+from ..core.clock import get_clock, to_utc
 from ..models import Application, StageInstance
 from .policy import stage_graph_policy as _load_graph
-from .policy import workflow_routes
+from .policy import stage_limits_policy, workflow_routes
 
 
 def stage_graph_policy() -> dict[str, Any]:
@@ -45,6 +45,67 @@ def stage_graph_policy() -> dict[str, Any]:
 def statuses() -> tuple[str, ...]:
     """The only stage statuses a row may carry (config ``statuses``)."""
     return tuple(stage_graph_policy().get("statuses", ()))
+
+
+def due_dates(db: Session, application: Application) -> list[dict[str, Any]]:
+    """Per-stage due dates for one case, computed on read (Plan 3.3).
+
+    Derived from the stage rows plus the placeholder day counts in
+    ``rules/stage_limits.json`` — nothing here is stored: the row keeps
+    only its stint timestamps, and the due date is start + configured
+    days, exactly as the deadline sweep derives its stage-ageing clock
+    (which reads the same config through ``policy.stage_sla_days``). A
+    change to the day counts therefore changes every due date at once,
+    with no stale column anywhere.
+
+    Only an ACTIVE stage has a due date: the clock starts on entry and
+    stops on completion, so pending and completed stages answer None.
+    The count is the stage's base ``days``, except when the case sits in
+    a state the stage maps differently (a held EVC visit counts 10, a
+    booked one 30) — then the state override wins. Stages without a
+    configured count (days: null in config) answer None with the note
+    that explains why, never a guessed default. All counts are labelled
+    placeholders until AICTE answers §19 Q1.
+    """
+    rows = {
+        row.stage_key: row
+        for row in db.scalars(
+            select(StageInstance).where(StageInstance.application_id == application.id)
+        ).all()
+    }
+    limits = stage_limits_policy()
+    route_limits = limits.get("routes", {}).get(application.route_key, {})
+    state = application.current_state
+
+    out: list[dict[str, Any]] = []
+    for entry in _route_stages(application.route_key):
+        stage_key = entry["stage_key"]
+        limit = route_limits.get(stage_key, {})
+        row = rows.get(stage_key)
+        status = row.status if row is not None else "pending"
+        days: int | None = limit.get("days")
+        if state in entry["active_states"]:
+            days = limit.get("state_overrides", {}).get(state, days)
+        due_at = None
+        if (
+            status == "active"
+            and row is not None
+            and row.started_at is not None
+            and days is not None
+        ):
+            due_at = to_utc(row.started_at) + timedelta(days=days)
+        out.append(
+            {
+                "id": row.id if row is not None else None,
+                "stage_key": stage_key,
+                "status": status,
+                "days": days,
+                "due_at": due_at,
+                "placeholder": bool(limits.get("placeholder", False)),
+                "note": limit.get("note"),
+            }
+        )
+    return out
 
 
 def _route_stages(route_key: str) -> list[dict[str, Any]]:

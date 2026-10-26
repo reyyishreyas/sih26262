@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 442 passing
+make test      # pytest — 457 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **442 passing** (~399 test functions; some parametrised).
+- `make test` → **457 passing** (~414 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -440,7 +440,12 @@ tamper-evidence).
   (`reason_codes.json`, unverified), unknown/out-of-scope codes and
   codeless returns refused with the valid list named, code persisted
   on the transition row and in the audit `after`, `reject` keeps
-  free-text-only, `GET /workflow/reason-codes` serves the vocabulary).
+  free-text-only, `GET /workflow/reason-codes` serves the vocabulary) ·
+  `test_stage_limits` (15 — Phase 3.3: stage limits as labelled
+  placeholder day counts (§19 Q1), moved unchanged out of
+  workflow_routes.json (cross-config: stage sets match the stage
+  graph; all 14 old values pinned), per-stage due dates computed on
+  read from active stint + configured days, nothing stored).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `65d5850`.

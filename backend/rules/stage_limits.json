@@ -1,0 +1,188 @@
+{
+  "version": "2026.1",
+  "status": "unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "recorded_on": "2026-10-26",
+  "source": "md/1_PRD.md §19 Q1 ('Target days for Scrutiny, Re-Scrutiny, EVC scheduling, SHC, Executive Committee?' — open question for AICTE, line 353) and PRD line 12 (operational thresholds are project proposals, not AICTE rules; Unverified rules stay advisory and never block, return or reject an application).",
+  "note": "PLACEHOLDER DAY COUNTS — AICTE has not answered §19 Q1, so every number below is a labelled project proposal until a reviewer records the official target days here. The values moved unchanged out of workflow_routes.json (where they rode inline and unlabelled since Phase 1); a pinned test proves the move changed no behaviour. Days are counted from the stage's start (the moment the case entered the stage), and drive visible ageing/escalation only — nothing here gates, returns or rejects a case (DEC-0003). 'days: null' means the prototype deliberately runs no clock for that stage; the note says why.",
+  "stage_mapping_note": "A stage's day count applies to the states the stage graph (stage_graph.json) maps to it; where two states of one stage count differently (a booked EVC visit vs a held one), the per-state override names the difference. Unmapped states — states the route defines that no PRD stage owns (today: sac_review, whose stage mapping is 3.1's open question) — carry their count under unmapped_state_days rather than pretending to belong to a stage.",
+  "unmapped_state_days_note": "sac_review's 20 days exist because the route really has that state, but no PRD stage owns it (3.1 open mapping question: SHC? Executive Committee? prototype-only?). The clock is honest about the state without inventing the stage label.",
+  "unmapped_state_days": {
+    "evc_sac_shc": {
+      "sac_review": 20
+    }
+  },
+  "routes": {
+    "new_technical": {
+      "readiness": {
+        "days": 5,
+        "source": "Placeholder (moved unchanged from workflow_routes.json stage_sla_days.submitted). AICTE target pending — §19 Q1."
+      },
+      "scrutiny": {
+        "days": 15,
+        "source": "Placeholder (moved unchanged from workflow_routes.json stage_sla_days.scrutiny). AICTE target pending — §19 Q1."
+      },
+      "compliance_cycle": {
+        "days": null,
+        "note": "No clock: the compliance cycle waits on the institution, and PRD §7 gives no target days for the reply. Awaiting §19 Q1 like every other count here.",
+        "source": "Placeholder."
+      },
+      "evc": {
+        "days": 30,
+        "state_overrides": {
+          "evc_completed": 10
+        },
+        "state_overrides_note": "30 days to hold a booked visit; 10 days for the decision after the visit was held (moved unchanged from workflow_routes.json stage_sla_days.evc_scheduled/evc_completed).",
+        "source": "Placeholder (moved unchanged). AICTE target pending — §19 Q1."
+      },
+      "shc": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1: no hearing state exists on this route) — no clock for a stage that cannot start.",
+        "source": "Placeholder."
+      },
+      "executive_committee": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1) — no clock for a stage that cannot start.",
+        "source": "Placeholder."
+      },
+      "appeal": {
+        "days": null,
+        "note": "The PRD's 7-day appeal window (FR-27) is a different clock, built in Phase 3.5 over a Speaking Order upload — not stage ageing. Nothing here invents it.",
+        "source": "Placeholder."
+      },
+      "grant": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1); the Security Deposit 15-day clock (FR-33) is Phase 3.6 work, not stage ageing.",
+        "source": "Placeholder."
+      }
+    },
+    "existing_technical": {
+      "readiness": {
+        "days": 5,
+        "source": "Placeholder (moved unchanged from workflow_routes.json stage_sla_days.submitted). AICTE target pending — §19 Q1."
+      },
+      "scrutiny": {
+        "days": 10,
+        "source": "Placeholder (moved unchanged from workflow_routes.json stage_sla_days.scrutiny — 10 days on this route, 15 on new_technical, as configured in Phase 1). AICTE target pending — §19 Q1."
+      },
+      "compliance_cycle": {
+        "days": null,
+        "note": "This route defines no return/resubmit transition (workflow_routes.json) — the stage can never start, so no clock.",
+        "source": "Placeholder."
+      },
+      "evc": {
+        "days": null,
+        "note": "Scrutiny-only route: no EVC state exists (3.1) — no clock for a stage that cannot start.",
+        "source": "Placeholder."
+      },
+      "shc": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1) — no clock for a stage that cannot start.",
+        "source": "Placeholder."
+      },
+      "executive_committee": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1) — no clock for a stage that cannot start.",
+        "source": "Placeholder."
+      },
+      "appeal": {
+        "days": null,
+        "note": "The 7-day appeal window is Phase 3.5 work, not stage ageing.",
+        "source": "Placeholder."
+      },
+      "grant": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1); the SD clock is Phase 3.6 work.",
+        "source": "Placeholder."
+      }
+    },
+    "evc_only": {
+      "readiness": {
+        "days": 5,
+        "source": "Placeholder (moved unchanged from workflow_routes.json stage_sla_days.submitted). AICTE target pending — §19 Q1."
+      },
+      "scrutiny": {
+        "days": null,
+        "note": "EVC-only route: no scrutiny state exists (3.1) — no clock for a stage that cannot start.",
+        "source": "Placeholder."
+      },
+      "compliance_cycle": {
+        "days": null,
+        "note": "No clock: the compliance cycle waits on the institution; no AICTE target yet (§19 Q1).",
+        "source": "Placeholder."
+      },
+      "evc": {
+        "days": 30,
+        "state_overrides": {
+          "evc_completed": 10
+        },
+        "state_overrides_note": "30 days to hold a booked visit; 10 days for the decision after the visit was held (moved unchanged from workflow_routes.json stage_sla_days.evc_scheduled/evc_completed).",
+        "source": "Placeholder (moved unchanged). AICTE target pending — §19 Q1."
+      },
+      "shc": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1) — no clock for a stage that cannot start.",
+        "source": "Placeholder."
+      },
+      "executive_committee": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1) — no clock for a stage that cannot start.",
+        "source": "Placeholder."
+      },
+      "appeal": {
+        "days": null,
+        "note": "The 7-day appeal window is Phase 3.5 work, not stage ageing.",
+        "source": "Placeholder."
+      },
+      "grant": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1); the SD clock is Phase 3.6 work.",
+        "source": "Placeholder."
+      }
+    },
+    "evc_sac_shc": {
+      "readiness": {
+        "days": 5,
+        "source": "Placeholder (moved unchanged from workflow_routes.json stage_sla_days.submitted). AICTE target pending — §19 Q1."
+      },
+      "scrutiny": {
+        "days": 15,
+        "source": "Placeholder (moved unchanged from workflow_routes.json stage_sla_days.scrutiny). AICTE target pending — §19 Q1."
+      },
+      "compliance_cycle": {
+        "days": null,
+        "note": "No clock: the compliance cycle waits on the institution; no AICTE target yet (§19 Q1).",
+        "source": "Placeholder."
+      },
+      "evc": {
+        "days": 30,
+        "state_overrides": {
+          "evc_completed": 10
+        },
+        "state_overrides_note": "30 days to hold a booked visit; 10 days for the decision after the visit was held (moved unchanged from workflow_routes.json stage_sla_days.evc_scheduled/evc_completed).",
+        "source": "Placeholder (moved unchanged). AICTE target pending — §19 Q1."
+      },
+      "shc": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1: no hearing state exists) — no clock for a stage that cannot start.",
+        "source": "Placeholder."
+      },
+      "executive_committee": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1); sac_review (no stage mapping) carries its own unmapped-state count above.",
+        "source": "Placeholder."
+      },
+      "appeal": {
+        "days": null,
+        "note": "The 7-day appeal window is Phase 3.5 work, not stage ageing.",
+        "source": "Placeholder."
+      },
+      "grant": {
+        "days": null,
+        "note": "Unreachable in the prototype state machine (3.1); the SD clock is Phase 3.6 work.",
+        "source": "Placeholder."
+      }
+    }
+  }
+}
