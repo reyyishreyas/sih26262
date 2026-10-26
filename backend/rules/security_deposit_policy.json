@@ -1,0 +1,57 @@
+{
+  "version": "2026.1",
+  "status": "unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "recorded_on": "2026-10-27",
+  "source": "md/1_PRD.md FR-33 (P0, PS A, line 213: 'Security Deposit: 15-day clock for proof + Affidavit 3; 10% penalty to 31 May, 20% to 31 July; flag withdrawal after', APH cl. 2.25d-f) and the §7 rules table (line 244: 'Security Deposit proof + Affidavit 3 | 15 days; 10% penalty to 31 May; 20% to 31 July; withdrawn after | 2.25f'). The §11 alert table (line 289: 'Security Deposit due | Institution | Day 1, 10, 14; 31 May, 31 July | Bureau') gives the reminder cadence that rides the existing undertaking_due ladder (Phase 3.6).",
+  "note": "PLACEHOLDER CONFIG — the 15-day proof window, the 10%/20% penalty percentages and the fixed 31-May/31-July penalty dates are AICTE regulatory values (APH cl. 2.25f). This file makes them data, not code, and keeps them advisory (DEC-0003): the security-deposit endpoint computes and displays the penalty band that a given date falls in and a 'withdrawal_flagged' marker once past the last penalty date, but nothing here gates, moves, withdraws or rejects a case — the actual withdrawal is a NEW REGULATORY STATE (rule 15 human gate) and is deliberately not triggered by this config. The 15-day proof clock itself is modelled as an Undertaking (obligation + due date + evidence) so it reuses the existing undertaking_due day-1/10/14 reminders; this file only carries the penalty schedule and the withdrawal marker. Activate or re-source only after a human records an official clause via the approval gate; until then every answer is labelled Unverified/placeholder.",
+  "proof_window_days": 15,
+  "obligation": {
+    "id": "security_deposit_proof",
+    "label": "Security Deposit proof + Affidavit 3",
+    "evidence_required": "bank_receipt",
+    "note": "The 15-day window runs from the grant/list date; the proof and Affidavit 3 ride as an Undertaking (obligation + due date + evidence), so the day-1/10/14 reminders come from the existing undertaking_due ladder rather than a second clock."
+  },
+  "penalty_schedule": [
+    {
+      "id": "sd_penalty_10",
+      "penalty_percent": 10,
+      "on_or_before": "05-31",
+      "severity": "warning",
+      "note": "PRD §7 line 244 — 10% penalty applies up to and including 31 May (APH cl. 2.25f)."
+    },
+    {
+      "id": "sd_penalty_20",
+      "penalty_percent": 20,
+      "on_or_before": "07-31",
+      "severity": "critical",
+      "note": "PRD §7 line 244 — 20% penalty applies up to and including 31 July (APH cl. 2.25f); after it the case is flagged for withdrawal."
+    }
+  ],
+  "withdrawal_flag": {
+    "after": "07-31",
+    "severity": "escalated",
+    "note": "PRD §7 line 244 — 'withdrawn after' 31 July. This sets a computed 'withdrawal_flagged' marker on the advisory snapshot for display only; it never withdraws the case. An actual withdrawal is a NEW REGULATORY STATE (rule 15 human gate), not a config change."
+  },
+  "reminder_thresholds": [
+    {
+      "level": "sd_day_1",
+      "day": 1,
+      "severity": "info",
+      "note": "PRD §11 line 289 — first reminder, day 1 of the 15-day proof window (rides the undertaking_due ladder)."
+    },
+    {
+      "level": "sd_day_10",
+      "day": 10,
+      "severity": "warning",
+      "note": "PRD §11 line 289 — second reminder, day 10 of the 15-day proof window."
+    },
+    {
+      "level": "sd_day_14",
+      "day": 14,
+      "severity": "critical",
+      "note": "PRD §11 line 289 — final reminder, day 14 of the 15-day proof window (the day before it closes)."
+    }
+  ]
+}

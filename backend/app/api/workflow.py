@@ -9,7 +9,7 @@ from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import APPLICATION_READ, CASE_READ
 from ..schemas.api import TransitionRequest
-from ..services import appeal, escalation, routing, workflow_service
+from ..services import appeal, escalation, routing, security_deposit, workflow_service
 from ..services.authorization_service import EffectiveAccess, require_application
 from ..services.policy import reason_codes_policy, workflow_routes
 from .deps import get_access, require_any
@@ -175,3 +175,22 @@ def case_appeal_window(
     """
     application = require_application(db, access, application_id)
     return appeal.appeal_snapshot(db, application, get_clock().now())
+
+
+@router.get("/applications/{application_id}/security-deposit")
+def case_security_deposit(
+    application_id: str,
+    access: EffectiveAccess = Depends(require_any(CASE_READ, APPLICATION_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Advisory security-deposit view for one case (Phase 3.6, FR-33).
+
+    Serves the 15-day proof window, the 10%/20% penalty band a given date falls
+    in, and the withdrawal marker once past 31 July — all as a clearly-labelled
+    placeholder (APH cl. 2.25f, PRD §7 line 244). Read-only — it moves no case
+    and writes nothing, and the ``withdrawal_flagged`` marker is advisory only:
+    it never withdraws a case, because an actual withdrawal is a NEW REGULATORY
+    STATE (rule 15 human gate), not a config change (DEC-0003).
+    """
+    application = require_application(db, access, application_id)
+    return security_deposit.sd_snapshot(db, application, get_clock().now())

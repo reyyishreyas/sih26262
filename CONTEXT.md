@@ -463,7 +463,18 @@ tamper-evidence).
    `GET .../appeal-window` (no gate/audit/migration), sweep raises the two
    reminders idempotently via the existing `dedupe_key`; no new workflow
    states — `file_appeal` and the Speaking-Order-upload trigger are the
-   approval-gated 6.5/6.6 tasks).
+   approval-gated 6.5/6.6 tasks) ·
+   `test_security_deposit` (21 — Phase 3.6: FR-33 security-deposit penalty
+   schedule as labelled placeholder (APH cl. 2.25f / PRD §7 line 244), 15-day
+   proof window + 10%/20% penalties + 31-May/31-Jul fixed dates all in
+   `security_deposit_policy.json`, penalty band from calendar-anchored date
+   maths (inclusive boundaries; a date past 31 Jul reports the withdrawal
+   marker with no penalty percent), the 15-day proof obligation rides the
+   existing Undertaking model so day-1/10/14 come free from the
+   `undertaking_due` ladder, advisory read-only snapshot +
+   `GET .../security-deposit` (no gate/audit/migration, never withdraws —
+   the withdrawal marker is advisory, an actual withdrawal is the rule-15
+   gate).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `dcf921d`.

@@ -78,6 +78,11 @@ def appeal_policy() -> dict[str, Any]:
     return _load("appeal_policy.json")
 
 
+@lru_cache
+def security_deposit_policy() -> dict[str, Any]:
+    return _load("security_deposit_policy.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str
