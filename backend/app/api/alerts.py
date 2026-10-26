@@ -12,7 +12,7 @@ from ..core.db import get_db
 from ..core.pagination import PageParams, pagination, set_total
 from ..core.permissions import ADMIN_USERS, MONITORING_READ
 from ..models import Alert, Document, Undertaking
-from ..services import deadline_service
+from ..services import deadline_service, reconcile
 from ..services.audit_service import AuditService
 from ..services.authorization_service import EffectiveAccess, scope_filter
 from .deps import require
@@ -331,3 +331,19 @@ def preview(
                 }
             )
     return {"now": now.isoformat(), "items": len(items), "eligible_alerts": preview_rows}
+
+
+@router.get("/internal/reconcile-clocks")
+def reconcile_clocks(
+    access: EffectiveAccess = Depends(require(ADMIN_USERS)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Recompute every clock-derived date and report any drift. Read-only.
+
+    Proves the "nothing stores a due flag" invariant: after a demo-clock jump
+    every deadline recomputes cleanly, so the report shows zero differences.
+    Frozen alert due_dates are surfaced for transparency but never counted as
+    a drift — they snapshot the cycle they fired in by design.
+    """
+    report = reconcile.reconcile(db)
+    return report.as_dict()
