@@ -7,6 +7,7 @@ export type Outcome =
 
 export interface Finding {
   rule_key: string;
+  finding_id?: string;
   outcome: Outcome;
   explanation: string;
   blocking: boolean;
@@ -18,6 +19,8 @@ export interface Finding {
   evidence_refs?: string[];
   missing_inputs?: string[];
   unverified_inputs?: string[];
+  disposition?: "confirmed" | "dismissed" | "clarification_requested" | null;
+  disposition_reason?: string | null;
 }
 
 export interface ComplianceBatch {
@@ -391,6 +394,20 @@ export interface ExtractedField {
   source_span: string | null;
   method: string;
   confidence: number;
+  bbox: {
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+    origin: "top_left";
+    level: "line";
+  } | null;
+  engine: string | null;
+  engine_version: string | null;
+  grounding: string | null;
+  claim_value: unknown | null;
+  claim_reason: string | null;
+  master_value: unknown | null;
   verification_status: "verified" | "rejected" | "unverified";
 }
 

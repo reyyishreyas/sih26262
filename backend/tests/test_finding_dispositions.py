@@ -25,6 +25,15 @@ def test_scrutiny_exit_needs_dispositions_for_red_and_amber_findings(db, client,
     amber = _finding(db, outcome="NEEDS_REVIEW", rule_key="RULE-AMBER")
     headers = as_user("scrutiny@demo.local")
 
+    snapshot = client.get(f"/api/v1/applications/{APP_ID}/compliance", headers=headers)
+    assert snapshot.status_code == 200
+    actionable = {
+        finding["finding_id"]
+        for finding in snapshot.json()["findings"]
+        if finding["rule_key"] in {"RULE-RED", "RULE-AMBER"}
+    }
+    assert actionable == {red.id, amber.id}
+
     transition = client.post(
         f"/api/v1/applications/{APP_ID}/transitions",
         headers=headers,

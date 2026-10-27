@@ -1,3 +1,5 @@
+import { useState } from "react";
+import { api, ApiError } from "../api";
 import type { ComplianceBatch, Finding, Outcome } from "../types";
 import { plainOutcome, plainRule } from "../labels";
 import { Icon } from "./Icon";
@@ -25,17 +27,59 @@ function headlineFor(finding: Finding): string {
 
 export function FindingsTable({
   batch,
+  applicationId,
+  canRecordDisposition,
+  onDispositionChanged,
   onGoToDocuments,
 }: {
   batch: ComplianceBatch;
+  applicationId: string;
+  canRecordDisposition: boolean;
+  onDispositionChanged: () => void;
   onGoToDocuments?: () => void;
 }) {
+  const [busyFinding, setBusyFinding] = useState<string | null>(null);
+  const [dismissingFinding, setDismissingFinding] = useState<string | null>(null);
+  const [dismissReason, setDismissReason] = useState("");
+  const [error, setError] = useState<string | null>(null);
+  const [message, setMessage] = useState<string | null>(null);
   const findings = [...batch.findings].sort(
     (a, b) => ORDER.indexOf(a.outcome) - ORDER.indexOf(b.outcome),
   );
   const failCount = batch.counts.FAIL ?? 0;
   const reviewCount = batch.counts.NEEDS_REVIEW ?? 0;
   const passCount = batch.counts.PASS ?? 0;
+
+  async function recordDisposition(
+    finding: Finding,
+    disposition: "confirmed" | "dismissed" | "clarification_requested",
+    reason = "",
+  ) {
+    if (!finding.finding_id) return;
+    setBusyFinding(finding.finding_id);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.recordFindingDisposition(
+        applicationId,
+        finding.finding_id,
+        disposition,
+        reason,
+      );
+      setMessage("Officer disposition recorded in the case audit history.");
+      setDismissingFinding(null);
+      setDismissReason("");
+      onDispositionChanged();
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError
+          ? cause.message
+          : "Could not record the finding disposition",
+      );
+    } finally {
+      setBusyFinding(null);
+    }
+  }
 
   return (
     <section aria-labelledby="findings-heading" className="panel">
@@ -48,6 +92,9 @@ export function FindingsTable({
           </p>
         </div>
       </header>
+
+      {error && <p className="error">{error}</p>}
+      {message && <p className="message">{message}</p>}
 
       <div className="summary-tiles">
         <div className={`tile ${failCount > 0 ? "bad" : ""}`}>
@@ -115,6 +162,89 @@ export function FindingsTable({
                 )}
               </p>
             )}
+
+            {finding.disposition && (
+              <p className="tiny muted">
+                Officer disposition: <strong>{finding.disposition.replaceAll("_", " ")}</strong>
+                {finding.disposition_reason ? ` · ${finding.disposition_reason}` : ""}
+              </p>
+            )}
+
+            {canRecordDisposition &&
+              finding.finding_id &&
+              (finding.outcome === "FAIL" || finding.outcome === "NEEDS_REVIEW") && (
+                <div className="finding-disposition">
+                  {dismissingFinding === finding.finding_id ? (
+                    <form
+                      className="claim-edit-form"
+                      onSubmit={(event) => {
+                        event.preventDefault();
+                        if (!dismissReason.trim()) {
+                          setError("A reason is required to dismiss a finding.");
+                          return;
+                        }
+                        void recordDisposition(finding, "dismissed", dismissReason.trim());
+                      }}
+                    >
+                      <label>
+                        Reason for dismissal
+                        <textarea
+                          value={dismissReason}
+                          onChange={(event) => setDismissReason(event.target.value)}
+                          rows={2}
+                          required
+                        />
+                      </label>
+                      <div className="field-actions">
+                        <button type="submit" className="small" disabled={busyFinding === finding.finding_id}>
+                          Save dismissal
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary small"
+                          disabled={busyFinding === finding.finding_id}
+                          onClick={() => setDismissingFinding(null)}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </form>
+                  ) : (
+                    <>
+                      <span className="tiny muted">Officer review is required before scrutiny can be completed.</span>
+                      <div className="field-actions">
+                        <button
+                          type="button"
+                          className="secondary small"
+                          disabled={busyFinding === finding.finding_id}
+                          onClick={() => void recordDisposition(finding, "confirmed")}
+                        >
+                          Confirm
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary small"
+                          disabled={busyFinding === finding.finding_id}
+                          onClick={() => {
+                            setDismissReason("");
+                            setDismissingFinding(finding.finding_id ?? null);
+                          }}
+                        >
+                          Dismiss with reason
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary small"
+                          disabled={busyFinding === finding.finding_id}
+                          onClick={() => void recordDisposition(finding, "clarification_requested")}
+                        >
+                          Request clarification
+                        </button>
+                      </div>
+                    </>
+                  )}
+                </div>
+              )}
 
             <details className="tech">
               <summary>Technical details</summary>

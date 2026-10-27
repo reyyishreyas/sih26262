@@ -561,7 +561,13 @@ export function CaseView({
       )}
 
       {step === "checks" && batch && (
-        <FindingsTable batch={batch} onGoToDocuments={() => setStep("documents")} />
+        <FindingsTable
+          batch={batch}
+          applicationId={applicationId}
+          canRecordDisposition={canScheduleVisit}
+          onDispositionChanged={() => void load()}
+          onGoToDocuments={() => setStep("documents")}
+        />
       )}
 
       {step === "documents" && (

@@ -1,5 +1,50 @@
 # docs/BUG_LOG.md
 
+### BUG-0046 — Seeded placeholder PDF has fewer pages than its synthetic field references
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
+- Severity / Area: S4 / demo fixture and evidence preview.
+- Status: Workaround (fixture limitation remains).
+- Where it showed up: isolated Phase 5.11 browser review of seeded `fire-safety.pdf`, field `valid_to` (`source_page=2`).
+- Expected: selecting the field shows its source page in the split review.
+- Actual: the preview pane was blank in the in-app browser; the seeded placeholder PDF is generated as a one-page file while its synthetic field says page 2. That file has no bounding box either.
+- Steps to reproduce: seed local demo data, sign in as scrutiny officer, select the fire safety `valid_to` evidence.
+- Environment: isolated SQLite demo seeded with `app.services.seed`, Vite browser UI on 5174.
+- Hypotheses tried: field source data says page 2 while `backend/app/api/documents.py::_placeholder_pdf` always creates a single page; screenshot confirmed blank viewer. No application data was edited outside the isolated test DB.
+- Root cause: demo seed provenance page does not correspond to its one-page placeholder document.
+- Solution applied: retain the explicit source page and no-box honesty behavior; add an “Open original PDF in a new tab” fallback. The fixture mismatch itself is not corrected in this task.
+- Verification: preview pane and fallback link rendered in the isolated browser; page 2 could not be visually verified in the placeholder. Real uploaded PDFs with valid page/bbox provenance were not available for this smoke.
+- Related: IMPL-0050; Phase 5 exit check remains open.
+
+### BUG-0045 — Isolated browser review origin was outside the configured CORS list
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
+- Severity / Area: S4 / temporary local verification setup.
+- Status: Workaround.
+- Where it showed up: browser sign-in to the isolated UI on `http://localhost:5174` against the temporary API on port 8001.
+- Expected: the temporary seeded account can sign in through the test UI.
+- Actual: the API returned 400 to the browser's `OPTIONS /api/v1/auth/login` preflight; sign-in did not reach application logic.
+- Steps to reproduce: run the temporary API with default CORS origins and open the UI on port 5174.
+- Environment: isolated temporary SQLite API, Vite UI, local browser.
+- Hypotheses tried: server log identifies `OPTIONS` and 400; no credentials or login data were rejected by the app.
+- Root cause: default `SIH_CORS_ORIGINS` allows localhost:5173, not this separate verification port.
+- Solution applied: restart only the temporary API with explicit `http://localhost:5174` CORS origin. No repository or existing server configuration changed.
+- Verification: temporary API startup log confirmed preflight 400; after restart with `SIH_CORS_ORIGINS=["http://localhost:5174"]`, synthetic demo sign-in and case loading succeeded.
+- Related: IMPL-0050.
+
+### BUG-0044 — Local development server could not start on occupied API port
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
+- Severity / Area: S4 / local environment.
+- Status: Workaround.
+- Where it showed up: `make dev` during Phase 5.11 UI review.
+- Expected: the dev script starts API on port 8000 and frontend on 5173.
+- Actual: script exited before startup because port 8000 is occupied by PID 41874.
+- Steps to reproduce: run `make dev` while that process owns port 8000.
+- Environment: macOS local workspace.
+- Hypotheses tried: none; startup script reports the listener directly. The process was not stopped because it may be the user's existing app.
+- Root cause: another process already listens on the API port.
+- Solution applied: left the existing port 8000 process untouched. Started a separate test API on 8001 with isolated `/private/tmp/sih26262_phase5_ui.sqlite` and a test UI on 5174; synthetic browser review succeeded.
+- Verification: existing process owns 8000; shell health check could not connect. Isolated UI sign-in and case view worked after CORS was configured; the broader current app was not restarted or altered.
+- Related: IMPL-0050.
+
 ### BUG-0043 — Phase 5.10 test import ordering failed Ruff
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
 - Severity / Area: S4 / lint.

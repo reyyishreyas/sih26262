@@ -255,6 +255,27 @@ export const api = {
         body: JSON.stringify({ verification_status: verificationStatus }),
       },
     ),
+  claimField: (
+    id: string,
+    documentId: string,
+    fieldId: string,
+    value: unknown,
+    reason: string,
+  ) =>
+    request<{
+      field_id: string;
+      document_id: string;
+      extraction_value: unknown;
+      claim_value: unknown;
+      claim_reason: string | null;
+      edited: boolean;
+    }>(
+      `/applications/${id}/documents/${documentId}/fields/${fieldId}/claim`,
+      {
+        method: "POST",
+        body: JSON.stringify({ value, reason }),
+      },
+    ),
   deficiencies: (id: string) =>
     request<DeficiencyRow[]>(`/applications/${id}/deficiencies`),
   /** The composed deficiency report and compliance window (FR-15) — issued
@@ -356,6 +377,19 @@ export const api = {
       },
     ),
   compliance: (id: string) => request<ComplianceBatch>(`/applications/${id}/compliance`),
+  recordFindingDisposition: (
+    applicationId: string,
+    findingId: string,
+    disposition: "confirmed" | "dismissed" | "clarification_requested",
+    reason = "",
+  ) =>
+    request<{ finding_id: string; disposition: string; reason: string }>(
+      `/applications/${applicationId}/compliance/findings/${findingId}/disposition`,
+      {
+        method: "POST",
+        body: JSON.stringify({ disposition, reason }),
+      },
+    ),
   evaluate: (id: string) =>
     request<ComplianceBatch>(`/applications/${id}/compliance/evaluate`, { method: "POST" }),
   rehearse: (id: string, overrides: Record<string, unknown>) =>

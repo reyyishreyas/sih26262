@@ -13,8 +13,10 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| DEC-0014 | 2026-10-27 | Decision | Evidence highlighting reuses authenticated document bytes and stored boxes; PDF location guides disclose native-viewer alignment limits | Accepted | Phase 5 5.11; FR-48 | Codex |
+| IMPL-0050 | 2026-10-27 | Implementation | Phase 5.11: split evidence review, image/PDF highlight, neutral edit badge, claim editing, and audited officer disposition controls | Tested | Phase 5 5.11 (AGENT-11; FR-41, FR-47, FR-48) | Codex |
 | DEC-0013 | 2026-10-27 | Decision | Public EoA source is a pointer only; executable fixture master record and NOC/Resolution data remain fictional and synthetic | Accepted | Phase 5 5.10; FR-38/42/44; PRD §16 | Codex |
-| IMPL-0049 | 2026-10-27 | Implementation | Phase 5.10: synthetic EoA-shaped master fixture, labelled Format-2/3 fixtures, source pointer and advisory regression test | Tested | Phase 5 5.10 (AGENT-04; FR-38, FR-42, FR-44) | Codex |
+| IMPL-0049 | 2026-10-27 | Implementation | Phase 5.10: synthetic EoA-shaped master fixture, labelled Format-2/3 fixtures, source pointer and advisory regression test; public EoA master not integrated | Partial | Phase 5 5.10 (AGENT-04; FR-38, FR-42, FR-44) | Codex |
 | IMPL-0048 | 2026-10-27 | Implementation | Phase 5.9: optional OpenRouter vision adapter, metadata-only ExternalCallLog, strict JSON schema and grounding; default off | Tested | Phase 5 5.9 (AGENT-04; FR-39, FR-51) | Codex |
 | DEC-0012 | 2026-10-27 | Decision | OpenRouter calls require an explicit switch plus server-trusted public/synthetic low-confidence source; API key alone never enables processing | Accepted | Phase 5 5.9; FR-39/51; PRD §19 Q13 | Codex |
 | IMPL-0047 | 2026-10-27 | Implementation | Phase 5.8: audited officer dispositions for operational amber/red findings; scrutiny exits require each current finding to have one | Tested | Phase 5 5.8 (AGENT-05; FR-47) | Codex |
@@ -112,6 +114,23 @@
 
 ## Entries (newest first)
 
+### DEC-0014 — Evidence highlight behavior by document type
+Reuse the authenticated document-content endpoint and existing normalized bounding boxes. Raster images receive a direct CSS overlay; PDFs use the browser's native viewer with a clearly identified location guide because built-in viewer chrome and page margins vary. If no box exists, show no guessed highlight and keep the page reference visible. No document content is sent to a new service.
+
+### IMPL-0050 — Phase 5.11 split review and field disposition UI (FR-41, FR-47, FR-48)
+- Task / PRD IDs: Phase 5.11, FR-41, FR-47, FR-48.
+- What existed: evidence rows and separate View/Download buttons; claim and finding disposition APIs existed but were not integrated into the review UI. Bounding-box provenance existed on `FieldOut` but was not typed in the frontend.
+- Work: added `SplitReview.tsx`, `EvidenceHighlight.tsx`, and `EditBadge.tsx`; added authenticated document preview and stored-box overlays; added claim editing with reason handling via existing API; added officer Confirm / Dismiss with reason / Request clarification controls on current red/amber findings via the existing audited endpoint; surfaced existing disposition values and reasons. UI copy states that claims never alter the extraction used by rules.
+- Files changed: `frontend/src/api.ts`, `frontend/src/types.ts`, `frontend/src/styles.css`, `frontend/src/components/{EvidencePanel.tsx,CaseView.tsx,FindingsTable.tsx,SplitReview.tsx,EditBadge.tsx,EvidenceHighlight.tsx}`, `backend/tests/test_finding_dispositions.py`, `docs/DECISIONS.md`, `docs/IMPLEMENTATION_LOG.md`, `docs/BUG_LOG.md`, `md/6_IMPLEMENTATION_PLAN.md`, `CONTEXT.md`.
+- Existing code reused: claim endpoint (`POST .../fields/{field_id}/claim`), `document.accessed` audit on content reads, finding disposition endpoint, disposition state returned by compliance GET, and provenance `bbox`.
+- API/schema/config: no backend API/model/schema changes; frontend types and API wrappers now represent existing responses. No migration/dependency change.
+- Permission/audit effects: no permission changes. Claim save uses existing audited endpoint; document preview uses existing audited content endpoint; officer dispositions use existing `case.transition`-guarded audited endpoint.
+- Verification: `npm run build` → `tsc --noEmit` and Vite build clean; targeted `../.venv/bin/pytest -q tests/test_finding_dispositions.py` → **2 passed, 1 upstream warning**; `make lint` → clean; `make test` → **777 passed, 1 upstream warning, 0 skipped**.
+- Interactive check: isolated synthetic API/UI on ports 8001/5174; demo officer could view current red/amber controls, confirm one finding, dismiss another with a reason, save a claim edit, and see “Edited after extraction” while the message confirmed rules still use extraction. The seeded PDF preview could not be visually verified: the one-page placeholder file's field points at page 2 (BUG-0046). The existing 5173/8000 app was not stopped.
+- Limitations: interactive exit path did not validate live public EoA loading, actual site-move upload/autofill, or exact PDF box alignment. The demo EoA is only a source pointer and fixture master data is fictional. Phase 5 exit check remains open pending a source-backed, policy-compliant end-to-end site-move pack. Current local app on 8000 was already occupied; its instance was not modified.
+- Open questions: PRD §19 source/template/schema questions remain unresolved; obtaining a real institution EoA locally conflicts with `AGENTS.md`'s prohibition on committing real institution documents. No approval/regulatory status changed.
+- Git status at implementation: pending commit/push; unrelated untracked image files left untouched.
+
 ### DEC-0013 — Public EoA source pointer and fictional regression fixture
 The PRD's public EoA demo source is recorded as a source pointer, but the real institution PDF and its data are not copied into the repository because `AGENTS.md` prohibits committing real institution documents. The executable master-record JSON is fictional, labelled synthetic, and test-only. Synthetic Format-2-style NOC and Format-3-style Resolution JSON fixtures exercise existing classification and advisory cross-check/site-check services. Official form fields and regulatory interpretations remain Unverified; fixtures do not establish compliance or authority.
 
@@ -124,7 +143,7 @@ The PRD's public EoA demo source is recorded as a source pointer, but the real i
 - API/schema/config: none; no migration or dependency change.
 - Permission/audit effects: none; no persisted application state or audit events.
 - Verification: `../.venv/bin/pytest -q tests/test_phase5_site_move_fixtures.py` → **1 passed, 1 upstream warning**; `make lint` → clean; `make test` → **777 passed, 1 upstream warning, 0 skipped**. Initial bare system pytest failed before collection from an unrelated global plugin (BUG-0042); initial lint flagged test import order, fixed (BUG-0043).
-- Limitations: fixture values are wholly fictional; official Format-2/Format-3 templates and field mappings are not verified. Source pointer is not an integrated live/public data feed. No UI/demo auto-fill or split-screen work is claimed here; planned next task is 5.11.
+- Limitations: fixture values are wholly fictional; official Format-2/Format-3 templates and field mappings are not verified. Source pointer is not an integrated live/public data feed. The UI slice was implemented in IMPL-0050, but public EoA master data and site-move upload/autofill remain unimplemented.
 - Open questions: PRD §19 template/field mapping questions remain unresolved; no regulatory rule status changed.
 - Git status at implementation: pending final commit and push; unrelated untracked image files were left untouched.
 

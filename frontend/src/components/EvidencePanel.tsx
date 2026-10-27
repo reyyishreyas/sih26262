@@ -12,7 +12,9 @@ import type {
 import { useFileCheck } from "../useFileCheck";
 import { useRefreshOnFocus } from "../useRefreshOnFocus";
 import { ACCEPT_ATTRIBUTE, MAX_UPLOAD_BYTES, formatBytes } from "../uploadCheck";
+import { EditBadge } from "./EditBadge";
 import { Icon } from "./Icon";
+import { SplitReview } from "./SplitReview";
 import {
   deficiencyTone,
   docHelp,
@@ -119,6 +121,15 @@ export function EvidencePanel({
   const [warning, setWarning] = useState<string | null>(null);
   const [busyDocId, setBusyDocId] = useState<string | null>(null);
   const [showHelp, setShowHelp] = useState(false);
+  const [selectedEvidence, setSelectedEvidence] = useState<{
+    document: DocumentRow;
+    field: DocumentRow["fields"][number];
+  } | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [editingClaimId, setEditingClaimId] = useState<string | null>(null);
+  const [claimDraft, setClaimDraft] = useState("");
+  const [claimReason, setClaimReason] = useState("");
+  const [claimBusy, setClaimBusy] = useState(false);
   // Which reader the server actually used on the last upload. "Demo reader"
   // returns canned values and never opens the file, so it must never be
   // presented as if the file had been read.
@@ -181,6 +192,35 @@ export function EvidencePanel({
     }
   }, [applicationId]);
 
+  const previewDocumentId = selectedEvidence?.document.id ?? null;
+  useEffect(() => {
+    let active = true;
+    let createdUrl: string | null = null;
+    setPreviewUrl(null);
+    if (!previewDocumentId) return () => { active = false; };
+
+    void api.openDocument(applicationId, previewDocumentId).then(
+      (url) => {
+        createdUrl = url;
+        if (active) setPreviewUrl(url);
+        else URL.revokeObjectURL(url);
+      },
+    ).catch((cause: unknown) => {
+      if (active) {
+        setError(
+          cause instanceof ApiError
+            ? cause.message
+            : "Could not load the original document preview",
+        );
+      }
+    });
+
+    return () => {
+      active = false;
+      if (createdUrl) URL.revokeObjectURL(createdUrl);
+    };
+  }, [applicationId, previewDocumentId]);
+
   useRefreshOnFocus(load);
 
   useEffect(() => {
@@ -191,6 +231,8 @@ export function EvidencePanel({
     setDocCheck(null);
     setStaging(false);
     setItemRemarks({});
+    setSelectedEvidence(null);
+    setEditingClaimId(null);
     setError(null);
     setMessage(null);
     setWarning(null);
@@ -342,6 +384,56 @@ export function EvidencePanel({
     }
   }
 
+  async function saveClaim(
+    event: FormEvent<HTMLFormElement>,
+    document: DocumentRow,
+    field: DocumentRow["fields"][number],
+  ) {
+    event.preventDefault();
+    const changed = claimDraft !== formatValue(field.value);
+    if (changed && !claimReason.trim()) {
+      setError("Add a reason when the value differs from the extracted text.");
+      return;
+    }
+    setClaimBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const result = await api.claimField(
+        applicationId,
+        document.id,
+        field.id,
+        claimDraft,
+        claimReason.trim(),
+      );
+      setSelectedEvidence((current) =>
+        current?.field.id === field.id
+          ? {
+              ...current,
+              field: {
+                ...current.field,
+                claim_value: result.claim_value,
+                claim_reason: result.claim_reason,
+              },
+            }
+          : current,
+      );
+      setMessage(
+        result.edited
+          ? "Claim saved beside the extracted value. Rules continue to use the extracted value."
+          : "Claim saved. The extracted value is unchanged.",
+      );
+      setEditingClaimId(null);
+      setClaimReason("");
+      await load();
+      onEvidenceChanged();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not save the claim");
+    } finally {
+      setClaimBusy(false);
+    }
+  }
+
   function startRejectField(doc: DocumentRow, field: { id: string; field_name: string; value: unknown }) {
     setRejectingField({ doc, field: { id: field.id, name: field.field_name, value: field.value } });
     setDeficiencyExplanation(`Incorrect ${humanize(field.field_name)} in ${plainDocType(doc.doc_type)}: ${formatValue(field.value)}`);
@@ -455,6 +547,14 @@ export function EvidencePanel({
       {error && <p className="error">{error}</p>}
       {message && <p className="message">{message}</p>}
       {warning && <p className="warning">{warning}</p>}
+
+      {selectedEvidence && (
+        <SplitReview
+          document={selectedEvidence.document}
+          field={selectedEvidence.field}
+          previewUrl={previewUrl}
+        />
+      )}
 
       {canUpload && (
         <form ref={formRef} className="upload-box" onSubmit={upload}>
@@ -661,13 +761,77 @@ export function EvidencePanel({
                         {plainMethod(field.method)}
                       </span>
                     </span>
+                    <EditBadge extraction={field.value} claim={field.claim_value} />
+                    {editingClaimId === field.id ? (
+                      <form
+                        className="claim-edit-form"
+                        onSubmit={(event) => void saveClaim(event, document, field)}
+                      >
+                        <label>
+                          Claim Value
+                          <input
+                            value={claimDraft}
+                            onChange={(event) => setClaimDraft(event.target.value)}
+                            aria-label={`Claim value for ${humanize(field.field_name)}`}
+                          />
+                        </label>
+                        <label>
+                          Reason for change
+                          <textarea
+                            value={claimReason}
+                            onChange={(event) => setClaimReason(event.target.value)}
+                            rows={2}
+                            placeholder="Required when the claim differs from the extraction"
+                          />
+                        </label>
+                        <div className="field-actions">
+                          <button type="submit" className="small" disabled={claimBusy}>
+                            {claimBusy ? "Saving…" : "Save claim"}
+                          </button>
+                          <button
+                            type="button"
+                            className="secondary small"
+                            disabled={claimBusy}
+                            onClick={() => {
+                              setEditingClaimId(null);
+                              setClaimReason("");
+                            }}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </form>
+                    ) : null}
                   </div>
-                <div className="field-actions">
-                  <span className={`pill ${verificationTone(field.verification_status)}`}>
-                    {plainVerification(field.verification_status)}
-                  </span>
-                  {canVerify && (
-                    <>
+                  <div className="field-actions">
+                    <span className={`pill ${verificationTone(field.verification_status)}`}>
+                      {plainVerification(field.verification_status)}
+                    </span>
+                    <button
+                      type="button"
+                      className="secondary small"
+                      aria-pressed={selectedEvidence?.field.id === field.id}
+                      onClick={() => setSelectedEvidence({ document, field })}
+                    >
+                      View evidence
+                    </button>
+                    {(canUpload || canVerify) && editingClaimId !== field.id && (
+                      <button
+                        type="button"
+                        className="secondary small"
+                        onClick={() => {
+                          setEditingClaimId(field.id);
+                          setClaimDraft(
+                            formatValue(field.claim_value ?? field.value),
+                          );
+                          setClaimReason(field.claim_reason ?? "");
+                        }}
+                      >
+                        Edit claim
+                      </button>
+                    )}
+                    {canVerify && (
+                      <>
                       <button
                         type="button"
                         className="small good"
@@ -685,10 +849,10 @@ export function EvidencePanel({
                       >
                         <Icon name="x" size={14} /> Wrong / Deficiency
                       </button>
-                    </>
-                  )}
+                      </>
+                    )}
+                  </div>
                 </div>
-              </div>
             );
           })}
           </article>
@@ -1367,4 +1531,3 @@ export function EvidencePanel({
     </section>
   );
 }
-
