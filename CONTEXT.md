@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 673 passing
+make test      # pytest — 675 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **673 passing** (~500 test functions; some parametrised).
+- `make test` → **675 passing** (~500 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -582,9 +582,20 @@ tamper-evidence).
   never leaks to the institution in 4.4's report; `GET` is a read-only
   `READ_ANY` route; EvidencePanel pre-check panel; 2 matrix rows;
   BUG-0015 fixed — a wrong test expectation, not service behaviour).
+  `test_phase4_exit_check.py` (2 — Phase 4 exit check: the full
+  deficiency → compliance → Re-Scrutiny loop composed on `app-main-0001`
+  through the public API — pre-check → stage (idempotent, case
+  unmoved) → drafts invisible (`not_issued`, zero rows) →
+  `return_for_clarification` promotes + issues the report → corrective
+  upload (observed: staged pre-check rows do **not** auto-address; the
+  officer closes them) → audited one-day `demo_clock.advance` →
+  `resubmit` → `received` + `awaiting_re_scrutiny` → close →
+  `start_scrutiny`; audit chronology asserted on `AuditEvent.seq`;
+  a row-count snapshot proves the reads store nothing; BUG-0016 +
+  BUG-0017 fixed — both test-side, no product code changed).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `f4ddd5e` (Phase 4.5).
+  repo is currently green at `b602d9f` (Phase 4 exit check).
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on

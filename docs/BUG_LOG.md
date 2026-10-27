@@ -16,6 +16,8 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0017 | 2026-10-27 | S4 | test | Exit check's audit-order helper read rows in `entity_id` index order (no `ORDER BY`) — chronology faked, ordering walk failed; now ordered by `AuditEvent.seq` | Fixed | IMPL-0037 |
+| BUG-0016 | 2026-10-27 | S4 | compliance window / test | Exit check read `open` instead of `received` after resubmit: `_resubmitted_at`'s strict `>` vs return+resubmit at the identical fixed-clock instant — test now advances the audited demo clock between the steps (service correct) | Fixed | IMPL-0037 |
 | BUG-0015 | 2026-10-27 | S4 | test | First run of the RULE-DOC-01 suite: expected candidate set omitted `affidavit_2` on a case that uploads no affidavit — the service was right, the expectation incomplete | Fixed | IMPL-0036 |
 | BUG-0014 | 2026-10-27 | S3 | workflow config | `existing_technical` route defines no `return_for_clarification`/`resubmit` transitions — the FR-15 deficiency→compliance loop is unreachable on that route; route-table change needs human approval | Open | IMPL-0035 |
 | BUG-0013 | 2026-10-27 | S4 | test | Third run of the FR-15 suite: `select().count()` misuse (AttributeError), 23:59 asserted on a UTC timestamp (it is 23:59 in the business timezone), re-return attempted from `submitted` without `start_scrutiny` | Fixed | IMPL-0035 |
@@ -54,6 +56,51 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0017 — second run of the Phase 4 exit check: audit actions came back in index order, faking the chronology
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), second `pytest tests/test_phase4_exit_check.py` (after BUG-0016's fix)
+- Branch / commit: master (work uncommitted at time of fix; baseline `e0585f7`)
+- Severity / Area: **S4** (test-only query; no product behaviour involved) / test
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_phase4_exit_check.py -q` → 1 failed, 1 passed:
+  ```
+  E   AssertionError: missing audit action 'deficiency.finalized' in ['deficiency.finalized',
+  E   'deficiency.closed', 'application.created', 'workflow.submit', 'workflow.start_scrutiny',
+  'deficiency.doc_check_staged', 'deficiency.doc_check_staged', 'workflow.return_for_clarification',
+  'workflow.resubmit', 'workflow.start_scrutiny']
+  ```
+- Expected behaviour: the ordered walk (staged → finalized → return → resubmit → start_scrutiny) should find each action after the previous one; `deficiency.finalized` was expected between staging and the return.
+- Actual behaviour: `deficiency.finalized` and `deficiency.closed` appeared **first** in the list — before `application.created` — so the "after the previous index" walk failed even though every action was present.
+- Environment: macOS, Python 3.13, SQLite.
+- Hypotheses tried: (1) seed writes deficiency audit rows? — no: a fresh seeded DB holds exactly 3 events (`application.created`, `workflow.submit`, `workflow.start_scrutiny`, printed via a direct query); (2) promotion audit written before staging? — impossible, staging committed first; (3) **root cause** — my helper did `select(action).where(entity_id.in_(APP, def_id))` with no `order_by`; SQLite satisfied the `IN` filter through the `entity_id` index and returned rows in index order (all `def_id` uuid rows sort before `app-main-0001`), not insertion order.
+- Root cause: the test assumed SQL returns rows in insertion order; without `ORDER BY` the planner is free to use the indexed column's order. `AuditEvent` has an autoincrement `seq` primary key precisely for chronology.
+- Solution applied: the helper now orders by `AuditEvent.seq`. No product change — every event was written correctly all along.
+- Verification: `pytest tests/test_phase4_exit_check.py -q` → **2 passed**; `ruff check` clean.
+- Side effects / follow-ups: none. Worth remembering for future audit-order assertions: order by `seq`, never rely on natural order. Related IMPL-0037.
+- Update history: 2026-10-27 — found and fixed in the same session.
+
+### BUG-0016 — first run of the Phase 4 exit check: report read `open` instead of `received` after resubmit
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first `pytest tests/test_phase4_exit_check.py` after writing the exit check
+- Branch / commit: master (work uncommitted at time of fix; baseline `e0585f7`)
+- Severity / Area: **S4** (test-time composition; production timing unaffected) / compliance window + test
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_phase4_exit_check.py -q` → 1 failed, 1 passed:
+  ```
+  >       assert report["window_status"] == "received"
+  E       AssertionError: assert 'open' == 'received'
+  E         - received
+  E         + open
+  ```
+  (in `test_the_full_deficiency_compliance_rescrutiny_loop`, after the institution's `resubmit`)
+- Expected behaviour: after the institution resubmits, the report answers `window_status: "received"` with `resubmitted_at` set (Phase 4.4 design, FR-15).
+- Actual behaviour: still `"open"`, `resubmitted_at: null`, so `awaiting_re_scrutiny` was false as well.
+- Environment: macOS, Python 3.13, SQLite, fixed clock (`FixedClock(2026-10-22T09:00Z)` from `tests/conftest.py`).
+- Hypotheses tried: (1) wrong `ISSUE_ACTION`/`RESUBMIT_ACTION` constants? — no, the issue instant resolved fine (report went `not_issued → issued` with `window_status: open`); (2) resubmit not recorded as a `WorkflowTransition`? — no, `workflow.resubmit` audited and state became `submitted`; (3) **root cause** — `_resubmitted_at` (compliance.py line 101) requires `moment > since` (strictly after the issue instant), and the exit-check test ran `return_for_clarification` and `resubmit` in the *same fixed-clock instant* (`09:00:00Z`), so `09:00 > 09:00` is false.
+- Root cause: time compression in the test, not a service defect — the strict `>` is correct production semantics (a reply must come *after* the issue, and a same-instant resubmit from an *earlier* return cycle must not count as the reply to the *latest* one; ids are uuid4 so timestamps are the only order). The demo/test clock simply never moved between the two transitions.
+- Solution applied: the exit-check test now advances the clock through the **real Phase 3.8 demo-clock service** (`demo_clock.advance(db, admin_access, 1)`, audited) between the return and the resubmit — one day later, matching reality where correction takes time — plus an autouse `set_clock(FixedClock(DEMO_NOW))` reset fixture so the jump cannot leak (the Phase 3 exit-check pattern). Service code unchanged.
+- Verification: `pytest tests/test_phase4_exit_check.py -q` → **2 passed** (see IMPL-0037).
+- Side effects / follow-ups: none — no production behaviour changed. Demo note: a walkthrough that returns and resubmits *without* advancing the demo clock will read `open`, not `received`; advance the clock (admin demo-clock) between the two steps. Related IMPL-0037.
+- Update history: 2026-10-27 — found and fixed in the same session.
 
 ### BUG-0015 — first run of the new RULE-DOC-01 suite: one failure from a wrong test expectation (candidates omitted the affidavit)
 - Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first `pytest tests/test_doc_check.py` after writing the suite
