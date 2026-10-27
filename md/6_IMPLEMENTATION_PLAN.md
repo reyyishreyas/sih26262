@@ -91,7 +91,7 @@ Do not run phases concurrently without agreed interfaces (see `4_AGENTS.md`). Ea
 - [ ] **Exit check:** demo steps 2–5 work: auto-fill → edit → amber badge → address mismatch + "partial shifting" red findings → highlight → confirm one, dismiss one.
 
 ## Phase 6 — EVC, SHC, decision, grant (FR-18–FR-27, FR-31–FR-32)
-- [ ] 6.1 `EVC` model; queue entry after scrutiny when route needs it (FR-18).
+- [x] 6.1 `EVC` model; queue entry after scrutiny when route needs it (FR-18). → **model reused unchanged** (`EvcVisit`, migration 0008; scheduling/reschedule/completion bookkeeping already built) + `GET /evc/queue` now also selects cases whose **own route transition definitions** prescribe `schedule_evc` from the case's current state and that hold no live visit (FR-18 "queue after scrutiny when the route needs it"; `existing_technical` contributes no pair so it never appears; `evc_only` correctly enters from `submitted`); rows gain `awaiting_scheduling`, payload gains the count — **derived on read, no stored row, no state change, no gate**. `test_evc_queue.py` (11); `make lint` clean; `make test` **725 passed / 3 skipped** (Tesseract absent this session — pre-existing) (IMPL-0041, DEC-0005, 2026-10-27). **Phase order note:** Phase 6 (and 8) are being run before Phase 5.4–5.11 on the project lead's explicit instruction — DEC-0005; Phase 5 remains open from 5.4.
 - [ ] 6.2 Schedule online/physical, experts, confirmation, Region calendar (FR-20); reminders 7/2/1 days.
 - [ ] 6.3 EVC report upload; deficiency → SHC; fraud flag to competent authority, no penal step (FR-22).
 - [ ] 6.4 SHC scheduling, compliance record, recommendation (FR-24).
