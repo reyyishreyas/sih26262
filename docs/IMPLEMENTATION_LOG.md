@@ -13,6 +13,8 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0047 | 2026-10-27 | Implementation | Phase 5.8: audited officer dispositions for operational amber/red findings; scrutiny exits require each current finding to have one | Tested | Phase 5 5.8 (AGENT-05; FR-47) | Codex |
+| DEC-0011 | 2026-10-27 | Decision | The FR-47 gate covers only persisted current-baseline operational FAIL/NEEDS_REVIEW findings; Phase 5 advisory diagnostics stay nonblocking | Accepted | Phase 5 5.8; FR-47; rules1/rules2 safety constraints | Codex |
 | IMPL-0046 | 2026-10-27 | Implementation | Phase 5.7: aggregate advisory PRE-CHECK PASSED / REVIEW REQUIRED / DEFICIENCY CANDIDATE labels; all outcomes nonblocking; only Verified mappings can yield a pass | Tested | Phase 5 5.7 (AGENT-04; FR-46) | Codex |
 | DEC-0010 | 2026-10-27 | Decision | Candidate labels never create formal deficiencies or workflow actions; PRE-CHECK PASSED requires all mappings Verified | Accepted | Phase 5 5.7; FR-46 | Codex |
 | IMPL-0045 | 2026-10-27 | Implementation | Phase 5.6: SITE-01 phrase/programme diagnostics + SITE-02 lookup using synthetic-only jurisdiction data; all outcomes remain REVIEW REQUIRED | Tested | Phase 5 5.6 (AGENT-04; FR-43, FR-44) | Codex |
@@ -105,6 +107,26 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0047 — Phase 5.8: audited finding dispositions and scrutiny gate (FR-47)
+- Date / agent / branch / commit: 2026-10-27 / Codex / master / pending commit
+- Task ID and PRD IDs: Phase 5.8 (AGENT-05); FR-47; PRD §8 line 155.
+- Goal: require the officer to record a disposition for every current amber/red finding before scrutiny exits; retain the officer's action in the audit chain.
+- What existed before: `RuleEvaluation` persisted operational findings but had no disposition model or endpoint. The Phase 5.5–5.7 E01/SITE/pre-check results were advisory snapshots and cannot safely block a workflow.
+- What I did:
+  - Added `FindingDisposition`, one current row per `RuleEvaluation`, with actor, timestamp, required dismissal reason, and a uniqueness constraint. Re-recording updates the current read model while every action remains in the append-only audit chain.
+  - Added `POST /applications/{application_id}/compliance/findings/{finding_id}/disposition`, scoped with `CASE_TRANSITION`; accepted values are `confirmed`, `dismissed`, and `clarification_requested`. Non-amber/red rows are refused; a dismissal without a reason is refused. Accepted and business-rule-rejected attempts are audited.
+  - Compliance findings now include `finding_id` and current disposition fields.
+  - Added an audited rejection guard for every transition leaving `scrutiny` when the latest persisted operational batch at the current `baseline_version` contains `FAIL` or `NEEDS_REVIEW` rows without a disposition. This is the existing workflow state; no route/state vocabulary or officer authority was added. Unverified Phase 5 advisory results remain nonblocking.
+  - Added authz matrix coverage and tests for gate refusal, confirmation/dismissal, audit events, required reason, and neutral-outcome refusal.
+- Files changed: `backend/app/models/compliance.py`, `backend/app/models/__init__.py`, `backend/app/api/compliance.py`, `backend/app/api/applications.py`, `backend/app/services/workflow_service.py`, `backend/migrations/versions/0016_finding_dispositions.py`, `backend/tests/test_finding_dispositions.py`, `backend/tests/test_authz_matrix.py`, `md/6_IMPLEMENTATION_PLAN.md`, `docs/TRACEABILITY.md`, `docs/DECISIONS.md`, `CONTEXT.md`, `README.md`, this log, and `docs/BUG_LOG.md`.
+- Migration/API/config: additive migration `0016_finding_dispositions`; new scoped POST endpoint; existing compliance response adds finding IDs and disposition values. No dependencies, official rules, or workflow routes added.
+- Permission and audit effects: `CASE_TRANSITION` only; no role matrix widening. Every successful disposition and business rejection is audited. An incomplete scrutiny exit uses the existing audited transition-rejection path.
+- Verification (exact commands + results): `make lint` → clean; `make test` → **771 passed, 1 upstream Starlette/httpx deprecation warning, 0 skipped**; `cd backend && SIH_DATABASE_URL=sqlite:////tmp/sih-phase58.db ../.venv/bin/alembic upgrade head` → success through 0016; same URL + `alembic check` → `No new upgrade operations detected`; targeted `pytest -q tests/test_finding_dispositions.py tests/test_authz_matrix.py tests/test_api.py` → 38 passed before the final full-suite run. Frontend build not run (no frontend changes).
+- Limitations / assumptions / manual steps: the gate applies to the latest persisted *operational* evaluation batch for the current application baseline; Phase 5 prototype diagnostics are unverified/advisory and excluded until valid rule mappings produce official operational findings. Updating a disposition overwrites the current row but preserves each prior action in audit. SQLite migration verified; PostgreSQL/Compose not run. Phase 5.11 is still needed for UI controls.
+- Related bugs: BUG-0038 (Ruff import errors, fixed); BUG-0039 (authorization-matrix probe omitted a valid request body, fixed).
+- Open questions: none for this bounded task. The suite's one warning is an existing dependency deprecation.
+- Next task: Phase 5.9, optional OpenRouter vision adapter, off by default.
 <!-- add entries below this line -->
 
 ### DEC-0010 — Outcome labels never create a formal finding or gate

@@ -74,6 +74,26 @@ class RuleEvaluation(Base):
     )
 
 
+class FindingDisposition(Base):
+    """Current officer disposition for a persisted operational finding.
+
+    Changes are retained in the audit chain; this row is the current read model.
+    Advisory pre-check diagnostics are intentionally not eligible findings.
+    """
+
+    __tablename__ = "finding_dispositions"
+    __table_args__ = (UniqueConstraint("rule_evaluation_id", name="uq_finding_disposition_evaluation"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    rule_evaluation_id: Mapped[str] = mapped_column(
+        ForeignKey("rule_evaluations.id", ondelete="CASCADE"), index=True
+    )
+    disposition: Mapped[str] = mapped_column(String(32))
+    reason: Mapped[str] = mapped_column(String(1024), default="")
+    actor_id: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Alert(Base):
     """One logical alert. `dedupe_key` is what makes sweeps idempotent."""
 

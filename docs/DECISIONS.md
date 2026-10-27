@@ -41,6 +41,9 @@ this file holds the short operational answers and pointers.
 - Tests: `tests/test_document_extraction.py:20-24` — `requires_ocr = skipif(shutil.which("tesseract") is None)`; OCR-path tests skip without it.
 - Verified this run on this machine: Tesseract present → `163 passed, 0 skipped`.
 
+### DEC-0011 — Which findings participate in the Phase 5.8 scrutiny gate?
+Only persisted operational `FAIL` and `NEEDS_REVIEW` findings from the latest evaluation batch at the application's current `baseline_version` require dispositions. These match the product's red and amber outcome badges. Unverified Phase 5.5/5.6 checks and the Phase 5.7 pre-check aggregate stay advisory and never block workflow; they are not `RuleEvaluation` rows. This preserves the `md/rules.json` status and avoids turning prototype comparisons into an official decision. The officer's three FR-47 dispositions are recorded directly and every accepted or business-rule-rejected action is audited.
+
 ## Decision list (short form; full entries in docs/IMPLEMENTATION_LOG.md)
 | ID | Decision | Status |
 |---|---|---|

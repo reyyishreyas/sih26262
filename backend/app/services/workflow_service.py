@@ -32,6 +32,8 @@ from ..core.permissions import PermissionDenied
 from ..models import (
     Application,
     Deficiency,
+    FindingDisposition,
+    RuleEvaluation,
     WorkflowTransition,
     WorkflowTransitionDefinition,
 )
@@ -333,6 +335,50 @@ def request_transition(
                 rule_results=rule_results,
                 request_id=request_id,
             )
+
+    # FR-47: every persisted red (FAIL) or amber (NEEDS_REVIEW) finding in
+    # the current operational batch needs a recorded officer disposition
+    # before scrutiny can leave the scrutiny state. Advisory pre-checks are
+    # intentionally excluded: they are neither persisted nor authoritative.
+    if from_state == "scrutiny" and definition.to_state != "scrutiny":
+        finding_rows = db.scalars(
+            select(RuleEvaluation)
+            .where(
+                RuleEvaluation.application_id == application.id,
+                RuleEvaluation.application_baseline_version == application.baseline_version,
+                RuleEvaluation.context == "operational",
+            )
+            .order_by(RuleEvaluation.evaluated_at.desc(), RuleEvaluation.batch_id.desc())
+        ).all()
+        if finding_rows:
+            latest_batch = max(
+                finding_rows, key=lambda row: (row.evaluated_at, row.batch_id)
+            ).batch_id
+            findings = [row for row in finding_rows if row.batch_id == latest_batch
+                        and row.outcome in ("FAIL", "NEEDS_REVIEW")]
+            dispositions = {
+                row.rule_evaluation_id: row.disposition
+                for row in db.scalars(
+                    select(FindingDisposition).where(
+                        FindingDisposition.rule_evaluation_id.in_([f.id for f in findings])
+                    )
+                ).all()
+            } if findings else {}
+            undisposed = [f.rule_key for f in findings if f.id not in dispositions]
+            if undisposed:
+                return _reject(
+                    db,
+                    application=application,
+                    access=access,
+                    action=action,
+                    from_state=from_state,
+                    reasons=[
+                        "every amber/red finding needs an officer disposition before scrutiny can complete: "
+                        + ", ".join(undisposed)
+                    ],
+                    rule_results=rule_results,
+                    request_id=request_id,
+                )
 
     now = get_clock().now()
     before = {"state": from_state, "baseline_version": application.baseline_version}

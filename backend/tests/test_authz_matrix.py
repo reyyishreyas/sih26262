@@ -116,6 +116,9 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("POST", "/api/v1/applications/{application_id}/compliance/evaluate"): frozenset(
         {COMPLIANCE_EVALUATE}
     ),
+    ("POST", "/api/v1/applications/{application_id}/compliance/findings/{finding_id}/disposition"): frozenset(
+        {CASE_TRANSITION}
+    ),
     # deficiencies
     ("GET", "/api/v1/applications/{application_id}/deficiencies"): READ_ANY,
     ("POST", "/api/v1/applications/{application_id}/deficiencies"): TRANSITION_OR_VERIFY,
@@ -258,6 +261,10 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
 PROBE = "matrix_probe_not_a_real_action"
 
 JSON_BODIES: dict[tuple[str, str], dict] = {
+    ("POST", "/api/v1/applications/{application_id}/compliance/findings/{finding_id}/disposition"): {
+        "disposition": "confirmed",
+        "reason": "Authorisation matrix probe",
+    },
     ("POST", "/api/v1/applications/{application_id}/transitions"): {
         "action": PROBE,
         "reason": "authorisation matrix probe",

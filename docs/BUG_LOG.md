@@ -16,6 +16,8 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0039 | 2026-10-27 | S4 | authz test harness | Phase 5.8 matrix probe lacked a valid request body, so Pydantic returned 422 before the scope check | Fixed | IMPL-0047 |
+| BUG-0038 | 2026-10-27 | S4 | lint | Initial Phase 5.8 Ruff run found duplicated imports and a missing clock import | Fixed | IMPL-0047 |
 | BUG-0037 | 2026-10-27 | S4 | test | Phase 5.7 policy contract test compared mapping keys instead of outcome labels | Fixed | IMPL-0046 |
 | BUG-0036 | 2026-10-27 | S4 | test | Site jurisdiction test read field paths from the fixture instead of the site policy | Fixed | IMPL-0045 |
 | BUG-0035 | 2026-10-27 | S4 | lint | Phase 5.6 Ruff check stopped on local service import ordering | Fixed | IMPL-0045 |
@@ -53,6 +55,38 @@
 | BUG-0003 | 2026-10-26 | S4 | test-harness | Test session showed pre-request state after an API call committed in another session | Fixed | IMPL-0002 |
 | BUG-0002 | 2026-10-26 | S4 | docs | README repository map said 155 tests; actual 163 | Fixed | IMPL-0001 |
 | BUG-0001 | 2026-10-26 | S3 | ocr | Tesseract binary missing → OCR tests skipped | Workaround | IMPL-0001 |
+
+### BUG-0039 — Phase 5.8 authorization-matrix probe sent no disposition body
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
+- Severity / Area: S4 / test harness and authorization matrix.
+- Status: Fixed.
+- Where it showed up: `pytest -q tests/test_finding_dispositions.py tests/test_authz_matrix.py tests/test_api.py`, out-of-scope matrix cases for regional and scrutiny roles.
+- Expected: out-of-scope case requests return 404 before revealing the case.
+- Actual: the new POST probe returned 422 because no valid Pydantic request body was sent; body validation ran before the scoped application lookup.
+- Exact error output (trimmed): `POST .../compliance/findings/matrix-missing-finding_id/disposition ... got 422, expected 404`.
+- Steps to reproduce: add a permission-gated POST to `MATRIX`, omit its endpoint body from `JSON_BODIES`, run the scoped matrix test.
+- Environment: macOS, Python 3.13, SQLite test database, FastAPI TestClient.
+- Hypotheses tried: initially suspected the scope dependency; response was from body validation, and the same probe passed once given a valid body.
+- Root cause: shared matrix request builder had no representative payload for the new POST.
+- Solution applied: added a valid `confirmed` disposition body to the matrix fixture, so authz/scope behavior is reached. Regression coverage is the existing out-of-scope matrix test.
+- Verification: targeted matrix + endpoint tests **38 passed**; final `make test` **771 passed, 0 skipped**.
+- Related: IMPL-0047; BUG-0038.
+
+### BUG-0038 — Initial Phase 5.8 lint found import defects
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
+- Severity / Area: S4 / lint.
+- Status: Fixed.
+- Where it showed up: initial `cd backend && ../.venv/bin/ruff check app tests migrations`.
+- Expected: newly edited API, migration, and test imports satisfy Ruff.
+- Actual: `I001` import ordering in the new API/migration/test and duplicate imports plus `F821 Undefined name get_clock` in the new endpoint.
+- Exact error output (trimmed): `F821 Undefined name get_clock` and `I001 Import block is un-sorted or un-formatted`.
+- Steps to reproduce: run Ruff after the first implementation edits.
+- Environment: macOS, Python 3.13, Ruff 0.14.4.
+- Hypotheses tried: none; diagnostics directly identified the import block and missing clock import.
+- Root cause: duplicated authorization import, missing clock import, and generated/import blocks not in repository order.
+- Solution applied: consolidated imports, added `get_clock`, and ran Ruff autofix for ordering. Regression guard: full Ruff check.
+- Verification: `make lint` clean; final `make test` **771 passed, 0 skipped**.
+- Related: IMPL-0047.
 
 ## Entry template
 ```

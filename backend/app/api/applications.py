@@ -9,7 +9,7 @@ from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.pagination import PageParams, apply_page, pagination, set_total
 from ..core.permissions import APPLICATION_CREATE, APPLICATION_READ, CASE_READ
-from ..models import Application, Institution
+from ..models import Application, FindingDisposition, Institution, RuleEvaluation
 from ..schemas.api import ApplicationCreate, ApplicationOut
 from ..services import compliance_service, workflow_service
 from ..services.audit_service import AuditService
@@ -131,11 +131,10 @@ def get_compliance(
     db: Session = Depends(get_db),
 ) -> dict:
     application = require_application(db, access, application_id)
-    from ..models import RuleEvaluation
-
     latest = db.scalars(
         select(RuleEvaluation)
         .where(RuleEvaluation.application_id == application.id)
+        .where(RuleEvaluation.context == "operational")
         .order_by(RuleEvaluation.evaluated_at.desc())
     ).first()
     # A stored batch is a snapshot. If evidence or workflow state changed since it
@@ -163,6 +162,22 @@ def get_compliance(
         db.commit()
         result = report.as_dict()
         result.update(compliance_service.evaluate_advisory_precheck(db, application))
+        rows = db.scalars(select(RuleEvaluation).where(
+            RuleEvaluation.application_id == application.id,
+            RuleEvaluation.batch_id == report.batch_id,
+            RuleEvaluation.context == "operational",
+        ).order_by(RuleEvaluation.rule_key)).all()
+        disposition_by_id = {
+            item.rule_evaluation_id: item
+            for item in db.scalars(select(FindingDisposition).where(
+                FindingDisposition.rule_evaluation_id.in_([row.id for row in rows])
+            )).all()
+        } if rows else {}
+        for finding, row in zip(result.get("findings", []), rows, strict=False):
+            disposition = disposition_by_id.get(row.id)
+            finding["finding_id"] = row.id
+            finding["disposition"] = disposition.disposition if disposition else None
+            finding["disposition_reason"] = disposition.reason if disposition else None
         return result
 
     rows = db.scalars(
@@ -170,9 +185,16 @@ def get_compliance(
         .where(
             RuleEvaluation.application_id == application.id,
             RuleEvaluation.batch_id == latest.batch_id,
+            RuleEvaluation.context == "operational",
         )
         .order_by(RuleEvaluation.rule_key)
     ).all()
+    disposition_by_id = {
+        item.rule_evaluation_id: item
+        for item in db.scalars(select(FindingDisposition).where(
+            FindingDisposition.rule_evaluation_id.in_([row.id for row in rows])
+        )).all()
+    } if rows else {}
     return {
         "application_id": application.id,
         "batch_id": latest.batch_id,
@@ -182,6 +204,7 @@ def get_compliance(
         "findings": [
             {
                 "rule_key": row.rule_key,
+                "finding_id": row.id,
                 "rule_version": row.rule_version,
                 "outcome": row.outcome,
                 "explanation": row.explanation,
@@ -192,6 +215,10 @@ def get_compliance(
                 "severity": row.severity,
                 "regulatory_reference": row.regulatory_reference,
                 "blocking": row.blocking,
+                "disposition": disposition_by_id[row.id].disposition
+                if row.id in disposition_by_id else None,
+                "disposition_reason": disposition_by_id[row.id].reason
+                if row.id in disposition_by_id else None,
             }
             for row in rows
         ],

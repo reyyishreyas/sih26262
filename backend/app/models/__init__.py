@@ -14,7 +14,7 @@ from .application import (
 )
 from .audit import AuditChainHead, AuditEvent
 from .base import Base, canonical_json, new_id, sha256_hex, utcnow
-from .compliance import Alert, AlertDelivery, RuleEvaluation, Undertaking
+from .compliance import Alert, AlertDelivery, FindingDisposition, RuleEvaluation, Undertaking
 from .identity import (
     CaseAssignment,
     ConflictOfInterest,
@@ -45,6 +45,7 @@ __all__ = [
     "Document",
     "EvcVisit",
     "ExtractedField",
+    "FindingDisposition",
     "Institution",
     "JurisdictionAssignment",
     "LoginAttempt",
