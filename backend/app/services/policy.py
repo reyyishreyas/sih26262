@@ -108,6 +108,11 @@ def doc_classifier_policy() -> dict[str, Any]:
     return _load("doc_classifier.json")
 
 
+@lru_cache
+def fuzzy_grounding_policy() -> dict[str, Any]:
+    return _load("fuzzy_grounding.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

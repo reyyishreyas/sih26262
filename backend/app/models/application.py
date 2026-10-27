@@ -153,6 +153,11 @@ class ExtractedField(Base):
     program produced the value — provenance a checker can weigh, never a
     score that decides anything. All three are NULL when no engine ran
     (seeded rows) or the reader has no geometry (mock, grounded quotes).
+    `grounding` (5.3, FR-40) adds the model-value check: for values produced
+    by a model method, ``grounded`` when the text was found on the page and
+    ``REVIEW_REQUIRED`` when not — NULL for OCR/mock values and for rows
+    that predate the check. It is provenance like the rest: verification
+    never rewrites it and no rule reads it to pass or fail anything.
     """
 
     __tablename__ = "extracted_fields"
@@ -176,6 +181,7 @@ class ExtractedField(Base):
     bbox: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     engine: Mapped[str | None] = mapped_column(String(64), nullable=True)
     engine_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    grounding: Mapped[str | None] = mapped_column(String(32), nullable=True)
     verification_status: Mapped[str] = mapped_column(String(32), default="unverified")
     verified_by: Mapped[str | None] = mapped_column(
         ForeignKey("users.id"), nullable=True

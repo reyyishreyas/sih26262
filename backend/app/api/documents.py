@@ -25,7 +25,7 @@ from ..core.db import get_db
 from ..core.permissions import DOCUMENT_READ, DOCUMENT_UPLOAD, DOCUMENT_VERIFY
 from ..models import Deficiency, Document, ExtractedField
 from ..schemas.api import DocumentOut, VerifyFieldRequest
-from ..services import doc_classifier, malware_service, ocr_service
+from ..services import doc_classifier, fuzzy_grounding, malware_service, ocr_service
 from ..services.audit_service import AuditService
 from ..services.authorization_service import (
     EffectiveAccess,
@@ -177,6 +177,16 @@ def upload_document(
     if classification["mismatch_note"]:
         extraction.warnings.append(classification["mismatch_note"])
 
+    # Phase 5.3 (FR-40): a model value counts only if its text is found on
+    # the page (fuzzy match to the OCR words) — else REVIEW_REQUIRED.
+    # Advisory on a 201, like the classifier's mismatch: the stored value,
+    # the doc_type and every status stay exactly as they are; only the
+    # field's grounding provenance and a warning are recorded.
+    for note in fuzzy_grounding.ground_candidates(
+        extraction.fields, extraction.page_texts
+    ):
+        extraction.warnings.append(note)
+
     stored = False
     try:
         temporary_ref.write_bytes(content)
@@ -216,6 +226,10 @@ def upload_document(
                 bbox=candidate.bbox,
                 engine=candidate.engine,
                 engine_version=candidate.engine_version,
+                # Grounding (5.3, FR-40): "grounded" / "REVIEW_REQUIRED"
+                # for model values; NULL for OCR/mock and for rows that
+                # predate the check.
+                grounding=candidate.grounding,
                 verification_status="unverified",
             )
             db.add(field_obj)

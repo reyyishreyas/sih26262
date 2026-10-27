@@ -62,6 +62,9 @@ class FieldOut(BaseModel):
     bbox: dict[str, Any] | None = None
     engine: str | None = None
     engine_version: str | None = None
+    # Grounding (5.3, FR-40): "grounded" / "REVIEW_REQUIRED" for model
+    # values, None otherwise — provenance, never a decision.
+    grounding: str | None = None
     verification_status: str
 
 

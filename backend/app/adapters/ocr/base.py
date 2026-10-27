@@ -25,6 +25,11 @@ class ExtractedFieldCandidate:
     bbox: dict | None = None
     engine: str | None = None
     engine_version: str | None = None
+    # Grounding (5.3, FR-40): for MODEL-produced values only, whether the
+    # text was found on the page — "grounded" or "REVIEW_REQUIRED"; None
+    # for OCR/mock values (nothing to ground them against) and for rows
+    # that predate the check.
+    grounding: str | None = None
 
 
 @dataclass

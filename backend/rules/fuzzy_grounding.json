@@ -1,0 +1,23 @@
+{
+  "grounding_id": "RULE-OCR-GROUND",
+  "version": "0.1",
+  "status": "proposed_unverified",
+  "advisory_only": true,
+  "source": "PRD FR-40 (line 224) and section 8 step 3 (line 135): a model value counts only if its text is found on the page (fuzzy match to OCR words), else REVIEW_REQUIRED; Architecture Essentials rule 10 repeats it for vision-model values. Rule reference RULE-OCR-01 (md/rules.json) — its 'value not found on page' leg.",
+  "rule_reference": "RULE-OCR-01",
+  "note": "Thresholds are labelled placeholders: the PRD requires fuzzy matching but gives no numbers, and section 19 does not list them as an open question — so they are set here, marked, and must be calibrated by a human against real scans before anyone relies on them. REVIEW_REQUIRED means a human reads the page; it never blocks, rejects, or changes a stored value.",
+  "model_methods": [
+    "gemini_grounded_ai"
+  ],
+  "matching": {
+    "case_sensitive": false,
+    "min_token_length": 3,
+    "token_similarity": 0.85,
+    "min_match_ratio": 1.0
+  },
+  "statuses": {
+    "grounded": "grounded",
+    "review_required": "REVIEW_REQUIRED"
+  },
+  "human_review": "An ungrounded model value is kept as a candidate with grounding REVIEW_REQUIRED and a warning on the 201; an officer decides what it means. Grounding is field provenance: verification never rewrites it and no rule reads it to pass or fail anything."
+}
