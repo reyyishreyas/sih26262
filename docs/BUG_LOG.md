@@ -1,5 +1,22 @@
 # docs/BUG_LOG.md
 
+| BUG-0058 | 2026-10-28 | S2 | release packaging | Appeal API module omitted from Phase 6.6 commit | Fixed | IMPL-0057 |
+
+### BUG-0058 — Appeal API module omitted from Phase 6.6 commit
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / `cd22678`.
+- Severity / Area: S2 / release packaging and application startup.
+- Status: **Fixed**.
+- Expected: a clean checkout of the pushed Phase 6.6 commit imports the appeal router and exposes the appeal API.
+- Actual: `backend/app/api/appeals.py` remained untracked, although it was present in the working tree used by tests and frontend integration.
+- Reproduction: `git ls-files backend/app/api/appeals.py` returned no path after `cd22678`.
+- Environment: local repository on `master`.
+- Hypotheses tried: the file was omitted from the explicit `git add` path list.
+- Root cause: staging command omitted `backend/app/api/appeals.py`.
+- Solution applied: add and push the missing module in a dedicated repair commit.
+- Verification: rerun focused appeal tests, `make lint`, full backend suite, and clean tree status after commit.
+- Regression test: existing `backend/tests/test_phase6_appeals.py` loads and exercises the API router; rerun against the now tracked module.
+- Related: IMPL-0057 / Phase 6.6.
+
 | BUG-0057 | 2026-10-27 | S4 | verification command | Initial Alembic command ran outside configured backend directory | Fixed | IMPL-0057 |
 
 ### BUG-0057 — Initial Alembic command ran outside configured backend directory

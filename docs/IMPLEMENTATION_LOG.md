@@ -14,6 +14,7 @@
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 | DEC-0021 | 2026-10-27 | Decision | Appeal policy verified for Chapter II routes only; seven-day limit and one appeal enforced | Accepted (official source verified; named reviewer) | Phase 6 6.6; FR-27 | reyyishreyas + Codex |
 | IMPL-0057 | 2026-10-27 | Implementation | Phase 6.6: institution appeal, SAC schedule/recommendation and Council final decision | Tested | Phase 6 6.6 (FR-27) | Codex |
+| BUG-0058 | 2026-10-28 | Bug | Appeal API module omitted from Phase 6.6 commit | Fixed | Phase 6 6.6; FR-27 | Codex |
 |---|---|---|---|---|---|---|
 | DEC-0020 | 2026-10-27 | Decision | Executive decision permission is an application access control; official APH authority remains Unverified | Accepted (user clarification; no external legal claim) | Phase 6 6.5; FR-26 | reyyishreyas + Codex |
 | IMPL-0056 | 2026-10-27 | Implementation | Phase 6.5: human Executive Committee decision, Speaking Order link and advisory appeal trigger | Tested | Phase 6 6.5 (FR-26; FR-27 clock trigger) | Codex |
@@ -123,6 +124,11 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0057 Update — Include the appeal API module in the pushed commit
+- Date: 2026-10-28. **Amends:** IMPL-0057 above.
+- `backend/app/api/appeals.py` was present during testing but remained untracked after the Phase 6.6 commit, so it was absent from that pushed revision. BUG-0058 records the cause and repair. The module is being added in a focused follow-up commit; it is part of Phase 6.6 implementation and must be tracked for clean-checkout startup.
+- Verification: focused appeal tests, `make lint`, full `make test`, and fresh migration check are rerun for the repair.
 
 ### DEC-0021 — Apply the verified AICTE appeal rule only to covered Chapter II routes
 - Date / owner: 2026-10-27 / reyyishreyas + Codex.
