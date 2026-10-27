@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 717 passing
+make test      # pytest — 725 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -258,7 +258,10 @@ in `styles.css`, icons are **inline SVG** in `components/Icon.tsx`.
   `completed_at`), `Committee` model.
 - Endpoints: list committees · list visits · **schedule visit** (auto-advances
   the case via `schedule_evc`, rejects if the route has no EVC stage) ·
-  **`GET /evc/queue`**.
+  **`GET /evc/queue`** — reports cases at an EVC stage, cases holding a live
+  booking, **and (Phase 6.1, FR-18) cases their own route says are due for an
+  EVC now** (`schedule_evc` defined from the current state, no visit booked —
+  `awaiting_scheduling` flag); all derived on read.
 - UI: "Committee visit" tab (`EvcPanel`) + queue in `ReportsView`.
 - **Gap:** completing a visit only flips status/timestamps
   (`_complete_evc_visits`) — there is no structured visit report, no named
@@ -362,7 +365,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **717 passing** (~500 test functions; some parametrised).
+- `make test` → **725 passing** (~500 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -625,7 +628,17 @@ tamper-evidence).
   OCR/mock/seeded rows and immutable under verify; BUG-0020 fixed —
   `case_sensitive` polarity was inverted at the read site; BUG-0021 +
   BUG-0022 test-side fixes).
+  `test_evc_queue.py` (11 — Phase 6.1: FR-18 the EVC queue entry after
+  scrutiny when the route needs it; "route needs EVC" read from the
+  route's own `schedule_evc` transition definitions (never the
+  category), unscheduled awaiting rows flagged `awaiting_scheduling`,
+  derived on read (read-only snapshot), booking keeps the appointment
+  whether or not the statutory gate opens, `evc_only` submit → queue →
+  gated-advance walk, `MONITORING_READ` 403 / 401, regional scope,
+  config-honesty of queued states).
 - Gates to run before you push: **`make lint && make test && make build`**.
+  CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
+  repo is currently green at `425e211` (Phase 6.1; Phase 5 continues at 5.4 — see DEC-0005).
   CI (`.github/workflows/ci.yml`) runs the same. The last committed feature
   baseline at `7300a5d` was green (717 passed); Phase 8 work in the current
   worktree verified the expanded full suite at 742 passed (one upstream
@@ -638,7 +651,7 @@ tamper-evidence).
   describes the hash chain as tamper-evident and has explicit verify/export
   actions. Phase 8 is **Partial**: audit sources for rule/configuration edits
   and appeals do not exist until their planned capabilities are built (Phase
-  6/9); see IMPL-0041 and plan 8.1.
+  6/9); see IMPL-0042 and plan 8.1.
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on
