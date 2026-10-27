@@ -12,6 +12,7 @@ from ..schemas.api import TransitionRequest
 from ..services import (
     appeal,
     checklist,
+    compliance,
     escalation,
     routing,
     scrutiny_results,
@@ -367,3 +368,40 @@ def record_scrutiny_overall_result(
         "recorded_by": row.recorded_by,
         "recorded_at": row.recorded_at.isoformat() if row.recorded_at else None,
     }
+
+
+@router.get("/applications/{application_id}/deficiency-report")
+def case_deficiency_report(
+    application_id: str,
+    access: EffectiveAccess = Depends(require_any(CASE_READ, APPLICATION_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """The composed deficiency report and compliance window (Phase 4.4, FR-15).
+
+    One read that joins the issued deficiencies with the reply window:
+    issued at (the accepted return-for-clarification transition), closes at
+    (placeholder ``window_days`` from ``rules/compliance_policy.json``),
+    open / overdue / received, what has come back, and whether the case is
+    awaiting Re-Scrutiny.
+
+    Draft deficiencies are officer working notes: the institution's view
+    never includes them and answers ``not_issued`` until the case has
+    actually been returned — never a hint that a draft exists. The window is
+    purely advisory (DEC-0003): an overdue report never blocks an upload or
+    a resubmission, and reading it stores nothing.
+    """
+    application = require_application(db, access, application_id)
+    # Same institution test as api/deficiencies.list_deficiencies: a College
+    # rep sees issued rows only; any officer role sees the drafts too.
+    institution_only = "institution_representative" in access.roles and not any(
+        role in access.roles
+        for role in (
+            "scrutiny_officer",
+            "supervisory_officer",
+            "regional_officer",
+            "administrator",
+        )
+    )
+    return compliance.report_view(
+        db, application, get_clock().now(), include_drafts=not institution_only
+    )

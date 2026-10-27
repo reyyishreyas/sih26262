@@ -6,6 +6,7 @@ import type {
   CaseDetail,
   ChecklistOut,
   ComplianceBatch,
+  DeficiencyReport,
   DeficiencyRow,
   DemoClockMove,
   DemoClockStatus,
@@ -234,6 +235,11 @@ export const api = {
     ),
   deficiencies: (id: string) =>
     request<DeficiencyRow[]>(`/applications/${id}/deficiencies`),
+  /** The composed deficiency report and compliance window (FR-15) — issued
+   * at, reply-by, open/overdue/received, awaiting Re-Scrutiny. Advisory:
+   * the window is placeholder config and never blocks a resubmission. */
+  deficiencyReport: (id: string) =>
+    request<DeficiencyReport>(`/applications/${id}/deficiency-report`),
   createDeficiency: (
     id: string,
     payload: {

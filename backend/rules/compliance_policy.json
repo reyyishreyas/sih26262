@@ -1,0 +1,12 @@
+{
+  "version": "2026.1",
+  "status": "unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "recorded_on": "2026-10-27",
+  "source": "md/1_PRD.md FR-15 (line 187: 'Deficiency report, compliance window, compliance upload to Re-Scrutiny', APH s2.3.3b/2.4 as cited) and the s11 alerts table (line 281: 'Deficiency issued | Institution | On issue, 7d, 2d, due date | Regional on miss'). The window LENGTH in days is not stated anywhere in the PRD or rules.json/rules2.json — PRD s19 Q1 ('Target days for Scrutiny, Re-Scrutiny, EVC scheduling, SHC, Executive Committee?') leaves reply-time targets open for AICTE — so window_days below is a labelled placeholder, exactly like stage_limits.json. The reminder cadence (7 days before, 2 days before, on the due date) IS from the PRD s11 table and drives the deadline_policy.json 'compliance' ladder offsets.",
+  "note": "PLACEHOLDER COMPLIANCE WINDOW — advisory only (DEC-0003). When a scrutiny officer returns a case for clarification, the deficiency report is ISSUED (the return transition is the issue instant) and the institution gets window_days to upload compliance and resubmit. The window and the report are computed on read from the issued deficiencies and the return transition; nothing is stored, and an expired window never blocks an upload or a resubmit (the workflow gate is unchanged; expiry is a signal to the Regional officer through the alert ladder, not a lock). The 'on issue' leg of the PRD s11 cadence is the report itself becoming visible in-app the moment the case is returned — this prototype's alerts are sweep-driven, so the 7d/2d/due-date reminders ride the sweep. A draft deficiency report (drafts not yet returned) is officer-only; the institution is told 'no report has been issued', never that drafts exist.",
+  "window_days": 10,
+  "window_days_note": "PLACEHOLDER — 10 days is a demo value, not an AICTE rule. Replace when PRD s19 Q1 (target days) or an official clause is recorded in docs/SOURCES.md.",
+  "rescrutiny_note": "The Re-Scrutiny leg is the existing workflow loop: return_for_clarification (issued) -> institution upload (deficiencies become 'addressed') -> resubmit -> start_scrutiny (Re-Scrutiny). The report view surfaces resubmitted_at and awaiting_re_scrutiny; it never moves the case."
+}

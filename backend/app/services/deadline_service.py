@@ -199,6 +199,21 @@ def collect_items(db: Session, now: datetime) -> list[DeadlineItem]:
         if item is not None:
             items.append(item)
 
+    # 6. Compliance window on an issued deficiency report (FR-15, Phase 4.4).
+    # The PRD s11 cadence is "On issue, 7d, 2d, due date | Regional on miss"
+    # (line 281); the ladder lives in deadline_policy.json as offsets from
+    # the window close date. Reminder only — an expired window never blocks
+    # an upload or a resubmit (DEC-0003).
+    returned = db.scalars(
+        select(Application).where(Application.current_state == "returned")
+    ).all()
+    for application in returned:
+        from . import compliance as _compliance
+
+        item = _compliance.compliance_window_item(db, application, now)
+        if item is not None:
+            items.append(item)
+
     return items
 
 
@@ -209,6 +224,7 @@ def eligible_thresholds(alert_type: str, due_at: datetime, now: datetime):
         "stage_ageing": "stage_ageing",
         "evc_visit": "evc_visit",
         "appeal_window": "appeal",
+        "compliance_window": "compliance",
     }[alert_type]
     for threshold in policy.thresholds(kind):
         if now >= due_at + timedelta(days=threshold.offset_days):

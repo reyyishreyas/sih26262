@@ -1,5 +1,5 @@
 {
-  "note": "Illustrative deadline policy. Offsets are days relative to the obligation due date; an alert is eligible once now >= due_at + offset_days. Negative offsets are advance warnings. The 'appeal' ladder (Phase 3.5, FR-27) drives the day-3 / day-6 reminders as offsets from the window close date and is Unverified placeholder configuration until AICTE confirms the appeal cadence (see appeal_policy.json).",
+  "note": "Illustrative deadline policy. Offsets are days relative to the obligation due date; an alert is eligible once now >= due_at + offset_days. Negative offsets are advance warnings. The 'appeal' ladder (Phase 3.5, FR-27) drives the day-3 / day-6 reminders as offsets from the window close date and is Unverified placeholder configuration until AICTE confirms the appeal cadence (see appeal_policy.json). The 'compliance' ladder (Phase 4.4, FR-15) drives the PRD s11 deficiency-issued cadence '7d, 2d, due date' (line 281) as offsets from the compliance window close date; the window LENGTH is a labelled placeholder (compliance_policy.json, PRD s19 Q1 open).",
   "undertaking": [
     { "level": "reminder_30", "offset_days": -30, "severity": "info" },
     { "level": "reminder_7", "offset_days": -7, "severity": "warning" },
@@ -25,5 +25,10 @@
   "appeal": [
     { "level": "appeal_day_3", "offset_days": -4, "severity": "info" },
     { "level": "appeal_day_6", "offset_days": -1, "severity": "warning" }
+  ],
+  "compliance": [
+    { "level": "compliance_7d", "offset_days": -7, "severity": "info" },
+    { "level": "compliance_2d", "offset_days": -2, "severity": "warning" },
+    { "level": "compliance_due", "offset_days": 0, "severity": "critical" }
   ]
 }

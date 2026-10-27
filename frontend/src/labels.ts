@@ -357,6 +357,39 @@ export function plainScrutinyResult(result: string | null): string {
   return humanize(result);
 }
 
+// ---------------------------------------------------------------------------
+// Deficiency report and compliance window (FR-15; placeholder, advisory)
+// ---------------------------------------------------------------------------
+
+export function plainReportStatus(status: string): string {
+  if (status === "none") return "No deficiencies raised";
+  if (status === "draft") return "Draft report (not issued)";
+  if (status === "not_issued") return "No report issued yet";
+  if (status === "issued") return "Deficiency report issued";
+  return humanize(status);
+}
+
+export function reportStatusTone(status: string): string {
+  if (status === "issued") return "bad";
+  if (status === "draft") return "warn";
+  return "";
+}
+
+export function plainWindowStatus(status: string): string {
+  if (status === "not_started") return "No reply window yet";
+  if (status === "open") return "Reply window open";
+  if (status === "overdue") return "Reply window passed (advisory)";
+  if (status === "received") return "Reply received";
+  return humanize(status);
+}
+
+export function windowStatusTone(status: string): string {
+  if (status === "open") return "active";
+  if (status === "overdue") return "warn";
+  if (status === "received") return "good";
+  return "";
+}
+
 export function scrutinyResultTone(result: string | null): string {
   if (result === "nil_deficiency") return "active";
   if (result === "deficiency") return "warn";
@@ -400,6 +433,8 @@ const ALERT_TYPE_LABELS: Record<string, string> = {
   document_expiry: "A document is about to expire (or has expired)",
   stage_ageing: "A case has been waiting too long at one stage",
   undertaking_due: "A follow-up task is due (or late)",
+  compliance_window:
+    "The reply window on an issued deficiency report is closing (or has closed)",
 };
 
 export function plainAlertType(alertType: string): string {

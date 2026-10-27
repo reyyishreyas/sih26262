@@ -1,7 +1,13 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
-import type { ChecklistOut, DeficiencyRow, DocumentRow, ScrutinyResultsView } from "../types";
+import type {
+  ChecklistOut,
+  DeficiencyReport,
+  DeficiencyRow,
+  DocumentRow,
+  ScrutinyResultsView,
+} from "../types";
 import { useFileCheck } from "../useFileCheck";
 import { useRefreshOnFocus } from "../useRefreshOnFocus";
 import { ACCEPT_ATTRIBUTE, MAX_UPLOAD_BYTES, formatBytes } from "../uploadCheck";
@@ -17,10 +23,14 @@ import {
   plainDeficiencyStatus,
   plainDocType,
   plainMethod,
+  plainReportStatus,
   plainScrutinyResult,
   plainVerification,
+  plainWindowStatus,
+  reportStatusTone,
   scrutinyResultTone,
   verificationTone,
+  windowStatusTone,
 } from "../labels";
 
 const DOC_TYPES = [
@@ -66,6 +76,9 @@ export function EvidencePanel({
   const [checklist, setChecklist] = useState<ChecklistOut | null>(null);
   // The recorded scrutiny results (FR-14) — same best-effort contract.
   const [results, setResults] = useState<ScrutinyResultsView | null>(null);
+  // The composed deficiency report + compliance window (FR-15) — same
+  // best-effort contract: a failed read must never hide the rows themselves.
+  const [report, setReport] = useState<DeficiencyReport | null>(null);
   // Recording forms: one remarks box per checklist line, plus the overall one.
   const [itemRemarks, setItemRemarks] = useState<Record<string, string>>({});
   const [overallResult, setOverallResult] = useState<string>("deficiency");
@@ -134,16 +147,19 @@ export function EvidencePanel({
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [docs, defs, checklistResult, resultsView] = await Promise.all([
-        api.documents(applicationId),
-        api.deficiencies(applicationId).catch(() => []),
-        api.checklist(applicationId).catch(() => null),
-        api.scrutinyResults(applicationId).catch(() => null),
-      ]);
+      const [docs, defs, checklistResult, resultsView, reportView] =
+        await Promise.all([
+          api.documents(applicationId),
+          api.deficiencies(applicationId).catch(() => []),
+          api.checklist(applicationId).catch(() => null),
+          api.scrutinyResults(applicationId).catch(() => null),
+          api.deficiencyReport(applicationId).catch(() => null),
+        ]);
       setDocuments(docs);
       setDeficiencies(defs);
       setChecklist(checklistResult);
       setResults(resultsView);
+      setReport(reportView);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not load documents");
     } finally {
@@ -157,6 +173,7 @@ export function EvidencePanel({
     setDocuments([]);
     setChecklist(null);
     setResults(null);
+    setReport(null);
     setItemRemarks({});
     setError(null);
     setMessage(null);
@@ -923,6 +940,66 @@ export function EvidencePanel({
             </button>
           )}
         </div>
+
+        {/* The composed report + reply window (FR-15) — a read-only summary
+            of the rows below. Advisory: the window is placeholder config and
+            an overdue report never blocks an upload or a resubmission. */}
+        {report && (
+          <div
+            style={{
+              display: "flex",
+              gap: "0.5rem",
+              flexWrap: "wrap",
+              alignItems: "center",
+              marginTop: "0.5rem",
+            }}
+          >
+            <span className={`pill small ${reportStatusTone(report.status)}`}>
+              {plainReportStatus(report.status)}
+            </span>
+            {report.status === "issued" &&
+              report.issued_at &&
+              report.closes_at && (
+                <>
+                  <span className="tiny muted">
+                    Issued {formatDateTime(report.issued_at)} · reply by{" "}
+                    {formatDateTime(report.closes_at)}
+                  </span>
+                  <span
+                    className={`pill small ${windowStatusTone(report.window_status)}`}
+                  >
+                    {plainWindowStatus(report.window_status)}
+                    {report.window_status === "open" &&
+                      report.days_remaining !== null &&
+                      ` — ${report.days_remaining} day${
+                        report.days_remaining === 1 ? "" : "s"
+                      } left`}
+                  </span>
+                </>
+              )}
+            {report.resubmitted_at && (
+              <span className="tiny muted">
+                Resubmitted {formatDateTime(report.resubmitted_at)}
+              </span>
+            )}
+            {report.awaiting_re_scrutiny && (
+              <span className="pill small active">Awaiting Re-Scrutiny</span>
+            )}
+            {report.placeholder && (
+              <span
+                className="pill small warn"
+                title="The reply-window length is placeholder configuration, not a confirmed AICTE rule. It raises reminders only — it never blocks an upload or a resubmission."
+              >
+                Placeholder window ({report.window_days} days)
+              </span>
+            )}
+          </div>
+        )}
+        {report?.note && (
+          <p className="tiny muted" style={{ marginTop: "0.35rem" }}>
+            {report.note}
+          </p>
+        )}
 
         {deficiencies.length === 0 ? (
           <p className="tiny muted" style={{ padding: "0.5rem 0" }}>

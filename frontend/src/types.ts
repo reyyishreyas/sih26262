@@ -445,6 +445,47 @@ export interface DeficiencyRow {
 }
 
 
+/** One deficiency line inside the composed report (Phase 4.4, FR-15) — a
+ * read-only subset of DeficiencyRow; the report is computed, never stored. */
+export interface DeficiencyReportLine {
+  id: string;
+  category: string;
+  field_name: string | null;
+  explanation: string;
+  corrective_action: string;
+  status: "draft" | "open" | "addressed" | "closed";
+  document_id: string | null;
+  corrective_document_id: string | null;
+  created_at: string;
+  resolved_at: string | null;
+  resolution_note: string | null;
+}
+
+/** The composed deficiency report and the compliance window (FR-15).
+ * Officers see drafts ("draft"); the institution is answered "not_issued"
+ * until the case is actually returned, and never sees a draft. The window
+ * is placeholder configuration (`window_days`) and purely advisory: an
+ * overdue report never blocks an upload or a resubmission. */
+export interface DeficiencyReport {
+  application_id: string;
+  status: "none" | "draft" | "not_issued" | "issued";
+  issued_at: string | null;
+  closes_at: string | null;
+  window_status: "not_started" | "open" | "overdue" | "received";
+  days_remaining: number | null;
+  overdue: boolean;
+  resubmitted_at: string | null;
+  awaiting_re_scrutiny: boolean;
+  counts: { draft: number; open: number; addressed: number; closed: number };
+  deficiencies: DeficiencyReportLine[];
+  note: string | null;
+  placeholder: boolean;
+  advisory_only: boolean;
+  source: string | null;
+  window_days: number;
+}
+
+
 export interface UploadResult {
   document: DocumentRow;
   extraction: {
