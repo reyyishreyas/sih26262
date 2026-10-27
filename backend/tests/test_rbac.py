@@ -84,6 +84,33 @@ def test_role_dashboards_expose_reconciling_scoped_application_drilldowns(client
             assert len(rows) == count
             assert {row["application_id"] for row in rows} <= in_scope
 
+        metrics = dashboard["metrics"]
+        metric_rows = [
+            row for rows in metrics["ageing_bands"].values() for row in rows
+        ]
+        metric_rows.extend(
+            row
+            for group in metrics["throughput_by_week"]["rows"]
+            for row in group["rows"]
+        )
+        attention = metrics["deadline_attention"]
+        metric_rows.extend(attention["overdue"])
+        metric_rows.extend(attention["due_soon"])
+        for dimension in ("by_stage", "by_region", "by_officer"):
+            for group in attention[dimension].values():
+                metric_rows.extend(group["overdue"])
+                metric_rows.extend(group["due_soon"])
+        for rows in metrics["evc_status"].values():
+            metric_rows.extend(rows)
+        for rows in metrics["evc_by_mode"].values():
+            metric_rows.extend(rows)
+        for rows in metrics["outcomes_by_reason_code"].values():
+            metric_rows.extend(rows)
+        metric_rows.extend(metrics["rejections_without_reason_code"])
+        for key in ("issued", "closed", "overdue"):
+            metric_rows.extend(metrics["compliance"][key])
+        assert {row["application_id"] for row in metric_rows} <= in_scope
+
     institution = as_user("institution@demo.local")
     dashboard = client.get("/api/v1/officer/dashboard", headers=institution).json()
     assert dashboard["cases_in_scope"] == 3

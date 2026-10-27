@@ -24,6 +24,9 @@
 | DEC-0025 | 2026-10-28 | Decision | Institution and Regulation Bureau dashboards get a dedicated scoped dashboard permission | Accepted | Phase 7.1; PRD §12 | Codex |
 | IMPL-0062 | 2026-10-28 | Implementation | Role dashboards and scoped application drilldowns for Phase 7.1 | Tested | Phase 7.1; PRD §12 | Codex |
 | BUG-0070 | 2026-10-28 | Bug | Ruff rejected a dashboard permission import order | Fixed | IMPL-0062 | Codex |
+| DEC-0026 | 2026-10-28 | Decision | Phase 7.2 metrics use scoped live records and an eight-week throughput view | Accepted | Phase 7.2; PRD §12 | Codex |
+| IMPL-0063 | 2026-10-28 | Implementation | Ageing, throughput, deadline, EVC and compliance dashboard metrics | Tested | Phase 7.2; PRD §12 | Codex |
+| IMPL-0063 Update | 2026-10-28 | Update | Phase 7.2 EVC mode and reason-code metrics detail | Implemented | Phase 7.2; PRD §12 | Codex |
 | DEC-0023 | 2026-10-28 | Decision | Chapter II grant list, Council ratification and EoA publication scoped to verified APH clauses | Accepted for prototype workflow; role delegation remains an app ACL | Phase 6 6.8; FR-31/32 | Project lead scope + Codex source check |
 | IMPL-0059 | 2026-10-28 | Implementation | Phase 6.8: consolidated approved-intake grant list, Council ratification and institution EoA publication | Tested | Phase 6 6.8 (FR-31/32) | Codex |
 | IMPL-0059 Update | 2026-10-28 | Update | Phase 6.8 commit and push recorded | Pushed `ce4fa6a` to `origin/master`; tree clean except six pre-existing untracked user documents/images listed in status | Phase 6 6.8 | Codex |
@@ -143,6 +146,31 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0063 Update — Record final Phase 7.2 metric coverage
+- Date: 2026-10-28. **Amends:** IMPL-0063 above.
+- Final dashboard metrics also include EVC visit mode and recorded return/revert reason-code totals. The UI explicitly shows rejections without a reason-code field as uncoded; it does not infer categories from free text. Return/revert reason-code definitions remain advisory placeholders.
+- Final full-suite duration was 116.20 seconds; all other verification and scope details remain as recorded in IMPL-0063.
+
+### DEC-0026 — Dashboard metric definitions and reporting horizon
+- Date / owner: 2026-10-28 / Codex.
+- Status: Accepted as internal reporting behavior, not an AICTE policy value.
+- Decision: Group workflow stage-exit transitions by ISO week over the latest eight-week presentation window. Ageing bands follow the existing `ageing()` service (`0–7`, `8–15`, `16–30`, `31–60`, `60+`). “Due soon” uses the existing configured two-day stage alert boundary; compliance issue/close/overdue status uses the existing `report_view` semantics. Stage limits and compliance window remain explicitly placeholder/advisory.
+- Rationale: Provides the PRD §12 metrics from live records without inventing deadlines, stage mappings or compliance decisions. Every aggregate carries its scoped application rows.
+- Related: IMPL-0063.
+
+### IMPL-0063 — Phase 7.2 operational dashboard metrics
+- Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: AGENT-09, Phase 7.2, PRD §12 metrics.
+- What existed: basic dashboard counts, a separate ageing endpoint, and reports for EVC/undertakings/overdue; no dashboard weekly stage throughput, grouped near-due/overdue views, EVC status categories or compliance summary.
+- What changed: dashboard response adds ageing-band case rows; last-eight-week ISO-week stage transition groups; due-soon and overdue cases grouped by stage/region/officer; EVC queued, scheduled, completed and delayed case lists; compliance issued, fully closed and overdue cases. Every numeric metric corresponds to a list of scoped case rows (throughput entries are transition-event rows linked to cases). UI adds selectable cards and inline drilldown lists; stage-limit/compliance placeholders are visibly described as advisory.
+- Files changed: `backend/app/services/monitoring_service.py`, `backend/tests/test_dashboard_metrics.py`, `backend/tests/test_rbac.py`, `frontend/src/components/DashboardView.tsx`, `frontend/src/types.ts`, `frontend/src/styles.css`, `md/6_IMPLEMENTATION_PLAN.md`, `CONTEXT.md`, this log.
+- API/schema/config: `/officer/dashboard` response adds `metrics`; no database model/migration, new endpoint, setting or dependency.
+- Permission and audit effects: all metric queries derive from the existing `scope_filter`; rows remain within dashboard scope. Read-only computations only; no audit or state mutation.
+- Verification: `make lint && make test` → Ruff clean, **829 passed, 2 upstream Starlette deprecation warnings in 116.47s**; `cd frontend && npm run build` → TypeScript and Vite passed. Dashboard metrics/RBAC/report focused tests passed earlier; the full suite includes their final scope assertions. No migration run (none changed). No browser visual smoke run.
+- Limitations: eight-week reporting horizon is a presentation choice; throughput reports recorded state-exit transitions, not adjudication quality. Stage limits and compliance window durations remain placeholders and advisory. Metrics do not cover every PRD §12 report/export yet; Phase 7.3 remains.
+- Related: DEC-0026.
+- Next: Phase 7.3 PDF and spreadsheet exports.
 
 ### DEC-0025 — Dashboard-only permission for Institution and Regulation Bureau
 - Date / owner: 2026-10-28 / Codex.

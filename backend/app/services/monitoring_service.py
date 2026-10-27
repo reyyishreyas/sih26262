@@ -25,9 +25,12 @@ from ..models import (
     RuleEvaluation,
     Undertaking,
     User,
+    WorkflowTransition,
+    WorkflowTransitionDefinition,
 )
 from .authorization_service import EffectiveAccess, scope_filter
-from .policy import stage_sla_days
+from .compliance import report_view as compliance_report_view
+from .policy import compliance_policy, stage_graph_policy, stage_limits_policy, stage_sla_days
 
 
 def _scoped_application_ids(db: Session, access: EffectiveAccess):
@@ -87,6 +90,233 @@ def _pendency_row(db: Session, application: Application, now) -> dict[str, Any]:
         "deadline_state": deadline_state,
         "assigned_officer": officer.full_name if officer else None,
         "next_undertaking_due": iso(next_undertaking.due_at) if next_undertaking else None,
+    }
+
+
+def _stage_for_state(route_key: str, state: str, graph: dict[str, Any]) -> str:
+    for stage in graph.get("routes", {}).get(route_key, []):
+        if state in stage.get("active_states", []):
+            return stage["stage_key"]
+    return f"unmapped:{state}"
+
+
+def _dashboard_metrics(
+    db: Session,
+    applications: list[Application],
+    application_rows: dict[str, dict[str, Any]],
+    now,
+) -> dict[str, Any]:
+    """Build Phase 7.2 metrics and keep every metric tied to its case rows."""
+    by_id = {application.id: application for application in applications}
+    app_ids = set(by_id)
+    graph = stage_graph_policy()
+
+    age_bands: dict[str, list[dict[str, Any]]] = {
+        "0-7": [],
+        "8-15": [],
+        "16-30": [],
+        "31-60": [],
+        "60+": [],
+    }
+    for row in application_rows.values():
+        age = row["age_days"]
+        band = "0-7" if age <= 7 else "8-15" if age <= 15 else "16-30" if age <= 30 else "31-60" if age <= 60 else "60+"
+        age_bands[band].append(row)
+
+    overdue_rows = [
+        row for row in application_rows.values() if row["deadline_state"] == "overdue"
+    ]
+    due_soon_rows = [
+        row for row in application_rows.values() if row["deadline_state"] == "due_soon"
+    ]
+
+    def grouped_attention(key_fn) -> dict[str, dict[str, list[dict[str, Any]]]]:
+        result: dict[str, dict[str, list[dict[str, Any]]]] = {}
+        for bucket, rows in (("overdue", overdue_rows), ("due_soon", due_soon_rows)):
+            for row in rows:
+                key = key_fn(row)
+                result.setdefault(key, {"overdue": [], "due_soon": []})[bucket].append(row)
+        return dict(sorted(result.items()))
+
+    stage_by_case = {
+        application.id: _stage_for_state(
+            application.route_key, application.current_state, graph
+        )
+        for application in applications
+    }
+    deadline_attention = {
+        "placeholder": bool(stage_limits_policy().get("placeholder", False)),
+        "advisory_only": bool(stage_limits_policy().get("advisory_only", True)),
+        "source": stage_limits_policy().get("source"),
+        "overdue": overdue_rows,
+        "due_soon": due_soon_rows,
+        "by_stage": grouped_attention(
+            lambda row: stage_by_case[row["application_id"]]
+        ),
+        "by_region": grouped_attention(lambda row: row["region"] or "not_set"),
+        "by_officer": grouped_attention(
+            lambda row: row["assigned_officer"] or "unassigned"
+        ),
+    }
+
+    latest_visit: dict[str, EvcVisit] = {}
+    visits = db.scalars(
+        select(EvcVisit)
+        .where(EvcVisit.application_id.in_(app_ids))
+        .order_by(EvcVisit.created_at.asc())
+    ).all() if app_ids else []
+    for visit in visits:
+        latest_visit[visit.application_id] = visit
+
+    schedule_pairs = set(
+        db.execute(
+            select(
+                WorkflowTransitionDefinition.route_key,
+                WorkflowTransitionDefinition.from_state,
+            ).where(WorkflowTransitionDefinition.action == "schedule_evc")
+        ).all()
+    )
+    evc_status: dict[str, list[dict[str, Any]]] = {
+        "queued": [],
+        "scheduled": [],
+        "completed": [],
+        "delayed": [],
+    }
+    for application in applications:
+        row = application_rows[application.id]
+        visit = latest_visit.get(application.id)
+        if visit is not None and visit.status == "scheduled":
+            days_until = (visit.scheduled_date - now.date()).days
+            visit_row = {**row, "scheduled_date": visit.scheduled_date.isoformat()}
+            if days_until < 0:
+                visit_row["days_until_visit"] = days_until
+                evc_status["delayed"].append(visit_row)
+            else:
+                visit_row["days_until_visit"] = days_until
+                evc_status["scheduled"].append(visit_row)
+        elif visit is not None and visit.status == "completed":
+            evc_status["completed"].append(row)
+        elif (application.route_key, application.current_state) in schedule_pairs:
+            evc_status["queued"].append(row)
+        elif application.current_state == "evc_completed":
+            evc_status["completed"].append(row)
+
+    evc_by_mode: dict[str, list[dict[str, Any]]] = {
+        "physical": [],
+        "online": [],
+        "unknown": [],
+    }
+    for application_id, visit in latest_visit.items():
+        mode = visit.visit_mode if visit.visit_mode in ("physical", "online") else "unknown"
+        evc_by_mode[mode].append(application_rows[application_id])
+
+    # The reporting horizon is a presentation window, not a policy deadline.
+    horizon_weeks = 8
+    week_start = (now.date() - timedelta(days=now.date().weekday())) - timedelta(
+        weeks=horizon_weeks - 1
+    )
+    transitions = db.scalars(
+        select(WorkflowTransition)
+        .where(
+            WorkflowTransition.application_id.in_(app_ids),
+            WorkflowTransition.created_at >= week_start,
+            WorkflowTransition.created_at <= now,
+            WorkflowTransition.reverted_at.is_(None),
+            WorkflowTransition.from_state != WorkflowTransition.to_state,
+        )
+        .order_by(WorkflowTransition.created_at.asc())
+    ).all() if app_ids else []
+    throughput: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for transition in transitions:
+        application = by_id.get(transition.application_id)
+        if application is None:
+            continue
+        event_at = to_utc(transition.created_at)
+        if event_at is None:
+            continue
+        event_week = event_at.date() - timedelta(days=event_at.date().weekday())
+        stage = _stage_for_state(application.route_key, transition.from_state, graph)
+        row = {
+            **application_rows[application.id],
+            "event_id": transition.id,
+            "event_at": iso(transition.created_at),
+            "week_start": event_week.isoformat(),
+            "stage_key": stage,
+        }
+        throughput.setdefault((event_week.isoformat(), stage), []).append(row)
+    throughput_rows = [
+        {
+            "week_start": week,
+            "stage_key": stage,
+            "count": len(rows),
+            "rows": rows,
+        }
+        for (week, stage), rows in sorted(throughput.items())
+    ]
+
+    reasoned_outcomes: dict[str, list[dict[str, Any]]] = {}
+    uncoded_rejections: list[dict[str, Any]] = []
+    outcome_transitions = db.scalars(
+        select(WorkflowTransition)
+        .where(
+            WorkflowTransition.application_id.in_(app_ids),
+            WorkflowTransition.action.in_(
+                ("return_for_clarification", "revert", "reject")
+            ),
+            WorkflowTransition.created_at <= now,
+        )
+        .order_by(WorkflowTransition.created_at.asc())
+    ).all() if app_ids else []
+    for transition in outcome_transitions:
+        row = {
+            **application_rows[transition.application_id],
+            "event_id": transition.id,
+            "event_at": iso(transition.created_at),
+            "event_action": transition.action,
+            "reason_code": transition.reason_code,
+        }
+        if transition.reason_code:
+            reasoned_outcomes.setdefault(transition.reason_code, []).append(row)
+        elif transition.action == "reject":
+            uncoded_rejections.append(row)
+
+    compliance_config_data = compliance_policy()
+    compliance_rows: dict[str, list[dict[str, Any]]] = {
+        "issued": [],
+        "closed": [],
+        "overdue": [],
+    }
+    for application in applications:
+        report = compliance_report_view(db, application, now, include_drafts=False)
+        row = application_rows[application.id]
+        if report["status"] == "issued":
+            compliance_rows["issued"].append(row)
+            counts = report["counts"]
+            if counts["closed"] > 0 and counts["open"] == 0 and counts["addressed"] == 0:
+                compliance_rows["closed"].append(row)
+            if report["overdue"]:
+                compliance_rows["overdue"].append(row)
+
+    return {
+        "ageing_bands": age_bands,
+        "throughput_by_week": {
+            "window_weeks": horizon_weeks,
+            "week_start": week_start.isoformat(),
+            "rows": throughput_rows,
+        },
+        "deadline_attention": deadline_attention,
+        "evc_status": evc_status,
+        "evc_by_mode": evc_by_mode,
+        "outcomes_by_reason_code": reasoned_outcomes,
+        "rejections_without_reason_code": uncoded_rejections,
+        "compliance": {
+            "placeholder": bool(compliance_config_data.get("placeholder", False)),
+            "advisory_only": bool(compliance_config_data.get("advisory_only", True)),
+            "source": compliance_config_data.get("source"),
+            "issued": compliance_rows["issued"],
+            "closed": compliance_rows["closed"],
+            "overdue": compliance_rows["overdue"],
+        },
     }
 
 
@@ -220,6 +450,7 @@ def dashboard(db: Session, access: EffectiveAccess) -> dict[str, Any]:
         "needs_review_cases": len(needs_review_ids),
         "my_assignments": len(assigned_ids),
         "drilldowns": drilldowns,
+        "metrics": _dashboard_metrics(db, applications, application_rows, now),
         "generated_at": iso(now),
         "data_source": "live records, no synthetic counts",
     }

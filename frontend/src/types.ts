@@ -203,6 +203,7 @@ export interface OfficerDashboard {
     needs_review_cases: DashboardCaseRow[];
     my_assignments: DashboardCaseRow[];
   };
+  metrics: DashboardMetrics;
   generated_at: string;
   data_source: string;
 }
@@ -214,6 +215,50 @@ export interface DashboardCaseRow {
   state: string;
   age_days: number;
   deadline_state: string;
+  event_id?: string;
+  event_at?: string;
+  event_action?: string;
+  reason_code?: string | null;
+  week_start?: string;
+  stage_key?: string;
+  scheduled_date?: string;
+  days_until_visit?: number;
+}
+
+export interface DashboardMetrics {
+  ageing_bands: Record<string, DashboardCaseRow[]>;
+  throughput_by_week: {
+    window_weeks: number;
+    week_start: string;
+    rows: Array<{
+      week_start: string;
+      stage_key: string;
+      count: number;
+      rows: DashboardCaseRow[];
+    }>;
+  };
+  deadline_attention: {
+    placeholder: boolean;
+    advisory_only: boolean;
+    source?: string;
+    overdue: DashboardCaseRow[];
+    due_soon: DashboardCaseRow[];
+    by_stage: Record<string, { overdue: DashboardCaseRow[]; due_soon: DashboardCaseRow[] }>;
+    by_region: Record<string, { overdue: DashboardCaseRow[]; due_soon: DashboardCaseRow[] }>;
+    by_officer: Record<string, { overdue: DashboardCaseRow[]; due_soon: DashboardCaseRow[] }>;
+  };
+  evc_status: Record<string, DashboardCaseRow[]>;
+  evc_by_mode: Record<string, DashboardCaseRow[]>;
+  outcomes_by_reason_code: Record<string, DashboardCaseRow[]>;
+  rejections_without_reason_code: DashboardCaseRow[];
+  compliance: {
+    placeholder: boolean;
+    advisory_only: boolean;
+    source?: string;
+    issued: DashboardCaseRow[];
+    closed: DashboardCaseRow[];
+    overdue: DashboardCaseRow[];
+  };
 }
 
 export interface AlertRow {

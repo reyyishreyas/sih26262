@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 828 passing (2026-10-28 verification)
+make test      # pytest — 829 passing (2026-10-28 verification)
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -824,3 +824,4 @@ Phase 6.8 implemented and tested: human-reviewed Chapter II grant batches carry 
 2026-10-28 S1 safety update: rule approval lifecycle is separate from regulatory-source verification. All current clause-pending rules are Unverified and advisory only; only Verified blocking outcomes can gate transitions or dispositions (IMPL-0060 / DEC-0024). Verification: `make lint && make test` (826 passed, 2 upstream warnings), frontend build, fresh SQLite upgrade/check and downgrade/re-upgrade. Phase 6 exit remained partial pending an integrated route test and deposit-intimation data; the route test is now covered by IMPL-0061.
 2026-10-28 Phase 6 integration update: a synthetic public-API case now traverses submission, scrutiny, EVC, SHC, Executive Committee decision, appeal, Council approval, grant publication and advisory deposit read in one test (IMPL-0061). Journey test passes. Phase 6 exit remains partial: the app has no separate deposit-intimation event/date or case fields for §2.25(e–f) applicability/exemptions; placeholder penalty figures remain advisory.
 2026-10-28 Phase 7.1 complete: Institution, Scrutiny, Regional and Regulation Bureau roles now see scope-filtered dashboards with a reconciling application list for every displayed metric. Institution and Regulation Bureau receive only the narrow `dashboard.read` permission; reports and general case reads remain unavailable through that permission (IMPL-0062 / DEC-0025). Verification: `make lint && make test` (828 passed, 2 upstream warnings), focused dashboard/authz tests (37 passed), frontend build.
+2026-10-28 Phase 7.2 complete: dashboards include age bands, weekly stage throughput, overdue/due-soon cases by stage/region/officer, EVC queue status and visit mode, deficiency/compliance issued/closed/overdue metrics, and returns/reverts grouped only by recorded reason codes. Scoped rows reconcile with displayed metrics; rejections without a reason-code field are explicitly surfaced uncoded. Stage-limit, compliance-window, and return/revert-code configuration is visibly marked placeholder/advisory (IMPL-0063 / DEC-0026). Verification: `make lint && make test` (829 passed, 2 upstream warnings), focused dashboard/RBAC suite and frontend build.
