@@ -114,6 +114,24 @@
 
 ## Entries (newest first)
 
+### DEC-0015 — EVC reminder lead times remain operational placeholders
+Use the Phase 6.2 plan's 7/2/1-day EVC visit reminders as advance alert thresholds in `deadline_policy.json`. Label them Unverified and advisory; preserve existing post-visit overdue and escalation alerts. These values do not represent confirmed AICTE deadlines.
+
+### IMPL-0051 — Phase 6.2 EVC reminder cadence (partial) (FR-20)
+- Task / PRD IDs: Phase 6.2, FR-20.
+- What existed: scheduled EVC visits already generated alerts from `deadline_policy.json`, with one 7-day advance alert followed by overdue and escalation thresholds. Scheduling, committee selection, rescheduling, case-scoped visit reads, and schedule audit already existed.
+- Work: add explicit 7-, 2-, and 1-day advance reminder levels; retain overdue and escalation levels. Add policy contract and exact-threshold tests. Label lead times Unverified operational placeholders, not regulatory deadlines.
+- Files changed: `backend/rules/deadline_policy.json`, `backend/tests/test_phase6_evc_reminders.py`, `docs/DECISIONS.md`, `docs/IMPLEMENTATION_LOG.md`, `md/6_IMPLEMENTATION_PLAN.md`, `CONTEXT.md`.
+- Existing code reused: `deadline_service.collect_items`, `eligible_thresholds`, policy loader, idempotent alert dedupe and in-app notification adapter.
+- API/schema/config: policy-only change; no migration or API change.
+- Permission and audit effects: no permission change. Existing alert generation/delivery behavior remains; reminders do not change case state or gate a workflow action.
+- Verification: targeted `cd backend && ../.venv/bin/ruff check tests/test_phase6_evc_reminders.py` clean; targeted `cd backend && ../.venv/bin/pytest -q tests/test_phase6_evc_reminders.py` → **2 passed, 1 upstream warning**. `make lint` → clean; `make test` → **779 passed, 1 upstream warning, 0 skipped**. `git diff --check` clean. No frontend/model changes, so build/migration checks were not run.
+- Status per requirement touched: FR-20 reminder cadence implemented and tested as placeholder configuration. Phase 6.2 remains Partial; the full plan task is not ticked.
+- Limitations / assumptions / manual steps: named expert assignment, visit confirmation, and Region calendar API/UI still require implementation. The PRD does not state who may assign individual experts or perform confirmation; do not guess role authority. Existing overdue and escalation alerts are retained.
+- Related bugs: none.
+- Open questions for a human: approve existing committee-scoped EVC memberships as the expert list and the institution representative as visit confirmer, or specify the intended authorities. Approval requested in this chat under the `AGENTS.md` role-authority gate.
+- Next suggested task: complete remaining Phase 6.2 behavior after authority clarification, then proceed in plan order.
+
 ### DEC-0014 — Evidence highlight behavior by document type
 Reuse the authenticated document-content endpoint and existing normalized bounding boxes. Raster images receive a direct CSS overlay; PDFs use the browser's native viewer with a clearly identified location guide because built-in viewer chrome and page margins vary. If no box exists, show no guessed highlight and keep the page reference visible. No document content is sent to a new service.
 

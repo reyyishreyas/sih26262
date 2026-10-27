@@ -16,6 +16,21 @@
 - Related: IMPL-0050; Phase 5 exit check remains open.
 - Update (2026-10-27): documented with pushed Phase 5.11 commit `74b3ba6`; the seed/page mismatch remains a workaround limitation.
 
+### BUG-0047 — Git staging was blocked by the default filesystem sandbox
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
+- Severity / Area: S4 / repository tooling.
+- Status: Workaround.
+- Where it showed up: staging the completed Phase 6.2 reminder slice.
+- Expected: `git add ...` creates the index lock and stages only the named Phase 6.2 files.
+- Actual: `fatal: Unable to create '.../.git/index.lock': Operation not permitted`.
+- Steps to reproduce: run the task-scoped `git add` command in the default sandbox.
+- Environment: Codex workspace with repository `.git` read-only in the default sandbox profile.
+- Hypotheses tried: no repository changes were staged; the error is before Git could write the index.
+- Root cause: the default command sandbox allows repo working-tree writes but denies writes to `.git` metadata.
+- Solution applied: retry the same task-scoped staging/commit/push with the approved elevated command pathway if allowed; otherwise leave the verified working-tree changes unstaged and report the restriction.
+- Verification: pending.
+- Related: IMPL-0051.
+
 ### BUG-0045 — Isolated browser review origin was outside the configured CORS list
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
 - Severity / Area: S4 / temporary local verification setup.
@@ -96,6 +111,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0047 | 2026-10-27 | S4 | repository tooling | Git staging blocked by default filesystem sandbox | Workaround | IMPL-0051 |
 | BUG-0041 | 2026-10-27 | S4 | command | Local settings verification used a backend-relative Python path from repo root | Fixed | IMPL-0048 |
 | BUG-0040 | 2026-10-27 | S4 | lint | New Phase 5.9 migration had unsorted imports on first Ruff run | Fixed | IMPL-0048 |
 | BUG-0039 | 2026-10-27 | S4 | authz test harness | Phase 5.8 matrix probe lacked a valid request body, so Pydantic returned 422 before the scope check | Fixed | IMPL-0047 |

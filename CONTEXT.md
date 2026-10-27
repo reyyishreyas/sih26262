@@ -804,4 +804,6 @@ app-level     GET / · /health · /health/live · /health/ready · /metrics
 12. Reviewer page-level view → bbox overlay (needs bbox + DPI columns)
 13. Citation-grounded reviewer assistant (only after 9)
 
+Phase 6.2 reminder update: EVC visits now have 7/2/1-day advance alert levels in `backend/rules/deadline_policy.json`, tested and labelled Unverified operational placeholders; overdue/escalation alerts remain. Named expert assignment, confirmation authority, and the Region calendar remain open pending the human decision requested for Phase 6.2 (IMPL-0051 / DEC-0015).
+
 **48-hour cut line: items 1–9 + 11.**
