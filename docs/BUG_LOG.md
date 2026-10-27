@@ -16,6 +16,9 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0022 | 2026-10-27 | S4 | test harness | Phase 5.3 API test: field lookup not scoped to the uploaded document hit seeded `lessee_name` rows (`MultipleResultsFound`) | Fixed | IMPL-0040 |
+| BUG-0021 | 2026-10-27 | S4 | test harness | Phase 5.3 API test read upload warnings from the wrong key — they live at `body["extraction"]["warnings"]` | Fixed | IMPL-0040 |
+| BUG-0020 | 2026-10-27 | S3 | document grounding | Phase 5.3: `matching.case_sensitive` polarity inverted at the read site — case differences failed the ground check (`not on page: Sub`) | Fixed | IMPL-0040 |
 | BUG-0019 | 2026-10-27 | S4 | migrations tooling | `make lint` failed after autogenerating the 5.2 migration: Alembic's template imports fail ruff `I001` — `ruff --fix` on the file | Fixed | IMPL-0039 |
 | BUG-0018 | 2026-10-27 | S4 | classification note | First run of the 5.1 suite: a classification resting on the file name lost that caveat whenever the declared type also mismatched — the note now composes both caveats | Fixed | IMPL-0038 |
 | BUG-0017 | 2026-10-27 | S4 | test | Exit check's audit-order helper read rows in `entity_id` index order (no `ORDER BY`) — chronology faked, ordering walk failed; now ordered by `AuditEvent.seq` | Fixed | IMPL-0037 |
@@ -58,6 +61,65 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0020 — first run of the Phase 5.3 suite: `case_sensitive` flag was inverted, so case differences failed the ground check
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first run of `tests/test_fuzzy_grounding.py` after implementing Phase 5.3
+- Branch / commit: master (work uncommitted at time of fix; baseline `72163cd`)
+- Severity / Area: **S3** (wrong `REVIEW_REQUIRED` on values that are on the page — over-flagging to a human, never a false "grounded", so the failure direction was conservative) / document grounding
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_fuzzy_grounding.py -q` → `2 failed, 11 passed`:
+  ```
+  FAILED tests/test_fuzzy_grounding.py::test_matching_ignores_case_punctuation_and_spacing
+  E   AssertionError: {'grounded': False, 'status': 'REVIEW_REQUIRED',
+      'similarity': 0.8042, 'matched': 2, 'tokens': 3,
+      'reason': 'not on page: Sub'}
+  ```
+- Expected behaviour: value `"  Sub-Registrar of Records, "` is grounded against page `"Issuing Authority: sub registrar of records"` — the config sets `case_sensitive: false`, so the match ignores case.
+- Actual behaviour: `grounded: False` — the value's tokens kept their case (`Sub`, `Registrar`, `Records`), so `Sub` found no exact page word; the two long tokens were accidentally rescued by the fuzzy leg (`Registrar`/`registrar` = 0.889, `Records`/`records` = 0.857 ≥ 0.85) but the 3-char `Sub` only scores 0.667 against `sub` and stayed missing.
+- Environment: macOS, suite via `../.venv/bin/python -m pytest`.
+- Hypotheses tried: (1) tokenisation bug? — no: `_normalise(..., case_sensitive=False)` printed `sub registrar of records` correctly when called directly; (2) threshold too strict for short tokens? — plausible but secondary: the two exact-equivalent tokens should have matched outright; (3) **root cause** — in `ground()` I wrote `case_sensitive = not matching.get("case_sensitive", False)`: the config key `case_sensitive: false` already means "ignore case", and `not false` = `True` meant "preserve case", so `casefold()` never ran. The flag's polarity was inverted at the read site.
+- Root cause: inverted boolean interpretation of `matching.case_sensitive` when constructing the normaliser.
+- Solution applied: pass the flag through unchanged — `case_sensitive = bool(matching.get("case_sensitive", False))` (True ⇒ preserve case, False ⇒ casefold). Why this way: the config's key name already matches the parameter's meaning, so no negation belongs in the code.
+- Verification: `pytest tests/test_fuzzy_grounding.py -q` → the failing test passes; full file **13 passed**; `make lint` clean; `make test` → **717 passed**.
+- Regression test: `test_matching_ignores_case_punctuation_and_spacing` (fails on the old polarity, passes now); also covered indirectly by every exact-match test, which would break if casefold were dropped.
+- Related: IMPL-0040. Second failure in the same run was test-side — logged as BUG-0021.
+
+### BUG-0021 — first run of the Phase 5.3 suite: the API test read upload warnings from the wrong response key
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), same run as BUG-0020
+- Branch / commit: master (work uncommitted; baseline `72163cd`)
+- Severity / Area: **S4** (test-side; product behaviour was correct) / test harness
+- Status: **Fixed**
+- Where it showed up: `test_upload_stores_grounding_and_warns_without_blocking_or_mutating` → `assert any("lessee_name" in str(w) for w in warnings)` failed with `AssertionError: []` — `warnings` came from `body.get("warnings") or body["document"].get("warnings")`, both absent, so the fallback produced `[]`.
+- Expected behaviour: the grounding warning is read from where the 201 actually puts extraction warnings.
+- Actual behaviour: the 201 body nests them at `body["extraction"]["warnings"]` — the exact path `test_doc_classifier.py` (5.1, lines 265/283) already reads; the warning itself was present and correct.
+- Environment: macOS, FastAPI TestClient.
+- Hypotheses tried: (1) grounding warning not produced? — no, the field assertions above it passed (`grounding == "REVIEW_REQUIRED"`); (2) **root cause** — I guessed the response shape instead of reusing the existing test's accessor.
+- Root cause: test authored against an assumed response key rather than the documented one.
+- Solution applied: read `body["extraction"]["warnings"]`, matching the 5.1 test.
+- Verification: the assertion passes; suite **13 passed**; full run **717 passed**.
+- Regression test: the same assertion in the same test, now against the real shape.
+- Related: IMPL-0040, BUG-0018 (same family: compose/read warnings through the existing channel).
+
+### BUG-0022 — re-run of the Phase 5.3 API test: field lookup was not scoped to the uploaded document and hit seeded rows
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), run after fixing BUG-0020/0021
+- Branch / commit: master (work uncommitted; baseline `72163cd`)
+- Severity / Area: **S4** (test-side) / test harness
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_fuzzy_grounding.py -q` → `1 failed, 12 passed`:
+  ```
+  E   sqlalchemy.exc.MultipleResultsFound:
+      Multiple rows were found when exactly one was required
+  ```
+  at `db.scalars(select(ExtractedField).where(ExtractedField.field_name == "lessee_name")).one()`.
+- Expected behaviour: exactly one row — the one just uploaded.
+- Actual behaviour: the demo seed also creates `lessee_name` fields (seeded lease evidence), so the unscoped `WHERE field_name = ...` matched ≥2 rows.
+- Environment: macOS, seeded test DB (`conftest.database` drops/creates/seeds per test).
+- Hypotheses tried: (1) duplicate rows created by the upload? — no, the unique constraint `(document_id, document_version, field_name)` forbids that; (2) **root cause** — forgot the demo data already contains lease fields with the same field names (seeded evidence), so a field-name-only lookup is ambiguous by design.
+- Root cause: query keyed on a non-unique natural name in a seeded database.
+- Solution applied: scope the lookup to the uploaded document — `where(document_id == body["document"]["id"], field_name == "lessee_name")`.
+- Verification: `.one()` resolves; suite **13 passed**; full run **717 passed**.
+- Regression test: the same test now proves both that the new row exists on this document and that verification leaves its grounding untouched.
+- Related: IMPL-0040.
 
 ### BUG-0019 — `make lint` failed after generating the 5.2 migration: unsorted imports in the Alembic file
 - Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), `make lint` gate after `alembic revision --autogenerate` for Phase 5.2

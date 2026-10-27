@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 704 passing
+make test      # pytest — 717 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **704 passing** (~500 test functions; some parametrised).
+- `make test` → **717 passing** (~500 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -614,9 +614,20 @@ tamper-evidence).
   provenance; officer verification never rewrites it; migration
   `f7e6eed3fa19`; BUG-0019 fixed — run `ruff --fix` right after
   `alembic revision`).
+  `test_fuzzy_grounding.py` (13 — Phase 5.3: `fuzzy_grounding.py` grounds
+  a model value against the page's OCR words or marks it
+  `REVIEW_REQUIRED` (FR-40); fuzzy token match with thresholds declared
+  as labelled placeholders in `rules/fuzzy_grounding.json`; honest
+  failures (no page text / empty / too short) all ⇒ review, never a
+  pass; only config's `model_methods` are grounded; warnings ride
+  `extraction.warnings` on a 201 with value/status/doc_type untouched;
+  `ExtractedField.grounding` column, migration `b2fade9a8767`, NULL for
+  OCR/mock/seeded rows and immutable under verify; BUG-0020 fixed —
+  `case_sensitive` polarity was inverted at the read site; BUG-0021 +
+  BUG-0022 test-side fixes).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `f9c5118` (Phase 5.2).
+  repo is currently green at `7300a5d` (Phase 5.3).
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on
