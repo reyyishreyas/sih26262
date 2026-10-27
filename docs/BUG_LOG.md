@@ -16,6 +16,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0037 | 2026-10-27 | S4 | test | Phase 5.7 policy contract test compared mapping keys instead of outcome labels | Fixed | IMPL-0046 |
 | BUG-0036 | 2026-10-27 | S4 | test | Site jurisdiction test read field paths from the fixture instead of the site policy | Fixed | IMPL-0045 |
 | BUG-0035 | 2026-10-27 | S4 | lint | Phase 5.6 Ruff check stopped on local service import ordering | Fixed | IMPL-0045 |
 | BUG-0034 | 2026-10-27 | S4 | lint | Phase 5.5 first Ruff check found import ordering and an unused test import | Fixed | IMPL-0044 |
@@ -74,6 +75,25 @@
 ```
 
 ## Entries (newest first)
+
+### BUG-0037 — Phase 5.7 policy contract test compared the wrong side of the mapping
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / working tree for Phase 5.7
+- Severity / Area: S4 / test
+- Status: Investigating
+- Where it showed up: targeted `test_precheck_status.py` run.
+- Expected behaviour: policy contract test pins the PRD's three exact outcome labels.
+- Actual behaviour: the test compared outcome-map keys (`passed`, `review_required`, `deficiency_candidate`) with their label values (`PRE-CHECK PASSED`, etc.).
+- Exact error output (trimmed): assertion mismatch in `test_policy_labels_are_exact_prd_outcomes_and_never_block`.
+- Steps to reproduce: `cd backend && ../.venv/bin/python -m pytest tests/test_precheck_status.py -q`.
+- Environment: macOS, Python 3.13, SQLite test setup.
+- Hypotheses tried: none; the assertion inspected keys rather than `policy["outcomes"].values()`.
+- Root cause: test expected values to be dictionary keys.
+- Solution applied: pending.
+- Verification: pending.
+- Side effects / follow-ups / related decisions / linked IMPL: none; IMPL-0046.
+- Regression test: failing contract test itself after correction.
+- Update (2026-10-27): corrected the assertion to inspect `policy["outcomes"].values()`; targeted tests → **17 passed, 1 warning**; full suite → **769 passed, 1 warning, 0 skipped**.
+- Update history: opened immediately after the failed targeted run; fixed and verified in the update above.
 
 ### BUG-0036 — Site jurisdiction test read field paths from the wrong config
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / working tree for Phase 5.6

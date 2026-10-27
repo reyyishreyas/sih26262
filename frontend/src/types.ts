@@ -33,6 +33,8 @@ export interface ComplianceBatch {
   advisory_checks?: EvidenceCrosscheck[];
   /** Unverified SITE-01/02 diagnostics; never formal compliance outcomes. */
   advisory_site_checks?: SiteCheck[];
+  /** Nonblocking summary of all Phase 5 advisory checks. */
+  precheck?: PrecheckSummary;
 }
 
 export interface SiteCheck {
@@ -44,6 +46,20 @@ export interface SiteCheck {
   advisory_only: true;
   human_review: string;
   [detail: string]: unknown;
+}
+
+export interface PrecheckSummary {
+  outcome: "PRE-CHECK PASSED" | "REVIEW REQUIRED" | "DEFICIENCY CANDIDATE";
+  rule_statuses: Record<string, string | undefined>;
+  triggered_rules: string[];
+  triggered_rule_statuses: Record<string, string | undefined>;
+  checked_rules: number;
+  blocking: false;
+  creates_deficiency: false;
+  automatic_workflow_action: false;
+  human_review_required: true;
+  advisory_only: true;
+  note: string;
 }
 
 export interface EvidenceCrosscheck {

@@ -80,6 +80,10 @@ def test_compliance_get_returns_the_latest_batch(client, as_user):
         item["outcome"] == "REVIEW REQUIRED" and item["advisory_only"]
         for item in site_checks
     )
+    assert second.json()["precheck"]["outcome"] == "REVIEW REQUIRED"
+    assert second.json()["precheck"]["blocking"] is False
+    assert second.json()["precheck"]["creates_deficiency"] is False
+    assert second.json()["precheck"]["automatic_workflow_action"] is False
 
 
 def test_rehearsal_through_the_api(client, as_user):

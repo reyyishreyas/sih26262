@@ -61,6 +61,14 @@ One warning is emitted: Starlette's notice that `httpx` with
 | A matching programme fixture is not a formal pass | `test_site_checks.py::test_site01_complete_fixture_comparison_is_not_a_formal_pass` |
 | Jurisdiction lookup uses only synthetic fixtures and never concludes outside | `test_site_checks.py::test_site02_only_matches_synthetic_fixture_and_never_claims_outside`; `test_site_checks.py::test_site02_missing_values_are_not_classed_outside_jurisdiction` |
 
+### Phase 5 pre-check outcome
+
+| Claim | Test |
+|---|---|
+| Outcome labels match the PRD and the policy is advisory | `test_precheck_status.py::test_policy_labels_are_exact_prd_outcomes_and_never_block` |
+| Missing/unverified checks require review | `test_precheck_status.py::test_missing_or_unverified_inputs_are_review_required_and_nonblocking`; `test_precheck_status.py::test_a_pass_requires_every_rule_mapping_to_be_verified` |
+| A discrepancy is only a candidate label and never creates a deficiency/action | `test_precheck_status.py::test_unverified_discrepancy_is_candidate_only_not_a_formal_deficiency`; `test_precheck_status.py::test_any_discrepancy_takes_candidate_label_even_if_other_checks_are_unresolved` |
+
 ### Workflow guards and audit
 
 | Claim | Test |

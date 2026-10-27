@@ -1,0 +1,18 @@
+{
+  "policy_id": "POLICY-PRECHECK-OUTCOMES",
+  "version": "0.1",
+  "status": "proposed_unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "source": "PRD §8 step 5 (PRE-CHECK PASSED / REVIEW REQUIRED / DEFICIENCY CANDIDATE; none blocks or rejects).",
+  "outcomes": {
+    "passed": "PRE-CHECK PASSED",
+    "review_required": "REVIEW REQUIRED",
+    "deficiency_candidate": "DEFICIENCY CANDIDATE"
+  },
+  "blocking": false,
+  "creates_deficiency": false,
+  "automatic_workflow_action": false,
+  "human_review_required": true,
+  "note": "A candidate is only a review label. It does not create a deficiency, establish an official regulatory finding, or change workflow state. PRE-CHECK PASSED requires every applicable rule mapping to be Verified; Unverified rules cannot produce that label."
+}

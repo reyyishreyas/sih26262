@@ -13,6 +13,8 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0046 | 2026-10-27 | Implementation | Phase 5.7: aggregate advisory PRE-CHECK PASSED / REVIEW REQUIRED / DEFICIENCY CANDIDATE labels; all outcomes nonblocking; only Verified mappings can yield a pass | Tested | Phase 5 5.7 (AGENT-04; FR-46) | Codex |
+| DEC-0010 | 2026-10-27 | Decision | Candidate labels never create formal deficiencies or workflow actions; PRE-CHECK PASSED requires all mappings Verified | Accepted | Phase 5 5.7; FR-46 | Codex |
 | IMPL-0045 | 2026-10-27 | Implementation | Phase 5.6: SITE-01 phrase/programme diagnostics + SITE-02 lookup using synthetic-only jurisdiction data; all outcomes remain REVIEW REQUIRED | Tested | Phase 5 5.6 (AGENT-04; FR-43, FR-44) | Codex |
 | DEC-0009 | 2026-10-27 | Decision | SITE checks may emit only advisory diagnostics; synthetic/unverified jurisdiction data never yields an inside/outside or formal compliance conclusion | Accepted | Phase 5 5.6; FR-43/FR-44; §19 Q13 | Codex |
 | IMPL-0044 | 2026-10-27 | Implementation | Phase 5.5: unverified E01–E03 cross-checks on Extraction Values only; labelled field-mapping placeholders; discrepancies never become formal FAIL or gate | Tested | Phase 5 5.5 (AGENT-04; FR-42) | Codex |
@@ -104,6 +106,30 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### DEC-0010 — Outcome labels never create a formal finding or gate
+- Date / author: 2026-10-27 / Codex
+- Status: Accepted
+- Context: FR-46 asks for three pre-check labels and explicitly says none blocks; E01–E03 and SITE-01/02 remain Unverified pending official source mappings.
+- Options considered: treat a comparison signal as a formal deficiency; show a candidate label while retaining human review; suppress the three aggregate outcomes until rules are Verified.
+- Decision: expose the PRD's labels as nonbinding review guidance. A discrepancy may be called `DEFICIENCY CANDIDATE`, but no Deficiency record is created. Missing/Unverified checks result in `REVIEW REQUIRED`. `PRE-CHECK PASSED` requires all applicable mappings Verified and complete.
+- Rationale: matches FR-46 while preserving human decision authority and the explicit blocked/Unverified status of the placeholder rules.
+- Consequences: result always has `blocking: false`, `creates_deficiency: false`, and `automatic_workflow_action: false`; an officer remains responsible for every formal action.
+- Approval needed from / approved by / date: none; this adds no workflow state, permission, or authority.
+- Evidence: `backend/tests/test_precheck_status.py`; linked IMPL-0046.
+
+### IMPL-0046 — Phase 5.7: advisory outcome assignment (FR-46)
+- Date / agent / branch / commit: 2026-10-27 / Codex / `master` / pending commit
+- Task ID and PRD IDs: Phase 5 5.7 (AGENT-04; FR-46; PRD §8 step 5).
+- What existed: 5.5/5.6 generated scoped review-only checks, but there was no aggregate label.
+- What I did: added a configured three-label aggregate. Discrepancy signals produce `DEFICIENCY CANDIDATE`; missing or Unverified evidence requires review; `PRE-CHECK PASSED` is possible only when all five mappings are Verified and complete. The aggregate records triggered rule IDs/statuses and always declares itself nonblocking, non-persistent, and unable to cause workflow action.
+- Files changed: `backend/app/services/precheck_status.py`, `backend/app/services/compliance_service.py`, `backend/app/services/policy.py`, `backend/app/api/applications.py`, `backend/app/api/compliance.py`, `backend/rules/precheck_policy.json`, `backend/tests/test_precheck_status.py`, `backend/tests/test_api.py`, `frontend/src/types.ts`, `md/6_IMPLEMENTATION_PLAN.md`, `docs/TRACEABILITY.md`, `docs/ACCEPTANCE_TESTS.md`, `README.md`, `CONTEXT.md`, this log and `docs/BUG_LOG.md`.
+- Migrations/API/config: no schema or migration change; additive `precheck` summary on existing scoped compliance responses; no new route or dependencies.
+- Permission and audit effects: existing application scope/authz gates reused. No state change, no deficiency row, and no new decision or audit mutation; existing compliance evaluation auditing is retained.
+- Verification: targeted `pytest tests/test_precheck_status.py tests/test_evidence_crosschecks.py tests/test_site_checks.py tests/test_api.py::test_compliance_get_returns_the_latest_batch -q` → **17 passed, 1 warning**; `make lint` clean; `make test` → **769 passed, 1 warning, 0 skipped**; `cd frontend && npm run build` → TypeScript + Vite production build passed; `git diff --check` → clean. No schema changes; migrations and Postgres/Compose smoke not run.
+- Failures seen: BUG-0037 test assertion compared policy keys rather than display-label values; corrected test and rerun passed.
+- Limitations/open questions: no current policy is Verified, so production data cannot receive a `PRE-CHECK PASSED` result yet. Existing rule mappings remain placeholders pending official templates and source verification.
+- Next suggested task: Phase 5.8 — require human disposition of each amber/red finding before scrutiny completion, without allowing OCR/model output to decide or block.
 
 ### DEC-0009 — Keep SITE-01/02 as diagnostic-only checks
 - Date / author: 2026-10-27 / Codex

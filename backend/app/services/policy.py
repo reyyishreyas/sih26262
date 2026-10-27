@@ -133,6 +133,11 @@ def jurisdiction_policy() -> dict[str, Any]:
     return _load("jurisdiction.json")
 
 
+@lru_cache
+def precheck_policy() -> dict[str, Any]:
+    return _load("precheck_policy.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

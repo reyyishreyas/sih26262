@@ -39,10 +39,5 @@ def evaluate(
     )
     db.commit()
     result = report.as_dict()
-    result["advisory_checks"] = compliance_service.evaluate_evidence_crosschecks(
-        db, application
-    )
-    result["advisory_site_checks"] = compliance_service.evaluate_site_checks(
-        db, application
-    )
+    result.update(compliance_service.evaluate_advisory_precheck(db, application))
     return result
