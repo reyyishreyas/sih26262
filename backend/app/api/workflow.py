@@ -7,12 +7,18 @@ from sqlalchemy.orm import Session
 from ..core.clock import get_clock
 from ..core.context import current_request_id
 from ..core.db import get_db
-from ..core.permissions import APPLICATION_READ, CASE_READ, CASE_TRANSITION
+from ..core.permissions import (
+    APPLICATION_READ,
+    CASE_READ,
+    CASE_TRANSITION,
+    DOCUMENT_VERIFY,
+)
 from ..schemas.api import TransitionRequest
 from ..services import (
     appeal,
     checklist,
     compliance,
+    doc_check,
     escalation,
     routing,
     scrutiny_results,
@@ -405,3 +411,64 @@ def case_deficiency_report(
     return compliance.report_view(
         db, application, get_clock().now(), include_drafts=not institution_only
     )
+
+
+@router.get("/applications/{application_id}/doc-check")
+def case_doc_check(
+    application_id: str,
+    access: EffectiveAccess = Depends(require_any(CASE_READ, APPLICATION_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """The RULE-DOC-01 document pre-check for one case (Phase 4.5, FR-06).
+
+    Confirms the three legs FR-06 names — required documents present
+    (the Annexure-2 inventory), Affidavit 2 present, DSC-signed — and
+    lists missing items as *candidates* for a deficiency draft.
+
+    Advisory and read-only (DEC-0003): it issues nothing, moves nothing
+    and blocks nothing. The outcome vocabulary is md/rules.json's own,
+    every response carries ``needs_review`` (the DSC leg is a stub and can
+    only ever answer needs review), and ``human_review`` rides along — a
+    draft still has to be staged deliberately and issued by an officer.
+    """
+    application = require_application(db, access, application_id)
+    return doc_check.evaluate(db, application)
+
+
+@router.post("/applications/{application_id}/doc-check/drafts")
+def stage_doc_check_drafts(
+    application_id: str,
+    access: EffectiveAccess = Depends(require_any(CASE_TRANSITION, DOCUMENT_VERIFY)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Stage the pre-check's missing items as DRAFT deficiencies (FR-06).
+
+    The officer's deliberate act behind "list missing items as deficiency
+    draft": each candidate becomes a ``draft`` row keyed by its line, so
+    the institution never sees it and Phase 4.4's issued report never
+    counts it. Idempotent by line — a candidate already covered by a live
+    draft/open/addressed row is skipped, and re-running stages nothing
+    new. Staging never moves or gates the case; the rows stay drafts until
+    an officer issues them through the normal return flow.
+    """
+    application = require_application(db, access, application_id)
+    result = doc_check.stage_drafts(db, application, access.user_id)
+    AuditService(db).append(
+        action="deficiency.doc_check_staged",
+        entity_type="deficiency",
+        entity_id=application.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        reason=f"{doc_check.RULE_ID} pre-check staged "
+        f"{len(result['created'])} draft deficiency item(s)",
+        after={
+            "application_id": application_id,
+            "created": [row["deficiency_id"] for row in result["created"]],
+            "skipped": [row["deficiency_id"] for row in result["skipped"]],
+            "outcome": result["outcome"],
+        },
+        request_id=current_request_id(),
+    )
+    db.commit()
+    return result

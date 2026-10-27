@@ -5,6 +5,7 @@ import type {
   ChecklistOut,
   DeficiencyReport,
   DeficiencyRow,
+  DocCheck,
   DocumentRow,
   ScrutinyResultsView,
 } from "../types";
@@ -21,6 +22,10 @@ import {
   methodTone,
   plainAaGate,
   plainDeficiencyStatus,
+  plainDocCheckLeg,
+  plainDocCheckOutcome,
+  docCheckLegStatus,
+  docCheckOutcomeTone,
   plainDocType,
   plainMethod,
   plainReportStatus,
@@ -79,6 +84,13 @@ export function EvidencePanel({
   // The composed deficiency report + compliance window (FR-15) — same
   // best-effort contract: a failed read must never hide the rows themselves.
   const [report, setReport] = useState<DeficiencyReport | null>(null);
+  // The RULE-DOC-01 document pre-check (FR-15's neighbours, FR-06) — same
+  // best-effort contract; it is advisory and read-only, so a failed read
+  // must never hide the documents either.
+  const [docCheck, setDocCheck] = useState<DocCheck | null>(null);
+  // Staging candidates as drafts is a deliberate officer act: one busy
+  // flag and the server's own wording on refusal.
+  const [staging, setStaging] = useState(false);
   // Recording forms: one remarks box per checklist line, plus the overall one.
   const [itemRemarks, setItemRemarks] = useState<Record<string, string>>({});
   const [overallResult, setOverallResult] = useState<string>("deficiency");
@@ -147,19 +159,21 @@ export function EvidencePanel({
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [docs, defs, checklistResult, resultsView, reportView] =
+      const [docs, defs, checklistResult, resultsView, reportView, docCheckView] =
         await Promise.all([
           api.documents(applicationId),
           api.deficiencies(applicationId).catch(() => []),
           api.checklist(applicationId).catch(() => null),
           api.scrutinyResults(applicationId).catch(() => null),
           api.deficiencyReport(applicationId).catch(() => null),
+          api.docCheck(applicationId).catch(() => null),
         ]);
       setDocuments(docs);
       setDeficiencies(defs);
       setChecklist(checklistResult);
       setResults(resultsView);
       setReport(reportView);
+      setDocCheck(docCheckView);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not load documents");
     } finally {
@@ -174,12 +188,38 @@ export function EvidencePanel({
     setChecklist(null);
     setResults(null);
     setReport(null);
+    setDocCheck(null);
+    setStaging(false);
     setItemRemarks({});
     setError(null);
     setMessage(null);
     setWarning(null);
     void load();
   }, [load]);
+
+  // Staging the pre-check's missing items as DRAFT deficiencies (FR-06) is
+  // the officer's deliberate act: drafts are never issued here and never
+  // move the case, so a refusal (403) is shown in the server's own words.
+  async function stageDrafts() {
+    if (!docCheck || docCheck.missing_items.length === 0) return;
+    setStaging(true);
+    try {
+      const result = await api.stageDocCheckDrafts(applicationId);
+      setMessage(
+        result.created.length > 0
+          ? `${result.created.length} item(s) added as draft deficiencies for review. Drafts are not issued to the institution.`
+          : "Nothing new to stage — every candidate already has a live deficiency row.",
+      );
+      await load();
+      onEvidenceChanged();
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError ? cause.message : "Could not stage drafts",
+      );
+    } finally {
+      setStaging(false);
+    }
+  }
 
   // Recording a verdict (FR-14) is data entry by an officer: it never moves
   // the case, and a refusal (422 — contradiction, unknown line) is shown as
@@ -916,6 +956,116 @@ export function EvidencePanel({
               </form>
             )}
           </div>
+        </div>
+      )}
+
+      {/* Document pre-check, RULE-DOC-01 (Phase 4.5, FR-06) — advisory
+          presentation of the rule's three legs. It never issues, moves or
+          blocks anything: staging turns candidates into DRAFT rows only, and
+          a draft is never shown to the institution. */}
+      {docCheck && (
+        <div className="panel" style={{ marginTop: "1.5rem" }}>
+          <div className="panel-head">
+            <div>
+              <h3>
+                <Icon name="checkCircle" size={18} /> Document pre-check (
+                {docCheck.rule_id})
+              </h3>
+              <p className="tiny muted">
+                Required documents, Affidavit 2 and DSC signature — a candidate
+                list for review, not an issued notice.{" "}
+                {docCheck.human_review}
+              </p>
+            </div>
+            <div style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <span
+                className={`pill small ${docCheckOutcomeTone(docCheck.outcome)}`}
+              >
+                {docCheck.outcome_label || plainDocCheckOutcome(docCheck.outcome)}
+              </span>
+              {docCheck.needs_review && (
+                <span className="pill small warn" title={docCheck.human_review}>
+                  Needs review
+                </span>
+              )}
+            </div>
+          </div>
+
+          <ul style={{ listStyle: "none", padding: 0, margin: "0.5rem 0" }}>
+            {docCheck.legs.map((leg) => (
+              <li
+                key={leg.leg}
+                style={{
+                  display: "flex",
+                  gap: "0.5rem",
+                  alignItems: "baseline",
+                  padding: "0.25rem 0",
+                }}
+              >
+                <strong style={{ minWidth: "11rem" }}>
+                  {plainDocCheckLeg(leg.leg)}
+                </strong>
+                <span
+                  className={`pill small ${
+                    leg.status === "missing"
+                      ? "warn"
+                      : leg.status === "needs_review"
+                        ? "warn"
+                        : "active"
+                  }`}
+                >
+                  {docCheckLegStatus(leg.status)}
+                </span>
+                {leg.note && (
+                  <span className="tiny muted" title={leg.note}>
+                    {leg.note.length > 140
+                      ? `${leg.note.slice(0, 140)}…`
+                      : leg.note}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+
+          {docCheck.missing_items.length > 0 && (
+            <div>
+              <p className="tiny muted">
+                {docCheck.missing_items.length} missing item(s) — candidates
+                for a deficiency draft:
+              </p>
+              <ul style={{ margin: "0.25rem 0 0.75rem", paddingLeft: "1.25rem" }}>
+                {docCheck.missing_items.map((item) => (
+                  <li key={item.field_name}>
+                    <strong>{item.title}</strong>
+                    {item.existing_deficiency ? (
+                      <span className="pill small active" style={{ marginLeft: "0.5rem" }}>
+                        Already drafted
+                      </span>
+                    ) : null}
+                    <span className="tiny muted"> — {item.corrective_action}</span>
+                  </li>
+                ))}
+              </ul>
+              {(canVerify || canRecordResult) && (
+                <button
+                  type="button"
+                  className="small"
+                  disabled={staging}
+                  onClick={() => void stageDrafts()}
+                  title="Creates draft deficiencies only. Drafts stay officer-only until issued through the normal return flow."
+                >
+                  {staging
+                    ? "Staging…"
+                    : "Stage as draft deficiencies"}
+                </button>
+              )}
+            </div>
+          )}
+          {docCheck.note && (
+            <p className="tiny muted" style={{ marginTop: "0.35rem" }}>
+              {docCheck.note}
+            </p>
+          )}
         </div>
       )}
 

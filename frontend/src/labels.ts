@@ -390,6 +390,43 @@ export function windowStatusTone(status: string): string {
   return "";
 }
 
+// ---------------------------------------------------------------------------
+// Document pre-check, RULE-DOC-01 (FR-06; proposed_unverified, advisory)
+// ---------------------------------------------------------------------------
+
+/** The server sends its own outcome_label (md/rules.json's wording); this
+ * is only a fallback for an unrecognised code. */
+export function plainDocCheckOutcome(outcome: string): string {
+  if (outcome === "all_required_documents_present") return "Pre-check passed";
+  if (outcome === "one_or_more_required_documents_missing")
+    return "Deficiency candidate";
+  if (outcome === "checklist_unknown_or_route_unverified")
+    return "Review required";
+  if (outcome === "document_inventory_unavailable") return "Processing failed";
+  return humanize(outcome);
+}
+
+export function docCheckOutcomeTone(outcome: string): string {
+  if (outcome === "one_or_more_required_documents_missing") return "warn";
+  if (outcome === "checklist_unknown_or_route_unverified") return "warn";
+  if (outcome === "document_inventory_unavailable") return "bad";
+  return "active";
+}
+
+export function plainDocCheckLeg(leg: string): string {
+  if (leg === "required_documents") return "Required documents";
+  if (leg === "affidavit_2") return "Affidavit 2";
+  if (leg === "dsc_signature") return "DSC signature";
+  return humanize(leg);
+}
+
+export function docCheckLegStatus(status: string): string {
+  if (status === "satisfied") return "Present";
+  if (status === "missing") return "Missing";
+  if (status === "needs_review") return "Needs review";
+  return humanize(status);
+}
+
 export function scrutinyResultTone(result: string | null): string {
   if (result === "nil_deficiency") return "active";
   if (result === "deficiency") return "warn";

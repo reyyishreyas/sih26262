@@ -10,6 +10,8 @@ import type {
   DeficiencyRow,
   DemoClockMove,
   DemoClockStatus,
+  DocCheck,
+  DocCheckStaged,
   DocumentRow,
   EvcCommittee,
   EvcQueue,
@@ -240,6 +242,18 @@ export const api = {
    * the window is placeholder config and never blocks a resubmission. */
   deficiencyReport: (id: string) =>
     request<DeficiencyReport>(`/applications/${id}/deficiency-report`),
+  /** The RULE-DOC-01 document pre-check (FR-06) — required documents,
+   * Affidavit 2, DSC. Read-only and advisory: it names candidates and
+   * always carries `needs_review` (the DSC leg is a stub). */
+  docCheck: (id: string) =>
+    request<DocCheck>(`/applications/${id}/doc-check`),
+  /** Stage the pre-check's missing items as DRAFT deficiencies — the
+   * officer's deliberate act. Drafts are never shown to the institution
+   * and never move or block the case; idempotent per line. */
+  stageDocCheckDrafts: (id: string) =>
+    request<DocCheckStaged>(`/applications/${id}/doc-check/drafts`, {
+      method: "POST",
+    }),
   createDeficiency: (
     id: string,
     payload: {

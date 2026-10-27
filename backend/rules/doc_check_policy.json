@@ -1,0 +1,38 @@
+{
+  "rule_id": "RULE-DOC-01",
+  "version": "0.1",
+  "title": "Required document presence",
+  "status": "proposed_unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "recorded_on": "2026-10-27",
+  "source": "md/rules.json compliance_rules[RULE-DOC-01] (status proposed_unverified, rule_type document_inventory, source_refs SRC-APH-2024-27/SRC-PRD-26262, applicability requires_official_mapping, APH cl. 2.3.4a,b as cited) + md/1_PRD.md FR-06 line 183 ('Confirm Affidavit 2 and DSC-signed docs; list missing items as deficiency draft') and the RULE-DOC-01 row at line 145 (outcome 'Deficiency candidate') + md/2_ARCHITECTURE.md line 117 ('DSC verification: stub') and md/0_MASTER_PROMPT.md line 103.",
+  "outcomes": {
+    "all_required_documents_present": "PRE-CHECK PASSED",
+    "one_or_more_required_documents_missing": "DEFICIENCY CANDIDATE",
+    "checklist_unknown_or_route_unverified": "REVIEW REQUIRED",
+    "document_inventory_unavailable": "PROCESSING FAILED"
+  },
+  "outcome_precedence": [
+    "one_or_more_required_documents_missing",
+    "checklist_unknown_or_route_unverified",
+    "all_required_documents_present"
+  ],
+  "precedence_note": "A concrete missing document beats an unknown checklist: a case whose Annexure-2 list is not transcribed but has no affidavit at all still has a definite deficiency to raise (FR-06), while the untranscribed inventory is reported as a needs-review leg beside it. md/rules.json defines the four outcomes but not their order, so this order is prototype policy, labelled here.",
+  "human_review": "Required before issuing a formal deficiency.",
+  "inventory": {
+    "source": "annexure_2",
+    "note": "The required-document inventory is the Phase 4.2 Annexure-2 checklist: only a transcribed category can answer, and an untranscribed or unknown list is REVIEW REQUIRED — never an empty all-clear (PRD s19 Q8 open)."
+  },
+  "affidavit_2": {
+    "doc_types": ["affidavit"],
+    "note": "PLACEHOLDER MAPPING — the prototype's upload vocabulary has one generic 'affidavit' document type and cannot tell Affidavit 1/2/3 apart, so the mapping from 'Affidavit 2' (FR-06) to that slot is an assumption, not a recorded rule. No affidavit at all => missing (FR-06 certainly not met); an affidavit present => satisfied but unconfirmed (confirmed:false, needs review) until the numbered-affidavit mapping is recorded from an official source."
+  },
+  "dsc": {
+    "checkable": false,
+    "status_when_unavailable": "needs_review",
+    "note": "DSC verification is a stub in this prototype (md/2_ARCHITECTURE.md line 117; md/0_MASTER_PROMPT.md line 103) and no signature field exists on Document or ExtractedField. No signature data can be evaluated, so this leg ALWAYS answers needs review — never passed, never failed — and it never gates anything."
+  },
+  "inventory_unavailable_note": "md/rules.json defines 'document_inventory_unavailable: PROCESSING FAILED' for the case where the inventory itself cannot be read (e.g. a portal-fed inventory). With the local documents table as the source it is not reachable today; the outcome is kept in the vocabulary (and pinned to md/rules.json by a test) rather than silently dropped.",
+  "note": "Advisory pre-check (DEC-0003): it lists candidates for an officer to review and may stage them as DRAFT deficiencies — the institution never sees a draft, nothing is issued, and no case is ever blocked or moved by this rule. md/rules.json itself records that human review is required before issuing a formal deficiency."
+}

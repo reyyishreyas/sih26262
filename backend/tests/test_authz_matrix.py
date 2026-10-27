@@ -140,6 +140,8 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     # scrutiny results: Phase 4.3 FR-14 (officer's recorded judgement; never gates)
     ("GET", "/api/v1/applications/{application_id}/scrutiny-results"): READ_ANY,
     ("GET", "/api/v1/applications/{application_id}/deficiency-report"): READ_ANY,
+    ("GET", "/api/v1/applications/{application_id}/doc-check"): READ_ANY,
+    ("POST", "/api/v1/applications/{application_id}/doc-check/drafts"): TRANSITION_OR_VERIFY,
     ("POST", "/api/v1/applications/{application_id}/scrutiny-results"): frozenset(
         {CASE_TRANSITION}
     ),

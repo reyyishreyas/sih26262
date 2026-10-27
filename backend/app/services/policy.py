@@ -98,6 +98,11 @@ def compliance_policy() -> dict[str, Any]:
     return _load("compliance_policy.json")
 
 
+@lru_cache
+def doc_check_policy() -> dict[str, Any]:
+    return _load("doc_check_policy.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

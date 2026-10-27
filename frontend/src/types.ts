@@ -486,6 +486,70 @@ export interface DeficiencyReport {
 }
 
 
+/** One leg of the RULE-DOC-01 pre-check (Phase 4.5, FR-06). The DSC leg
+ * is a stub, so its only legal status is `needs_review` — never passed,
+ * never failed. */
+export interface DocCheckLeg {
+  leg: "required_documents" | "affidavit_2" | "dsc_signature";
+  status: "satisfied" | "missing" | "needs_review";
+  needs_review: boolean;
+  note: string | null;
+  confirmed?: boolean;
+  checkable?: boolean;
+  source?: string | null;
+  missing_count?: number;
+}
+
+/** A missing item the pre-check proposes as a deficiency candidate — a
+ * draft only, never issued and never shown to the institution. */
+export interface DocCheckCandidate {
+  field_name: string;
+  title: string;
+  category_id: string | null;
+  item_id: string | null;
+  doc_types: string[];
+  explanation: string;
+  corrective_action: string;
+  source: string | null;
+  existing_deficiency: { id: string; status: string } | null;
+}
+
+/** The RULE-DOC-01 document pre-check (Phase 4.5, FR-06): required docs
+ * present, Affidavit 2 present, DSC-signed. Advisory only (DEC-0003) — it
+ * issues nothing, moves nothing and blocks nothing, and the outcome
+ * vocabulary is md/rules.json's own. `needs_review` rides every response
+ * because the DSC leg can never be checked here. */
+export interface DocCheck {
+  application_id: string;
+  rule_id: string;
+  rule_status: string;
+  version: string;
+  outcome:
+    | "all_required_documents_present"
+    | "one_or_more_required_documents_missing"
+    | "checklist_unknown_or_route_unverified"
+    | "document_inventory_unavailable";
+  outcome_label: string;
+  needs_review: boolean;
+  human_review: string;
+  legs: DocCheckLeg[];
+  missing_items: DocCheckCandidate[];
+  placeholder: boolean;
+  advisory_only: boolean;
+  source: string | null;
+  note: string | null;
+}
+
+/** What staging the pre-check's candidates as drafts produced. */
+export interface DocCheckStaged {
+  created: { field_name: string; title: string; deficiency_id: string; status: string }[];
+  skipped: { field_name: string; title: string; deficiency_id: string; status: string }[];
+  outcome: DocCheck["outcome"];
+  outcome_label: string;
+  needs_review: boolean;
+}
+
+
 export interface UploadResult {
   document: DocumentRow;
   extraction: {
