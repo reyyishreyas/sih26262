@@ -16,6 +16,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0009 | 2026-10-27 | S4 | test | New Phase 3 exit-check test failed `make lint` on first run (F401: unused `timedelta` import left from drafting; also a stray mid-file `import pytest` and hard-coded guessed user ids `user-regional`/`user-supervisory` that do not exist — seeded ids are auto-generated) | Fixed | IMPL-0032 |
 | BUG-0008 | 2026-10-27 | S4 | test | New routing test expected `POST /applications` → 200; route returns 201 Created | Fixed | IMPL-0025 |
 | BUG-0007 | 2026-10-26 | S4 | test | Routing test assumed every PRD §6 pattern is used by a Table 2.3 row; no row is plain SCR+EVC | Fixed | IMPL-0008 |
 | BUG-0006 | 2026-10-26 | S2 | migration | `alembic check` red: `deficiencies` and `evc_visits` tables added to the ORM with no migration — a Compose deploy would lack both | Fixed | IMPL-0005 |
@@ -47,6 +48,29 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0009 — new exit-check test failed lint (unused import) and guessed non-existent user ids
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first `make lint` after writing `backend/tests/test_phase3_exit_check.py`
+- Branch / commit: master (work uncommitted at time of fix; baseline 959f141)
+- Severity / Area: **S4** (test-only; no product code involved) / test-harness
+- Status: **Fixed**
+- Where it showed up: `make lint` → `Found 1 error`:
+  ```
+  F401 [*] `datetime.timedelta` imported but unused
+    --> tests/test_phase3_exit_check.py:26:22
+  ```
+  The same drafting pass also left a stray mid-file `import pytest` and two recipient assertions that hard-coded `"user-regional"` / `"user-supervisory"` as user ids — seeded `User` ids are auto-generated, so those assertions would have failed with `AssertionError` on the first API run (caught by reading `seed.py`, not by a red test).
+- Expected behaviour: lint clean; recipient assertions that hold against the seeded data.
+- Actual behaviour: one F401; two latent assertion failures against ids that do not exist.
+- Steps to reproduce: run the file at the drafted version, then `make lint` / `pytest tests/test_phase3_exit_check.py`.
+- Environment: macOS, Python 3.13.9 (venv), SQLite test DB, fixed clock.
+- Hypotheses tried:
+  1. *Recipient ids are stable strings like `user-regional`* — rejected: `seed.py::user()` builds `User` rows through `_get_or_create` with no explicit id, so ids are `new_id()`-generated; the correct lookup is by email.
+- Root cause: drafting leftovers (unused import, hoisting not applied) and an unverified guess about seed id formatting instead of resolving users by their documented email keys.
+- Solution applied: removed the unused `timedelta` import and the mid-file import; added `_user_id(db, email)` helper resolving `regional@demo.local` / `supervisor@demo.local` via query. No product code changed.
+- Verification: `make lint` → All checks passed; `make test` → **582 passed**; `pytest tests/test_phase3_exit_check.py -q` → 7 passed.
+- Side effects / follow-ups: none. Related: IMPL-0032.
+- Update history: —
 
 ### BUG-0008 — new routing test expected 200; `POST /applications` returns 201
 - Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first run of `backend/tests/test_routing.py::test_creating_a_case_audits_its_route_decision`
