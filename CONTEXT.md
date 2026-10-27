@@ -653,6 +653,7 @@ tamper-evidence).
   (code in `bb847a4`, logs in the docs commit recording this line — see
   IMPL-0043 and DEC-0005; Phase 5 continues at 5.5).
 - **27 Oct 2026 — Phase 5.5 (FR-42):** E01–E03 advisory cross-checks compare configured latest-document Extraction Values only. Their field paths are labelled placeholders; the rules remain Unverified and every formal result is `REVIEW REQUIRED`. Claim Value edits do not affect the diagnostic. Verification: `make lint` clean, `make test` **758 passed**, frontend build clean (IMPL-0044 / DEC-0008); Phase 5 continues at 5.6.
+- **27 Oct 2026 — Phase 5.6 (FR-43/FR-44):** SITE-01 phrase/programme-list and SITE-02 jurisdiction diagnostics added with labelled placeholders and a synthetic-only jurisdiction fixture; neither can conclude compliance or jurisdiction. All formal outcomes remain `REVIEW REQUIRED`. `make lint` clean, `make test` **764 passed**, frontend build clean (IMPL-0045 / DEC-0009); Phase 5 continues at 5.7.
 - **27 Oct 2026 — Phase 8 audit work:** document content access and extraction
   lifecycle, finding-batch evaluation, automatic assignment, and explicit
   verification/export events are covered; a scoped JSON export checks the

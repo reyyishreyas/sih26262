@@ -31,6 +31,19 @@ export interface ComplianceBatch {
   counts: Record<Outcome, number>;
   /** Unverified E01-E03 diagnostics; never formal compliance outcomes. */
   advisory_checks?: EvidenceCrosscheck[];
+  /** Unverified SITE-01/02 diagnostics; never formal compliance outcomes. */
+  advisory_site_checks?: SiteCheck[];
+}
+
+export interface SiteCheck {
+  rule_id: "RULE-SITE-01" | "RULE-SITE-02";
+  title: string;
+  rule_status: "unverified";
+  diagnostic: string;
+  outcome: "REVIEW REQUIRED";
+  advisory_only: true;
+  human_review: string;
+  [detail: string]: unknown;
 }
 
 export interface EvidenceCrosscheck {

@@ -1,0 +1,28 @@
+{
+  "policy_id": "POLICY-SITE-CHECKS",
+  "version": "0.1",
+  "status": "unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "source": "PRD §8 RULE-SITE-01/02 and FR-43/FR-44; exact official field schema and jurisdiction source remain open in PRD §19 Q13.",
+  "outcome": "REVIEW REQUIRED",
+  "human_review": "Required. Phrase hits and list differences are review signals only; they never establish a regulatory deficiency or determine a workflow action.",
+  "site_01": {
+    "rule_id": "RULE-SITE-01",
+    "title": "Format-3 programme coverage and partial-shifting indicator",
+    "status": "unverified",
+    "resolution_text_path": "documents.format_3_resolution.resolution_text",
+    "partial_shift_phrases": ["partial shifting"],
+    "approved_programmes_path": "documents.eoa_letter.approved_programmes",
+    "programmes_covered_path": "documents.format_3_resolution.programmes_covered",
+    "note": "Phrase list is limited to the PRD's wording; it is not exhaustive and absence of a phrase is not evidence of compliance. Programme field paths are placeholders pending official templates."
+  },
+  "site_02": {
+    "rule_id": "RULE-SITE-02",
+    "title": "Proposed site compared with synthetic jurisdiction fixture",
+    "status": "unverified",
+    "university_path": "documents.university_noc.affiliating_university",
+    "proposed_region_path": "documents.university_noc.new_region",
+    "note": "The actual jurisdiction source is not integrated. The synthetic fixture can only demonstrate lookup shape; it never yields an official inside/outside conclusion. Applicability exclusions require the official category mapping."
+  }
+}

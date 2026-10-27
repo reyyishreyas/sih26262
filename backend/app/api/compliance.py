@@ -42,4 +42,7 @@ def evaluate(
     result["advisory_checks"] = compliance_service.evaluate_evidence_crosschecks(
         db, application
     )
+    result["advisory_site_checks"] = compliance_service.evaluate_site_checks(
+        db, application
+    )
     return result

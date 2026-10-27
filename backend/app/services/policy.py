@@ -123,6 +123,16 @@ def evidence_crosschecks_policy() -> dict[str, Any]:
     return _load("evidence_crosschecks.json")
 
 
+@lru_cache
+def site_check_policy() -> dict[str, Any]:
+    return _load("site_check_policy.json")
+
+
+@lru_cache
+def jurisdiction_policy() -> dict[str, Any]:
+    return _load("jurisdiction.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

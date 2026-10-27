@@ -1,0 +1,15 @@
+{
+  "policy_id": "POLICY-JURISDICTION-FIXTURE",
+  "version": "synthetic-0.1",
+  "status": "synthetic_fixture_only",
+  "unverified": true,
+  "advisory_only": true,
+  "source": "Artificial test/demo values only. No real affiliating university jurisdiction data is included or implied.",
+  "entries": [
+    {
+      "university": "SYNTHETIC Example Technical University",
+      "regions": ["SYNTHETIC North Region"],
+      "note": "Synthetic row used only to prove deterministic lookup behavior; not an AICTE or university jurisdiction record."
+    }
+  ]
+}

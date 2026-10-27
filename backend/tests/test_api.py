@@ -71,6 +71,15 @@ def test_compliance_get_returns_the_latest_batch(client, as_user):
         item["outcome"] == "REVIEW REQUIRED" and item["advisory_only"]
         for item in checks
     )
+    site_checks = second.json()["advisory_site_checks"]
+    assert [item["rule_id"] for item in site_checks] == [
+        "RULE-SITE-01",
+        "RULE-SITE-02",
+    ]
+    assert all(
+        item["outcome"] == "REVIEW REQUIRED" and item["advisory_only"]
+        for item in site_checks
+    )
 
 
 def test_rehearsal_through_the_api(client, as_user):

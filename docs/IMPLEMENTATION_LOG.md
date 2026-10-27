@@ -13,6 +13,8 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0045 | 2026-10-27 | Implementation | Phase 5.6: SITE-01 phrase/programme diagnostics + SITE-02 lookup using synthetic-only jurisdiction data; all outcomes remain REVIEW REQUIRED | Tested | Phase 5 5.6 (AGENT-04; FR-43, FR-44) | Codex |
+| DEC-0009 | 2026-10-27 | Decision | SITE checks may emit only advisory diagnostics; synthetic/unverified jurisdiction data never yields an inside/outside or formal compliance conclusion | Accepted | Phase 5 5.6; FR-43/FR-44; §19 Q13 | Codex |
 | IMPL-0044 | 2026-10-27 | Implementation | Phase 5.5: unverified E01–E03 cross-checks on Extraction Values only; labelled field-mapping placeholders; discrepancies never become formal FAIL or gate | Tested | Phase 5 5.5 (AGENT-04; FR-42) | Codex |
 | DEC-0008 | 2026-10-27 | Decision | Keep E01–E03 Unverified and advisory; expose only discrepancy diagnostics with formal outcome REVIEW REQUIRED until source mapping is verified | Accepted | Phase 5 5.5; FR-42; §19 Q13; rules E01–E03 | Codex |
 | IMPL-0043 | 2026-10-27 | Implementation | Phase 5.4: three-value model — `three_value.py` + `rules/three_value_policy.json` (POLICY-THREE-VALUE, proposed_unverified) + `POST .../fields/{field_id}/claim` (institution confirms/edits, `require_any(DOCUMENT_UPLOAD, DOCUMENT_VERIFY)`, reason required on edit else 400 with nothing recorded, extraction never overwritten, no `baseline_version` bump) + 4 nullable `ExtractedField` claim columns, migration `70f34e02fce5`; Master Record Value stays `None` (no source integrated); RULE-EDIT-01 advisory answers `continue`/`REVIEW REQUIRED` | Tested | Phase 5 5.4 (AGENT-04; FR-41) | MiMo (OpenCode agent) |
@@ -102,6 +104,30 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### DEC-0009 — Keep SITE-01/02 as diagnostic-only checks
+- Date / author: 2026-10-27 / Codex
+- Status: Accepted
+- Context: PRD FR-43/44 names programme coverage and University jurisdiction checks; the rules registry marks these rules blocked and the official field/jurisdiction mappings remain open under §19 Q13.
+- Options considered: activate inferred regulatory outcomes; use placeholders for review-only diagnostics; defer all implementation.
+- Decision: implement the planned prototype diagnostics with one PRD phrase, placeholder field paths and one unmistakably synthetic jurisdiction fixture. Every formal outcome remains `REVIEW REQUIRED`; the service cannot infer an outside-jurisdiction result.
+- Rationale: preserves the prototype acceptance shape while honoring the explicit Unverified/blocked state and forbidding invented official data.
+- Consequences: missing or unmatched synthetic data provides no compliance conclusion; official sources and field mappings are still needed for rule activation.
+- Approval needed from / approved by / date: none; no official route, authority, deadline or outcome was changed.
+- Evidence: `backend/tests/test_site_checks.py`; linked IMPL-0045.
+
+### IMPL-0045 — Phase 5.6: SITE-01/02 advisory checks (FR-43/FR-44)
+- Date / agent / branch / commit: 2026-10-27 / Codex / `master` / pending commit
+- Task ID and PRD IDs: Phase 5 5.6 (AGENT-04; FR-43, FR-44; PRD §8 and §19 Q13).
+- What existed: no site checks. `md/rules.json` marks SITE-01 and SITE-02 blocked; extracted site/Format-3 schemas and an authoritative jurisdiction dataset are not integrated.
+- What I did: `site_checks.py` evaluates one PRD phrase and compares configured extracted programme lists; it checks University/region strings against an explicitly synthetic fixture only. Missing input returns insufficient evidence. A fixture hit is called exactly that; no inside/outside conclusion is emitted. All outcomes stay `REVIEW REQUIRED`, with `Unverified` status and human review. Added both service results to the existing scoped compliance response under a separate additive key.
+- Files changed: `backend/app/services/site_checks.py`, `backend/app/services/compliance_service.py`, `backend/app/services/policy.py`, `backend/app/api/applications.py`, `backend/app/api/compliance.py`, `backend/rules/site_check_policy.json`, `backend/rules/jurisdiction.json`, `backend/tests/test_site_checks.py`, `backend/tests/test_api.py`, `frontend/src/types.ts`, `md/6_IMPLEMENTATION_PLAN.md`, `docs/TRACEABILITY.md`, `docs/ACCEPTANCE_TESTS.md`, `README.md`, `CONTEXT.md`, this log and `docs/BUG_LOG.md`.
+- Migrations/API/config: no schema/migration change; additive `advisory_site_checks` response key, no new route; config placeholders and synthetic-only data, no external integration.
+- Permission and audit effects: existing scoped read/evaluate permission is reused. No persistence or state change; existing compliance batch audit behavior is unchanged.
+- Verification: `make lint` → Ruff clean; targeted `pytest tests/test_site_checks.py tests/test_api.py::test_compliance_get_returns_the_latest_batch -q` → **7 passed, 1 warning**; `make test` → **764 passed, 1 warning, 0 skipped**; `cd frontend && npm run build` → tsc + Vite build passed; `git diff --check` → clean. No model/schema edits; migrations not run. Postgres/Compose smoke not run.
+- Failures seen: BUG-0035 (import ordering, fixed by Ruff) and BUG-0036 (test read two config objects from one place, fixed by reading paths and synthetic rows from their respective policies); details and exact reruns are recorded in `docs/BUG_LOG.md`.
+- Limitations/open questions: the phrase list is non-exhaustive; schema paths are placeholders; there is no real University jurisdiction data or category/applicability exclusion mapping. Neither a match nor a mismatch is a decision or formal deficiency.
+- Next suggested task: Phase 5.7 — assign advisory PRE-CHECK PASSED / REVIEW / DEFICIENCY CANDIDATE status without allowing any status to block or gate.
 
 ### DEC-0008 — Keep E01–E03 as unverified extraction diagnostics
 - Date / author: 2026-10-27 / Codex

@@ -16,6 +16,8 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0036 | 2026-10-27 | S4 | test | Site jurisdiction test read field paths from the fixture instead of the site policy | Fixed | IMPL-0045 |
+| BUG-0035 | 2026-10-27 | S4 | lint | Phase 5.6 Ruff check stopped on local service import ordering | Fixed | IMPL-0045 |
 | BUG-0034 | 2026-10-27 | S4 | lint | Phase 5.5 first Ruff check found import ordering and an unused test import | Fixed | IMPL-0044 |
 | BUG-0033 | 2026-10-27 | S4 | test harness / shared checkout | One combined `test_three_value` + `test_authz_matrix` run failed `test_matrix_lists_every_permission_gated_route`; never reproduced in six later runs incl. full suites | Workaround | IMPL-0043 |
 | BUG-0032 | 2026-10-27 | S4 | test harness | Update: the four Phase 5.4 failures first seen in BUG-0023 are gone; final suite is green | Fixed | IMPL-0041 |
@@ -72,6 +74,44 @@
 ```
 
 ## Entries (newest first)
+
+### BUG-0036 — Site jurisdiction test read field paths from the wrong config
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / working tree for Phase 5.6
+- Severity / Area: S4 / test
+- Status: Investigating
+- Where it showed up: targeted `test_site_checks.py` run.
+- Expected behaviour: synthetic fixture lookup test builds its input using configured paths.
+- Actual behaviour: `KeyError: 'university_path'` because the path keys belong to `site_check_policy.json`, while the test read `jurisdiction.json`.
+- Exact error output (trimmed): `university_field = policy["university_path"]` → `KeyError: 'university_path'`.
+- Steps to reproduce: run `cd backend && ../.venv/bin/python -m pytest tests/test_site_checks.py -q`.
+- Environment: macOS, Python 3.13, SQLite test setup.
+- Hypotheses tried: none; the failing test read the fixture schema directly.
+- Root cause: test used `jurisdiction_config()` for input field paths, but the fields are in `site_check_policy()["site_02"]`.
+- Solution applied: pending.
+- Verification: pending.
+- Side effects / follow-ups / related decisions / linked IMPL: none; IMPL-0045.
+- Regression test: the failing test itself will verify lookup against policy-provided paths after correction.
+- Update (2026-10-27): fixed by reading field paths from `site_check_policy()["site_02"]` and fixture entries from `jurisdiction_config()`; targeted test file passes as part of **7 passed** run.
+- Update history: opened immediately after the failed test run. First correction moved path lookup to site policy; the next run exposed that fixture entries still come from the separate jurisdiction policy (`KeyError: 'entries'`). Final correction and verification are recorded above.
+
+### BUG-0035 — Phase 5.6 Ruff check stopped on import ordering
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / working tree for Phase 5.6
+- Severity / Area: S4 / lint
+- Status: Investigating
+- Where it showed up: `cd backend && ../.venv/bin/python -m ruff check app tests migrations scripts && ../.venv/bin/python -m pytest tests/test_site_checks.py tests/test_api.py::test_compliance_get_returns_the_latest_batch -q`
+- Expected behaviour: Ruff accepts imports added for the SITE-01/02 service.
+- Actual behaviour: command stopped before pytest; Ruff reported `I001` in `app/services/compliance_service.py`.
+- Exact error output (trimmed): `I001 Import block is un-sorted or un-formatted`.
+- Steps to reproduce: run the command above after adding the `site_checks` service import.
+- Environment: macOS, Python 3.13, repository `.venv`.
+- Hypotheses tried: none; Ruff points to import ordering.
+- Root cause: import was inserted after a non-blank local import block instead of sorted with the sibling modules.
+- Solution applied: pending.
+- Verification: targeted tests did not run in the failed `&&` chain; pending.
+- Side effects / follow-ups / related decisions / linked IMPL: none; IMPL-0045.
+- Regression test: lint command itself is the check; no product behavior failure occurred.
+- Update (2026-10-27): Ruff's import fixer sorted the imports; `ruff check app tests migrations scripts` passes and final `make lint && make test` reports **764 passed, 1 warning, 0 skipped**.
+- Update history: opened immediately after the failed command; fix and verification recorded above.
 
 ### BUG-0034 — Phase 5.5 first Ruff check found import-only issues
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / working tree for Phase 5.5

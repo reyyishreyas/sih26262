@@ -52,6 +52,15 @@ One warning is emitted: Starlette's notice that `httpx` with
 | Missing comparison inputs stay review-required | `test_evidence_crosschecks.py::test_missing_values_remain_review_required_instead_of_becoming_a_pass` |
 | A claim edit cannot clear a discrepancy computed from extracted values | `test_evidence_crosschecks.py::test_claim_edits_cannot_change_e01_extraction_diagnostic`; `test_three_value.py::test_an_edit_can_never_clear_a_failed_rule` |
 
+### Phase 5 site checks
+
+| Claim | Test |
+|---|---|
+| Phrase and programme-list diagnostics remain advisory | `test_site_checks.py::test_site01_reports_configured_phrase_and_programme_discrepancies_as_review` |
+| Missing text/programme inputs remain review-required | `test_site_checks.py::test_site01_missing_lists_or_text_remain_insufficient_evidence` |
+| A matching programme fixture is not a formal pass | `test_site_checks.py::test_site01_complete_fixture_comparison_is_not_a_formal_pass` |
+| Jurisdiction lookup uses only synthetic fixtures and never concludes outside | `test_site_checks.py::test_site02_only_matches_synthetic_fixture_and_never_claims_outside`; `test_site_checks.py::test_site02_missing_values_are_not_classed_outside_jurisdiction` |
+
 ### Workflow guards and audit
 
 | Claim | Test |

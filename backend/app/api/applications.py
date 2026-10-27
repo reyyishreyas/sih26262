@@ -165,6 +165,9 @@ def get_compliance(
         result["advisory_checks"] = compliance_service.evaluate_evidence_crosschecks(
             db, application
         )
+        result["advisory_site_checks"] = compliance_service.evaluate_site_checks(
+            db, application
+        )
         return result
 
     rows = db.scalars(
@@ -199,6 +202,9 @@ def get_compliance(
         ],
         "counts": _counts(rows),
         "advisory_checks": compliance_service.evaluate_evidence_crosschecks(
+            db, application
+        ),
+        "advisory_site_checks": compliance_service.evaluate_site_checks(
             db, application
         ),
     }
