@@ -28,10 +28,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock
-from ..core.permissions import PermissionDenied
+from ..core.permissions import (
+    EXECUTIVE_COMMITTEE_MEMBER,
+    EXECUTIVE_DECISION_RECORD,
+    PermissionDenied,
+)
 from ..models import (
     Application,
     Deficiency,
+    Document,
     EvcReport,
     EvcVisit,
     FindingDisposition,
@@ -171,6 +176,7 @@ def request_transition(
     reason_code: str | None = None,
     request_id: str | None = None,
     expected_baseline_version: int | None = None,
+    speaking_order_document_id: str | None = None,
 ) -> TransitionDecision:
     application = db.get(Application, application_id)
     if application is None:
@@ -218,14 +224,21 @@ def request_transition(
             request_id=request_id,
         )
 
-    if not access.has(definition.required_permission):
+    required_permission = definition.required_permission
+    if (
+        EXECUTIVE_COMMITTEE_MEMBER in access.roles
+        and action in ("approve", "reject")
+        and EXECUTIVE_COMMITTEE_MEMBER in definition.allowed_roles
+    ):
+        required_permission = EXECUTIVE_DECISION_RECORD
+    if not access.has(required_permission):
         return _reject(
             db,
             application=application,
             access=access,
             action=action,
             from_state=from_state,
-            reasons=[f"missing permission {definition.required_permission!r}"],
+                reasons=[f"missing permission {required_permission!r}"],
             request_id=request_id,
         )
 
@@ -256,6 +269,24 @@ def request_transition(
             ],
             request_id=request_id,
         )
+
+    if speaking_order_document_id is not None:
+        order = db.get(Document, speaking_order_document_id)
+        if (
+            action not in ("approve", "reject")
+            or order is None
+            or order.application_id != application.id
+            or order.doc_type != "speaking_order"
+        ):
+            return _reject(
+                db,
+                application=application,
+                access=access,
+                action=action,
+                from_state=from_state,
+                reasons=["a linked Speaking Order for this application is required"],
+                request_id=request_id,
+            )
 
     if action == "complete_evc":
         live_visit_id = db.scalar(
@@ -421,6 +452,7 @@ def request_transition(
             actor_id=access.user_id,
             reason=reason,
             reason_code=reason_code.strip() if reason_code else None,
+            speaking_order_document_id=speaking_order_document_id,
             created_at=now,
         )
     )
@@ -495,6 +527,7 @@ def request_transition(
             # FR-28: the structured code rides in the audit too, so §11's
             # "returns by reason code" metric never has to parse free text.
             "reason_code": (reason_code.strip() if reason_code else None),
+            "speaking_order_document_id": speaking_order_document_id,
         },
         request_id=request_id,
     )

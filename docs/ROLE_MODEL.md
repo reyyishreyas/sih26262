@@ -19,7 +19,7 @@ Two questions are asked separately for every request:
 | Regional officer | Region | Supervise institutions in a region; transitions; monitoring and escalations |
 | EVC member | Committee | Record committee decisions on committee-assigned cases |
 | SHC member | Region | Schedule hearings, record human compliance notes/recommendations, and read deficiency referrals |
-| Executive Committee member | Region | Read completed SHC recommendation referrals and linked EVC reports; decision route is Phase 6.5 |
+| Executive Committee member | Region | Read decision-ready queue entries, upload Speaking Orders and record human decisions through configured workflow routes; this app role does not itself certify external legal authority |
 | Competent Authority | Region | Read fraud referrals; the referral is not a fraud finding or penalty |
 | Supervisory officer | Region | Read-only monitoring: pendency, ageing, escalations, alerts |
 | Administrator | Global | Users, role assignments, rule versions, assignments, deadline sweep |
@@ -50,6 +50,8 @@ assignments.
 | `shc.hearing.schedule` | | | | | ✓ | | | | ✓ |
 | `shc.recommendation.write` | | | | | ✓ | | | | ✓ |
 | `executive.queue.read` | | | | | | | ✓ | | ✓ |
+| `executive.order.upload` | | | | | | | ✓ | | |
+| `executive.decision.record` | | | | | | | ✓ | | |
 | `monitoring.read` | | ✓ | ✓ | | | | | ✓ | ✓ |
 | `undertaking.read` | ✓ | ✓ | ✓ | ✓ | | | | ✓ | ✓ |
 | `undertaking.submit` | ✓ | | | | | | | | ✓ |
@@ -151,7 +153,7 @@ removed) before the file was committed.
   clarification.
 - EVC member records the visit and the decision.
 - SHC member records a hearing and a human-authored recommendation; an SHC recommendation does not decide the case.
-- Executive Committee member reads the handoff queue; the decision route is implemented separately in Phase 6.5.
+- Executive Committee member reads the handoff queue and uses dedicated application permissions to upload a Speaking Order and record a human decision through configured workflow routes. This app-level access control does not verify independent AICTE legal authority; official authority remains Unverified under REG-AUTH-001.
 - Regional officer can transition/approve on configured routes.
 - Supervisory officer cannot transition; they monitor.
 - Administrator administers access and runs the deadline sweep; the role is not a

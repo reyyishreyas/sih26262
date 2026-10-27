@@ -362,13 +362,16 @@ export interface ShcQueueRow {
 }
 
 export interface ExecutiveQueueRow {
-  hearing_id: string;
-  report_id: string;
   application_id: string;
+  report_id: string | null;
+  hearing_id: string | null;
   institution: string;
-  scheduled_date: string;
-  compliance_record: string;
-  recommendation: string;
+  current_state: string;
+  readiness: "shc_recommendation" | "nil_list";
+  summary: string;
+  compliance_record: string | null;
+  recommendation: string | null;
+  decision_actions: Array<"approve" | "reject">;
   document_available: boolean;
 }
 

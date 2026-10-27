@@ -19,18 +19,18 @@ Two constraints shape this module:
    ``unverified``/``placeholder``/``advisory_only`` labels that are returned
    on every snapshot, so a caller can never mistake a placeholder for a
    confirmed AICTE rule.
-2. **Advisory only, no new state (DEC-0003, Phase 6.5/6.6).** These functions
+2. **Advisory only, no new state (DEC-0003, Phase 6.6).** These functions
    compute a window and a "may file" flag for display. They gate nothing, move
    no case and write nothing. There is deliberately no ``file_appeal``
-   transition and no speaking-order upload trigger yet — those are the
-   separate approval-gated tasks — so an appeal is counted from any recorded
+   transition — Phase 6.6 implements that separately — so an appeal is counted from any recorded
    ``WorkflowTransition`` whose action matches the configured
    ``appeal_action`` once Phase 6.6 adds it, and today that count is simply
    zero.
 
-The window's start is the instant the case entered a decision state
-(``current_state_since``), which equals the decision "upload" for the prototype
-until a first-class Speaking Order upload exists to point the clock at.
+For new Executive Committee decisions, the window starts at the linked Speaking
+Order's ``uploaded_at`` time. Legacy decisions without that link continue to use
+``current_state_since``. Both views remain advisory while the regulatory duration
+is Unverified.
 """
 
 from __future__ import annotations
@@ -43,7 +43,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..core.clock import iso, to_utc
-from ..models import Application, WorkflowTransition
+from ..models import Application, Document, WorkflowTransition
 from . import working_calendar
 from .policy import appeal_policy
 
@@ -123,7 +123,12 @@ def appeals_filed(db: Session, application_id: str) -> int:
     return len(rows)
 
 
-def window_for(application: Application, now: datetime) -> AppealWindow | None:
+def window_for(
+    application: Application,
+    now: datetime,
+    *,
+    decision_at: datetime | None = None,
+) -> AppealWindow | None:
     """The appeal window for a case, or None when it is not in a decision state.
 
     Pure date maths over configuration — no DB, no writes. A case still in the
@@ -132,7 +137,7 @@ def window_for(application: Application, now: datetime) -> AppealWindow | None:
     if not _is_decided(application):
         return None
 
-    decision_at = to_utc(application.current_state_since)
+    decision_at = to_utc(decision_at or application.current_state_since)
     if decision_at is None:
         return None
 
@@ -153,6 +158,27 @@ def window_for(application: Application, now: datetime) -> AppealWindow | None:
         may_file=now <= closes_at,
         status="open" if now <= closes_at else "lapsed",
     )
+
+
+def _decision_upload_time(db: Session, application: Application) -> datetime | None:
+    """Use the linked Speaking Order upload as the appeal-clock trigger."""
+    transition = db.scalars(
+        select(WorkflowTransition)
+        .where(
+            WorkflowTransition.application_id == application.id,
+            WorkflowTransition.to_state == application.current_state,
+            WorkflowTransition.action.in_(("approve", "reject")),
+            WorkflowTransition.reverted_at.is_(None),
+        )
+        .order_by(WorkflowTransition.created_at.desc(), WorkflowTransition.id.desc())
+    ).first()
+    if transition and transition.speaking_order_document_id:
+        document = db.get(Document, transition.speaking_order_document_id)
+        if document is not None:
+            return to_utc(document.uploaded_at)
+    # Existing decisions predate first-class Speaking Orders. Preserve their
+    # advisory clock until they are superseded by a newly recorded decision.
+    return to_utc(application.current_state_since)
 
 
 def _with_appeals(db: Session, window: AppealWindow) -> AppealWindow:
@@ -181,7 +207,11 @@ def appeal_snapshot(db: Session, application: Application, now: datetime) -> dic
     ``status: "not_decided"`` rather than inventing a window.
     """
     config_data = config()
-    window = window_for(application, now)
+    window = window_for(
+        application,
+        now,
+        decision_at=_decision_upload_time(db, application),
+    )
     if window is None:
         return {
             "application_id": application.id,
@@ -210,7 +240,11 @@ def appeal_snapshot(db: Session, application: Application, now: datetime) -> dic
     return snapshot
 
 
-def appeal_window_item(application: Application, now: datetime) -> Any | None:
+def appeal_window_item(
+    application: Application,
+    now: datetime,
+    db: Session | None = None,
+) -> Any | None:
     """A ``DeadlineItem`` for the appeal-window sweep, or None.
 
     Only a decided case still inside (or just past) its window produces an
@@ -220,7 +254,8 @@ def appeal_window_item(application: Application, now: datetime) -> Any | None:
     """
     from .deadline_service import DeadlineItem
 
-    window = window_for(application, now)
+    decision_at = _decision_upload_time(db, application) if db is not None else None
+    window = window_for(application, now, decision_at=decision_at)
     if window is None or window.closes_at is None:
         return None
     return DeadlineItem(

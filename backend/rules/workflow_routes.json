@@ -506,7 +506,8 @@
           "required_permission": "case.decide",
           "allowed_roles": [
             "evc_member",
-            "regional_officer"
+            "regional_officer",
+            "executive_committee_member"
           ],
           "required_rules": [
             "LEASE_VALID_COVERS_PERIOD",
@@ -525,7 +526,8 @@
           "to_state": "rejected",
           "required_permission": "case.transition",
           "allowed_roles": [
-            "scrutiny_officer"
+            "scrutiny_officer",
+            "executive_committee_member"
           ],
           "required_rules": [],
           "required_documents": [],
@@ -570,7 +572,8 @@
           "required_permission": "case.transition",
           "allowed_roles": [
             "scrutiny_officer",
-            "regional_officer"
+            "regional_officer",
+            "executive_committee_member"
           ],
           "required_rules": [
             "LEASE_VALID_COVERS_PERIOD",
@@ -589,7 +592,8 @@
           "to_state": "rejected",
           "required_permission": "case.transition",
           "allowed_roles": [
-            "scrutiny_officer"
+            "scrutiny_officer",
+            "executive_committee_member"
           ],
           "required_rules": [],
           "required_documents": [],
@@ -675,7 +679,8 @@
           "required_permission": "case.decide",
           "allowed_roles": [
             "evc_member",
-            "regional_officer"
+            "regional_officer",
+            "executive_committee_member"
           ],
           "required_rules": [
             "LEASE_VALID_COVERS_PERIOD",
@@ -695,7 +700,8 @@
           "required_permission": "case.transition",
           "allowed_roles": [
             "scrutiny_officer",
-            "regional_officer"
+            "regional_officer",
+            "executive_committee_member"
           ],
           "required_rules": [],
           "required_documents": [],
@@ -812,7 +818,8 @@
           "to_state": "approved",
           "required_permission": "case.transition",
           "allowed_roles": [
-            "regional_officer"
+            "regional_officer",
+            "executive_committee_member"
           ],
           "required_rules": [
             "LEASE_VALID_COVERS_PERIOD",
@@ -831,7 +838,8 @@
           "to_state": "rejected",
           "required_permission": "case.transition",
           "allowed_roles": [
-            "regional_officer"
+            "regional_officer",
+            "executive_committee_member"
           ],
           "required_rules": [],
           "required_documents": [],

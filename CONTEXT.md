@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 794 passing (2026-10-27 verification)
+make test      # pytest — 798 passing (2026-10-27 verification)
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```

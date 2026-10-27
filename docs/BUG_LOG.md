@@ -1,5 +1,61 @@
 # docs/BUG_LOG.md
 
+### BUG-0056 Update — Fixed with SQLite batch migration
+- Status: **Fixed**. The initial `op.add_column(... ForeignKey ...)` could not apply against SQLite's existing workflow table because that backend does not support this constraint alteration directly.
+- Solution: migration `0022_speaking_order_transition.py` now uses `op.batch_alter_table` to recreate the table and add the nullable FK and index portably.
+- Verification: fresh SQLite database upgraded through head and `alembic check` reported `No new upgrade operations detected`; full `make test` → **798 passed, 1 warning, 0 skipped**.
+- Regression coverage: Phase 6.5 decision tests exercise the Speaking Order link and wrong-case rejection.
+- Related: IMPL-0056 / Phase 6.5 / FR-26.
+
+### BUG-0056 — Speaking Order migration used unsupported SQLite constraint ALTER
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
+- Severity / Area: S3 / schema migration portability.
+- Status: Open pending fresh-database verification.
+- Where it showed up: Phase 6.5 migration check using SQLite.
+- Expected: migration 0022 adds the nullable Speaking Order FK and index on SQLite and PostgreSQL.
+- Actual: `alembic upgrade head` stopped with `NotImplementedError: No support for ALTER of constraints in SQLite dialect` at `op.create_foreign_key`.
+- Steps to reproduce: `SIH_DATABASE_URL=sqlite:////tmp/sih-phase6-5.db ../.venv/bin/alembic upgrade head`.
+- Environment: SQLite, repo Alembic environment, Python 3.13.
+- Hypotheses tried: traceback identified direct `op.create_foreign_key` as the unsupported SQLite operation.
+- Root cause: SQLite cannot ALTER a table to add a foreign key constraint outside batch/copy mode.
+- Solution applied: use `op.batch_alter_table` for the nullable column, foreign key and index (and batch mode for downgrade).
+- Verification: pending fresh SQLite migration upgrade and `alembic check`.
+- Regression test: migration upgrade/check sequence.
+- Related: Phase 6.5 / FR-26.
+
+### BUG-0055 — Ruff found import ordering issues in Phase 6.5
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
+- Severity / Area: S4 / lint.
+- Status: Fixed.
+- Where it showed up: targeted Phase 6.5/authz/appeal verification setup.
+- Expected: Ruff accepts changed API/service/test files.
+- Actual: Ruff reported three import-block issues after initial code additions.
+- Steps to reproduce: `cd backend && ../.venv/bin/python -m ruff check app tests migrations scripts` before auto-fix.
+- Environment: repo Ruff configuration and virtual environment.
+- Hypotheses tried: Ruff identified mechanical ordering only.
+- Root cause: new imports were hand-sorted incorrectly.
+- Solution applied: ran Ruff `--fix` on the backend app/tests/migrations/scripts tree.
+- Verification: `make lint` → clean; focused Phase 6.5/authorization/appeal suite → **49 passed, 1 upstream warning**.
+- Regression test: full Ruff check and focused suite.
+- Related: Phase 6.5 / FR-26.
+
+### BUG-0054 — Phase 6.5 authorization matrix names and admin exception were stale
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
+- Severity / Area: S3 / authorization contract.
+- Status: Fixed.
+- Where it showed up: first focused Phase 6.5/authz/appeal suite.
+- Expected: every gated route matches the authorization matrix; administrators do not hold Executive Committee decision/order-upload permissions.
+- Actual: the renamed queue document route was stale in the matrix, and the administrator's derived all-permissions set caused two dedicated Executive Committee routes to return 403 after the permission gate.
+- Steps to reproduce: `cd backend && ../.venv/bin/pytest -q tests/test_phase6_executive_decision.py tests/test_authz_matrix.py tests/test_appeal_clock.py` before the fixes.
+- Environment: SQLite authorization tests.
+- Hypotheses tried: compared discovered route path and role permission mapping against the test matrix and explicit endpoint role checks.
+- Root cause: matrix still used `{hearing_id}` after the route changed to `{queue_item_id}`; administrator inherited every permission, including actions deliberately restricted to a human Executive Committee appointment.
+- Solution applied: update the route matrix path and exclude `executive.order.upload` / `executive.decision.record` from administrator's generated permissions.
+- Verification: Ruff clean; focused Phase 6.5/authorization/appeal suite → **49 passed, 1 upstream warning**.
+- Regression test: route-discovery matrix and administrator/role scope tests.
+- Related: Phase 6.5 / FR-26.
+
+
 ### BUG-0053 — Ruff rejected unsorted imports in Phase 6.4 changes
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
 - Severity / Area: S4 / lint.

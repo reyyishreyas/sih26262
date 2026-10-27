@@ -22,7 +22,13 @@ from ..core.clock import get_clock
 from ..core.config import get_settings
 from ..core.context import current_request_id
 from ..core.db import get_db
-from ..core.permissions import DOCUMENT_READ, DOCUMENT_UPLOAD, DOCUMENT_VERIFY
+from ..core.permissions import (
+    DOCUMENT_READ,
+    DOCUMENT_UPLOAD,
+    DOCUMENT_VERIFY,
+    EXECUTIVE_COMMITTEE_MEMBER,
+    EXECUTIVE_ORDER_UPLOAD,
+)
 from ..models import Deficiency, Document, ExtractedField
 from ..schemas.api import ClaimFieldRequest, DocumentOut, VerifyFieldRequest
 from ..services import doc_classifier, fuzzy_grounding, malware_service, ocr_service, three_value
@@ -73,6 +79,11 @@ def upload_document(
     db: Session = Depends(get_db),
 ) -> dict:
     application = require_application(db, access, application_id)
+    executive_order_upload = EXECUTIVE_ORDER_UPLOAD in access.permissions
+    if doc_type == "speaking_order" and (
+        EXECUTIVE_COMMITTEE_MEMBER not in access.roles or not executive_order_upload
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Speaking Orders require Executive Committee upload authority")
     settings = get_settings()
 
     try:
@@ -429,6 +440,25 @@ def upload_document(
             ),
         },
     }
+
+
+@router.post("/executive-speaking-orders", status_code=status.HTTP_201_CREATED)
+def upload_executive_speaking_order(
+    application_id: str,
+    file: UploadFile = File(...),
+    access: EffectiveAccess = Depends(require(EXECUTIVE_ORDER_UPLOAD)),
+    db: Session = Depends(get_db),
+) -> dict:
+    if EXECUTIVE_COMMITTEE_MEMBER not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Executive Committee member role required")
+    return upload_document(
+        application_id=application_id,
+        doc_type="speaking_order",
+        file=file,
+        reason="Executive Committee Speaking Order",
+        access=access,
+        db=db,
+    )
 
 
 @router.get("/{document_id}/content")

@@ -546,12 +546,40 @@ export const api = {
     request<{ count: number; rows: ExecutiveQueueRow[] }>(
       "/executive-committee/queue",
     ),
-  downloadCommitteeReport: async (hearingId: string) => {
+  uploadExecutiveSpeakingOrder: (applicationId: string, file: File) => {
+    const form = new FormData();
+    form.set("file", file);
+    return request<UploadResult>(
+      `/applications/${applicationId}/documents/executive-speaking-orders`,
+      { method: "POST", body: form },
+    );
+  },
+  recordExecutiveDecision: (
+    applicationId: string,
+    payload: {
+      outcome: "approved" | "rejected";
+      speaking_order_document_id: string;
+      reason: string;
+      expected_baseline_version?: number;
+    },
+  ) =>
+    request<{
+      accepted: boolean;
+      action: string;
+      from_state: string;
+      to_state: string;
+      reasons: string[];
+      speaking_order_document_id: string;
+    }>(`/executive-committee/applications/${applicationId}/decision`, {
+      method: "POST",
+      body: JSON.stringify(payload),
+    }),
+  downloadCommitteeReport: async (queueItemId: string) => {
     const headers = new Headers();
     const token = storedToken();
     if (token) headers.set("Authorization", `Bearer ${token}`);
     const response = await fetch(
-      `${BASE}/executive-committee/queue/${hearingId}/document`,
+      `${BASE}/executive-committee/queue/${queueItemId}/document`,
       { headers },
     );
     if (!response.ok) {

@@ -32,6 +32,8 @@ from ..core.permissions import (
     EVC_REPORT_UPLOAD,
     EVC_VISIT_CONFIRM,
     EXECUTIVE_COMMITTEE_MEMBER,
+    EXECUTIVE_DECISION_RECORD,
+    EXECUTIVE_ORDER_UPLOAD,
     EXECUTIVE_QUEUE_READ,
     FRAUD_REFERRAL_READ,
     MONITORING_READ,
@@ -50,7 +52,9 @@ from ..models import (
     FraudReferral,
     Institution,
     Region,
+    ScrutinyOverallResult,
     ShcHearing,
+    WorkflowTransitionDefinition,
 )
 from ..services import evc_service, workflow_service
 from ..services.audit_service import AuditService
@@ -102,6 +106,15 @@ class ShcRecommendationRequest(BaseModel):
 
     compliance_record: str = Field(min_length=1, max_length=10000)
     recommendation: str = Field(min_length=1, max_length=10000)
+
+
+class ExecutiveDecisionRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    outcome: Literal["approved", "rejected"]
+    speaking_order_document_id: str
+    reason: str = Field(min_length=1, max_length=1024)
+    expected_baseline_version: int | None = None
 
 
 def _reject_evc_action(
@@ -654,50 +667,161 @@ def executive_committee_queue(
 ) -> dict:
     if EXECUTIVE_COMMITTEE_MEMBER not in access.roles and "administrator" not in access.roles:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Executive Committee member role required")
-    query = (
-        select(ShcHearing, EvcReport, Application, Institution)
-        .join(EvcReport, EvcReport.id == ShcHearing.report_id)
-        .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
-        .join(Application, Application.id == EvcVisit.application_id)
-        .join(Institution, Institution.id == Application.institution_id)
-        .where(ShcHearing.status == "completed", ShcHearing.recommendation.is_not(None))
+    query = select(Application, Institution).join(
+        Institution, Institution.id == Application.institution_id
     )
     clause = scope_filter(access)
     if clause is not None:
         query = query.where(clause)
-    rows = db.execute(query.order_by(ShcHearing.recorded_at, ShcHearing.id)).all()
-    return {
-        "count": len(rows),
-        "rows": [
+    applications = db.execute(query.order_by(Application.created_at, Application.id)).all()
+    rows = []
+    for application, institution in applications:
+        readiness = _executive_decision_readiness(db, application)
+        if readiness is None:
+            continue
+        transitions = db.scalars(
+            select(WorkflowTransitionDefinition).where(
+                WorkflowTransitionDefinition.route_key == application.route_key,
+                WorkflowTransitionDefinition.from_state == application.current_state,
+                WorkflowTransitionDefinition.action.in_(("approve", "reject")),
+            )
+        ).all()
+        actions = [row.action for row in transitions if EXECUTIVE_COMMITTEE_MEMBER in row.allowed_roles]
+        if not actions:
+            continue
+        report = db.scalar(
+            select(EvcReport)
+            .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
+            .where(EvcVisit.application_id == application.id, EvcVisit.status == "completed")
+        )
+        hearing = db.scalar(
+            select(ShcHearing).where(ShcHearing.report_id == report.id)
+        ) if report and report.deficiency_present else None
+        rows.append(
             {
-                "hearing_id": hearing.id,
-                "report_id": report.id,
                 "application_id": application.id,
                 "institution": institution.name,
-                "scheduled_date": hearing.scheduled_date.isoformat(),
-                "compliance_record": hearing.compliance_record,
-                "recommendation": hearing.recommendation,
-                "document_available": True,
+                "current_state": application.current_state,
+                "readiness": readiness,
+                "report_id": report.id if report else None,
+                "hearing_id": hearing.id if hearing else None,
+                "summary": report.summary if report else "Nil-deficiency scrutiny record",
+                "compliance_record": hearing.compliance_record if hearing else None,
+                "recommendation": hearing.recommendation if hearing else None,
+                "decision_actions": actions,
+                "document_available": report is not None,
             }
-            for hearing, report, application, institution in rows
-        ],
+        )
+    return {
+        "count": len(rows),
+        "rows": rows,
     }
 
 
-@router.get("/executive-committee/queue/{hearing_id}/document")
+def _executive_decision_readiness(db: Session, application: Application) -> str | None:
+    """Return a human-recorded queue basis; never infer readiness from AI findings."""
+    report = db.scalar(
+        select(EvcReport)
+        .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
+        .where(EvcVisit.application_id == application.id, EvcVisit.status == "completed")
+    )
+    if report is not None:
+        if not report.deficiency_present:
+            return "nil_list"
+        hearing = db.scalar(
+            select(ShcHearing).where(
+                ShcHearing.report_id == report.id,
+                ShcHearing.status == "completed",
+                ShcHearing.recommendation.is_not(None),
+            )
+        )
+        return "shc_recommendation" if hearing else None
+    result = db.scalar(
+        select(ScrutinyOverallResult).where(
+            ScrutinyOverallResult.application_id == application.id,
+            ScrutinyOverallResult.result == "nil_deficiency",
+        )
+    )
+    return "nil_list" if result else None
+
+
+@router.post("/executive-committee/applications/{application_id}/decision")
+def record_executive_decision(
+    application_id: str,
+    payload: ExecutiveDecisionRequest,
+    access: EffectiveAccess = Depends(require(EXECUTIVE_DECISION_RECORD)),
+    db: Session = Depends(get_db),
+) -> dict:
+    if EXECUTIVE_COMMITTEE_MEMBER not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Executive Committee member role required")
+    application = require_application(db, access, application_id)
+    if _executive_decision_readiness(db, application) is None:
+        AuditService(db).append(
+            action="executive.decision_rejected",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="rejected",
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+            reason="case has no completed human recommendation or nil-deficiency record",
+            after={"outcome": payload.outcome},
+            request_id=current_request_id(),
+        )
+        db.commit()
+        raise HTTPException(status.HTTP_409_CONFLICT, "case is not ready for an Executive Committee decision")
+    order = db.get(Document, payload.speaking_order_document_id)
+    if order is None or order.application_id != application.id or order.doc_type != "speaking_order":
+        AuditService(db).append(
+            action="executive.decision_rejected",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="rejected",
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+            reason="linked Speaking Order is missing or belongs to another application",
+            after={"outcome": payload.outcome},
+            request_id=current_request_id(),
+        )
+        db.commit()
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "a Speaking Order for this application is required")
+    if EXECUTIVE_ORDER_UPLOAD not in access.permissions:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Speaking Order upload permission required")
+    decision = workflow_service.request_transition(
+        db,
+        access,
+        application_id,
+        "approve" if payload.outcome == "approved" else "reject",
+        payload.reason.strip(),
+        request_id=current_request_id(),
+        expected_baseline_version=payload.expected_baseline_version,
+        speaking_order_document_id=order.id,
+    )
+    return {**decision.as_dict(), "speaking_order_document_id": order.id}
+
+
+@router.get("/executive-committee/queue/{queue_item_id}/document")
 def download_executive_case_report(
-    hearing_id: str,
+    queue_item_id: str,
     access: EffectiveAccess = Depends(require(EXECUTIVE_QUEUE_READ)),
     db: Session = Depends(get_db),
 ) -> Response:
     if EXECUTIVE_COMMITTEE_MEMBER not in access.roles and "administrator" not in access.roles:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Executive Committee member role required")
     query = (
-        select(ShcHearing, EvcReport, Application)
-        .join(EvcReport, EvcReport.id == ShcHearing.report_id)
+        select(EvcReport, Application)
         .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
         .join(Application, Application.id == EvcVisit.application_id)
-        .where(ShcHearing.id == hearing_id, ShcHearing.status == "completed")
+        .outerjoin(ShcHearing, ShcHearing.report_id == EvcReport.id)
+        .where(
+            or_(
+                and_(
+                    ShcHearing.id == queue_item_id,
+                    ShcHearing.status == "completed",
+                    ShcHearing.recommendation.is_not(None),
+                ),
+                and_(EvcReport.id == queue_item_id, EvcReport.deficiency_present.is_(False)),
+            )
+        )
     )
     clause = scope_filter(access)
     if clause is not None:
@@ -705,7 +829,7 @@ def download_executive_case_report(
     row = db.execute(query).first()
     if row is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Executive Committee item not found")
-    _hearing, report, application = row
+    report, application = row
     from .documents import download_document
 
     return download_document(

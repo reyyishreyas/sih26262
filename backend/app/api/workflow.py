@@ -180,14 +180,14 @@ def case_appeal_window(
 ) -> dict:
     """Advisory appeal-window view for one case (Phase 3.5, FR-27).
 
-    Serves the 7-day appeal clock on a decision (once, within 7 days of the
-    decision upload — APH cl. 2.24a) plus the day-3 / day-6 reminder cadence
+    Serves the configured advisory appeal clock on a decision, anchored to a
+    linked Speaking Order upload when available, plus the day-3 / day-6 reminder cadence
     from §11 line 288, all as a clearly-labelled placeholder (§19 leaves the
     figure unverified — REG-APPEAL-001 says do not activate it as binding).
     Read-only — it moves no case and writes nothing, and there is no
-    ``file_appeal`` transition or speaking-order trigger yet (those are the
-    approval-gated Phase 6.5/6.6 tasks); the "may file" flag is advisory
-    (DEC-0003), never a gate.
+    ``file_appeal`` transition yet (Phase 6.6). The duration and cadence remain
+    Unverified placeholders under REG-APPEAL-001; the "may file" flag is
+    advisory (DEC-0003), never a gate.
     """
     application = require_application(db, access, application_id)
     return appeal.appeal_snapshot(db, application, get_clock().now())

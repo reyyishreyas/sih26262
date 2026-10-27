@@ -49,6 +49,8 @@ from app.core.permissions import (
     EVC_REPORT_UPLOAD,
     EVC_VISIT_CONFIRM,
     EXECUTIVE_COMMITTEE_MEMBER,
+    EXECUTIVE_DECISION_RECORD,
+    EXECUTIVE_ORDER_UPLOAD,
     EXECUTIVE_QUEUE_READ,
     FRAUD_REFERRAL_READ,
     INSTITUTION_REPRESENTATIVE,
@@ -272,9 +274,11 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("POST", "/api/v1/shc/queue/{report_id}/hearing"): frozenset({SHC_HEARING_SCHEDULE}),
     ("POST", "/api/v1/shc/queue/{report_id}/recommendation"): frozenset({SHC_RECOMMENDATION_WRITE}),
     ("GET", "/api/v1/executive-committee/queue"): frozenset({EXECUTIVE_QUEUE_READ}),
+    ("POST", "/api/v1/executive-committee/applications/{application_id}/decision"): frozenset({EXECUTIVE_DECISION_RECORD}),
+    ("POST", "/api/v1/applications/{application_id}/documents/executive-speaking-orders"): frozenset({EXECUTIVE_ORDER_UPLOAD}),
     (
         "GET",
-        "/api/v1/executive-committee/queue/{hearing_id}/document",
+        "/api/v1/executive-committee/queue/{queue_item_id}/document",
     ): frozenset({EXECUTIVE_QUEUE_READ}),
     ("GET", "/api/v1/evc/queue"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/evc/calendar"): frozenset({MONITORING_READ}),
@@ -385,6 +389,11 @@ JSON_BODIES: dict[tuple[str, str], dict] = {
     ("POST", "/api/v1/shc/queue/{report_id}/recommendation"): {
         "compliance_record": "Matrix probe",
         "recommendation": "Matrix probe",
+    },
+    ("POST", "/api/v1/executive-committee/applications/{application_id}/decision"): {
+        "outcome": "rejected",
+        "speaking_order_document_id": "matrix-missing-document",
+        "reason": "Authorisation matrix probe",
     },
     (
         "POST",
@@ -511,6 +520,11 @@ def _request(client, method: str, path: str, application_id: str, headers, db):
         kwargs["files"] = {"file": ("affidavit.pdf", affidavit_pdf(), "application/pdf")}
     if (method, path) == (
         "POST",
+        "/api/v1/applications/{application_id}/documents/executive-speaking-orders",
+    ):
+        kwargs["files"] = {"file": ("speaking-order.pdf", affidavit_pdf(), "application/pdf")}
+    if (method, path) == (
+        "POST",
         "/api/v1/applications/{application_id}/evc/visits/{visit_id}/report/document",
     ):
         kwargs["files"] = {"file": ("evc-report.pdf", affidavit_pdf(), "application/pdf")}
@@ -563,6 +577,8 @@ def test_specialized_review_roles_do_not_gain_general_case_or_document_access():
     }
     assert set(ROLE_PERMISSIONS[EXECUTIVE_COMMITTEE_MEMBER]) == {
         EXECUTIVE_QUEUE_READ,
+        EXECUTIVE_ORDER_UPLOAD,
+        EXECUTIVE_DECISION_RECORD,
         AUDIT_READ,
     }
 

@@ -34,6 +34,8 @@ SHC_QUEUE_READ = "shc.queue.read"
 SHC_HEARING_SCHEDULE = "shc.hearing.schedule"
 SHC_RECOMMENDATION_WRITE = "shc.recommendation.write"
 EXECUTIVE_QUEUE_READ = "executive.queue.read"
+EXECUTIVE_ORDER_UPLOAD = "executive.order.upload"
+EXECUTIVE_DECISION_RECORD = "executive.decision.record"
 
 ALL_PERMISSIONS: dict[str, str] = {
     APPLICATION_READ: "Read applications within scope",
@@ -62,6 +64,8 @@ ALL_PERMISSIONS: dict[str, str] = {
     SHC_HEARING_SCHEDULE: "Schedule SHC hearings for referred reports",
     SHC_RECOMMENDATION_WRITE: "Record SHC compliance notes and recommendations",
     EXECUTIVE_QUEUE_READ: "Read completed SHC recommendations awaiting decision",
+    EXECUTIVE_ORDER_UPLOAD: "Upload a Speaking Order document",
+    EXECUTIVE_DECISION_RECORD: "Record an Executive Committee decision",
 }
 
 INSTITUTION_REPRESENTATIVE = "institution_representative"
@@ -124,7 +128,12 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         SHC_RECOMMENDATION_WRITE,
         AUDIT_READ,
     ),
-    EXECUTIVE_COMMITTEE_MEMBER: (EXECUTIVE_QUEUE_READ, AUDIT_READ),
+    EXECUTIVE_COMMITTEE_MEMBER: (
+        EXECUTIVE_QUEUE_READ,
+        EXECUTIVE_ORDER_UPLOAD,
+        EXECUTIVE_DECISION_RECORD,
+        AUDIT_READ,
+    ),
     SUPERVISORY_OFFICER: (
         MONITORING_READ,
         CASE_READ,
@@ -135,7 +144,12 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     ADMINISTRATOR: tuple(
         permission
         for permission in ALL_PERMISSIONS
-        if permission != EVC_VISIT_CONFIRM
+        if permission
+        not in (
+            EVC_VISIT_CONFIRM,
+            EXECUTIVE_ORDER_UPLOAD,
+            EXECUTIVE_DECISION_RECORD,
+        )
     ),
 }
 

@@ -65,6 +65,9 @@ class WorkflowTransition(Base):
         DateTime(timezone=True), nullable=True
     )
     reverted_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    speaking_order_document_id: Mapped[str | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="RESTRICT"), nullable=True, index=True
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 

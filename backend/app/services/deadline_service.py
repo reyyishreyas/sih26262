@@ -195,7 +195,7 @@ def collect_items(db: Session, now: datetime) -> list[DeadlineItem]:
     for application in decided:
         from . import appeal as _appeal
 
-        item = _appeal.appeal_window_item(application, now)
+        item = _appeal.appeal_window_item(application, now, db)
         if item is not None:
             items.append(item)
 
