@@ -19,6 +19,7 @@ import {
 import { AuditTimeline } from "./AuditTimeline";
 import { AppealPanel } from "./AppealPanel";
 import { ReopeningPanel } from "./ReopeningPanel";
+import { GrantPanel } from "./GrantPanel";
 import { EvidencePanel } from "./EvidencePanel";
 import { EvcPanel } from "./EvcPanel";
 import { FindingsTable } from "./FindingsTable";
@@ -53,7 +54,8 @@ type StepKey =
   | "trywhat"
   | "history"
   | "appeal"
-  | "reopening";
+  | "reopening"
+  | "grant";
 
 interface Step {
   key: StepKey;
@@ -243,6 +245,7 @@ export function CaseView({
       if (canFileAppeal && ["approved", "rejected"].includes(detail?.application.current_state ?? "")) {
         list.push({ key: "appeal", label: "Appeal" });
       }
+      if (detail?.application.current_state === "approved") list.push({ key: "grant", label: "Approval and intake" });
       list.push({ key: "tasks", label: "My promises" });
       if (canAudit) list.push({ key: "history", label: "History" });
       return list;
@@ -603,6 +606,8 @@ export function CaseView({
           onCaseMoved={() => void load()}
         />
       )}
+
+      {step === "grant" && isCollege && <GrantPanel applicationId={application.id} />}
 
       {step === "appeal" && isCollege && canFileAppeal && (
         <AppealPanel applicationId={application.id} />

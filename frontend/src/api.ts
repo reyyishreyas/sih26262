@@ -125,6 +125,13 @@ export async function login(email: string, password: string): Promise<SessionUse
 
 export const api = {
   applications: () => request<ApplicationSummary[]>("/applications"),
+  grantEligible: () => request<{ application_id: string; cycle: string; institution_id: string; eligible: boolean }[]>("/grant/eligible"),
+  grantBatches: () => request<{ id: string; cycle: string; status: string; last_grant_date: string; calendar_source: string; entries: { application_id: string; approved_intake: { course_name: string; approved_intake: number }[]; letter_document_id: string | null }[] }[]>("/grant/batches"),
+  createGrantBatch: (payload: { cycle: string; last_grant_date: string; calendar_source: string; entries: { application_id: string; approved_intake: { course_name: string; approved_intake: number }[] }[] }) => request("/grant/batches", { method: "POST", body: JSON.stringify(payload) }),
+  ratifyGrantBatch: (id: string, reason: string) => request(`/grant/batches/${id}/ratify`, { method: "POST", body: JSON.stringify({ reason }) }),
+  uploadGrantLetter: (batchId: string, applicationId: string, file: File) => { const form = new FormData(); form.set("file", file); return request(`/grant/batches/${batchId}/applications/${applicationId}/letter`, { method: "POST", body: form }); },
+  publishGrantBatch: (id: string) => request(`/grant/batches/${id}/publish`, { method: "POST" }),
+  applicationGrant: (id: string) => request<{ application_id: string; published: false } | { application_id: string; published: true; cycle: string; approved_intake: { course_name: string; approved_intake: number }[]; letter_document_id: string; published_at: string }>(`/grant/applications/${id}`),
   application: (id: string) => request<CaseDetail>(`/applications/${id}`),
   institutions: () => request<Institution[]>("/institutions"),
   routes: () => request<WorkflowRoute[]>("/workflow/routes"),

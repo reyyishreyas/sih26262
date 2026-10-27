@@ -12,6 +12,10 @@
 
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
+|---|---|---|---|---|---|---|
+| DEC-0023 | 2026-10-28 | Decision | Chapter II grant list, Council ratification and EoA publication scoped to verified APH clauses | Accepted for prototype workflow; role delegation remains an app ACL | Phase 6 6.8; FR-31/32 | Project lead scope + Codex source check |
+| IMPL-0059 | 2026-10-28 | Implementation | Phase 6.8: consolidated approved-intake grant list, Council ratification and institution EoA publication | Tested | Phase 6 6.8 (FR-31/32) | Codex |
+| BUG-0064 | 2026-10-28 | Bug | Initial Phase 6.8 integration run had test fixture, auth matrix and lint authoring defects | Fixed | Phase 6 6.8; FR-31/32 | Codex |
 | DEC-0021 | 2026-10-27 | Decision | Appeal policy verified for Chapter II routes only; seven-day limit and one appeal enforced | Accepted (official source verified; named reviewer) | Phase 6 6.6; FR-27 | reyyishreyas + Codex |
 | IMPL-0057 | 2026-10-27 | Implementation | Phase 6.6: institution appeal, SAC schedule/recommendation and Council final decision | Tested | Phase 6 6.6 (FR-27) | Codex |
 | BUG-0058 | 2026-10-28 | Bug | Appeal API module omitted from Phase 6.6 commit | Fixed | Phase 6 6.6; FR-27 | Codex |
@@ -19,7 +23,6 @@
 | IMPL-0058 | 2026-10-28 | Implementation | Phase 6.7: one-time Competent Authority reopening request and payment gate | Tested | Phase 6 6.7 (FR-29) | Codex |
 | BUG-0060 | 2026-10-28 | Bug | Reopening integration exposed assignment and stage bookkeeping assumptions | Fixed | Phase 6 6.7; FR-29 | Codex |
 | BUG-0059 | 2026-10-28 | Bug | Ruff rejected generated reopening migration import order | Fixed | Phase 6 6.7; FR-29 | Codex |
-|---|---|---|---|---|---|---|
 | DEC-0020 | 2026-10-27 | Decision | Executive decision permission is an application access control; official APH authority remains Unverified | Accepted (user clarification; no external legal claim) | Phase 6 6.5; FR-26 | reyyishreyas + Codex |
 | IMPL-0056 | 2026-10-27 | Implementation | Phase 6.5: human Executive Committee decision, Speaking Order link and advisory appeal trigger | Tested | Phase 6 6.5 (FR-26; FR-27 clock trigger) | Codex |
 | DEC-0019 | 2026-10-27 | Decision | SHC recommendations are human-authored handoffs only; Executive Committee decision remains a separate workflow step | Accepted (user instruction + PRD safety constraints) | Phase 6 6.4; FR-24/26 | reyyishreyas + Codex |
@@ -128,6 +131,28 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0023 — Chapter II grant compilation, ratification and publication
+- Date / owner: 2026-10-28 / Codex; project lead instructed completion of Phase 6.
+- Status: Accepted for the Phase 6.8 application workflow; no claim that software role assignments establish official delegation.
+- Source: `SRC-APH-GRANT-2024-27`; AICTE APH 2024–27 Chapter II §2.25(a-b,j), printed p.31/PDF p.46, independently checked against the official PDF.
+- Enforce in the prototype: human-entered approved intake; Regulation Bureau consolidates eligible Chapter II cases; Council separately records ratification; an EoA letter is attached to each entry; publication is blocked after the explicitly supplied Academic Calendar last date; institution login reads its scoped published record and downloads its letter.
+- Do not infer any course intake or annual calendar date. Current source URL and date are explicit inputs and remain human-reviewed; exclude `new_technical` and any non-listed route.
+
+### IMPL-0059 — Phase 6.8 consolidated grant list, ratification and publication (FR-31/FR-32)
+- Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task: implementation plan 6.8; FR-31 and FR-32.
+- What existed: human route decisions and Speaking Orders, Council appeal records, the Chapter II appeal window, document upload/download with audit, RBAC/scope, and institution case view. There was no grant batch, Council grant ratification, approved-intake record, EoA publication, or application route/permission for them.
+- What changed: added grant batch/entry models and migration `d948f3303deb`; eligible route filtering for the verified Chapter II set, final linked decision and expired appeal window or final Council-approved appeal; explicit academic-year, source URL, calendar last date and human-entered per-course intake; Council ratification; ratified-only EoA upload through existing signature/size/malware/OCR/document audit pipeline; publication guard requiring ratification, every EoA letter and unexpired IST business date; institution case-view display and download; audited grant reads and rejected batch/intake/ratification/letter/publication actions.
+- Added narrow `regulation_bureau` role/demo account with grant-only compilation/upload/read authority, a Council-specific ratification permission, institution-scoped grant read, and explicitly excluded these permissions from administrator's generated blanket role. Role mapping is application ACL only; it does not prove AICTE delegation.
+- Updated `md/rules2.json` REG-GRANT-001 and source register `SRC-APH-GRANT-2024-27`. Human-entered intake/date/source are never guessed. Chapter I `new_technical` stays out of scope.
+- Files changed: `backend/app/api/grants.py`, `backend/app/models/grant.py`, model exports, permission catalogue, app router registration, seed account, migration, grant/authz tests, frontend API/App/CaseView/GrantPanel/GrantWorkspace, rules2, SOURCES, implementation plan, CONTEXT, this log, BUG log.
+- API/schema/config changes: `/grant/eligible`, `/grant/batches` GET/POST, `/grant/batches/{id}/ratify`, `/grant/batches/{id}/applications/{application_id}/letter`, `/grant/batches/{id}/publish`, `/grant/applications/{application_id}`; new `grant_batches` and `grant_entries` tables.
+- Permission and audit effects: RB grant-batch manage, grant letter upload and grant read; Council ratification and grant read; institution grant read using existing application scope; admin receives none of the dedicated permissions. Audits consolidation, intake/batch refusals, ratification/refusal, EoA upload/refusal, publication/refusal and sensitive published-record read. EoA file bytes remain behind the existing scoped authenticated document endpoint.
+- Verification: `make lint` → all checks passed; focused `pytest tests/test_phase6_grants.py tests/test_authz_matrix.py -q -p no:randomly` → **36 passed, 2 existing Starlette warnings**; focused final grant test → **2 passed, 1 existing Starlette warning**; full `make test` → **820 passed, 2 existing Starlette warnings**; `cd frontend && npm run build` → TypeScript + Vite passed; fresh SQLite `alembic upgrade head` through `d948f3303deb` and `alembic check` → `No new upgrade operations detected`; JSON checks on rules files passed; `git diff --check` passed before final docs edits.
+- Limitations: no annual Academic Calendar ingestion, intake determination, external AICTE portal publication, or uploaded letter content verification; a human uploads the actual issued EoA letter. No Chapter I support. Demo RB login: `regulation-bureau@demo.local`, synthetic seed password `DemoPassw0rd!`.
+- Related bugs: BUG-0064.
+- Next: Phase 6 exit check and Phase 7. The Phase 6 exit journey is not fully automated end-to-end by this task; see plan note.
 
 ### DEC-0022 — Reopening requires year-specific source inputs and human evidence review
 - Date / owner: 2026-10-28 / reyyishreyas + Codex.

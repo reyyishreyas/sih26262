@@ -368,6 +368,23 @@
       "source_requirement": "Do not use a generic 'lease nearing expiry' threshold as an official compliance rule without the applicable clause."
     },
     {
+      "rule_id": "REG-GRANT-001",
+      "name": "Chapter II consolidated grant list and EoA publication",
+      "category": "grant_and_publication",
+      "status": "verified",
+      "priority": "critical",
+      "rule": "For Chapter II applications, the Regulation Bureau places a consolidated list of institutions with human-approved course intake before the Executive Committee/Council; Executive Committee decisions are ratified by Council. The list is notified, and the institution downloads its Extension of Approval letter with Approved Intake through its login. Extension of Approval must not be granted after the last date in the applicable Academic Calendar.",
+      "source": "SRC-APH-GRANT-2024-27; AICTE Approval Process Handbook 2024-27, Chapter II §2.25(a-b,j), printed p.31/PDF p.46.",
+      "applicability": "Chapter II prototype routes only. Individual approved intake, Council ratification record, EoA letter, and annual Academic Calendar date are human-entered/verified. The system does not decide or infer intake, official role delegation, calendar dates, or grant outcomes.",
+      "safety_constraints": [
+        "Only final human-approved Chapter II applications after the appeal period lapses or a final Council appeal approval may enter the grant list.",
+        "Council ratification is separately recorded and audited.",
+        "Publication requires a ratified batch, an EoA letter for every entry, and the supplied Academic Calendar last grant date not having elapsed.",
+        "Institutions may read only their scoped published intake and EoA letter."
+      ],
+      "advisory_only": false
+    },
+    {
       "rule_id": "REG-APPEAL-001",
       "name": "Appeal eligibility, authority, and deadline",
       "category": "appeal",

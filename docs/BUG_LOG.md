@@ -1250,3 +1250,20 @@
 - Verification: **rerun 2026-10-26** on this machine (macOS, Python 3.13.9): `make test` → `163 passed, 1 warning in 16.59s`, **0 skipped** — Tesseract is present locally, so the OCR tests ran and passed. The skip mechanism remains as the honest degradation path for machines without the binary.
 - Follow-ups: decide whether Tesseract is required or optional in CI (log as a DEC entry) — answered for the prototype in `docs/DECISIONS.md` D-0006: **optional** by design.
 - Update history: 2026-10-26 — verified on a Tesseract-equipped machine: 0 skipped, status stays `Workaround` (skip path still exists for other hosts). 2026-10-27 (Phase 5.2, IMPL-0039): a **third** `requires_ocr` test added (`test_field_provenance.py`); re-verified on this machine — Tesseract 5.5.3 present since **24 Oct** (symlink date, i.e. before this task, not installed by it), `make test` → **704 passed, 0 skipped**; CONTEXT's "Tesseract is not installed here, so the 2 OCR tests skip" note (added `604fd54` the same day) was wrong for this machine and contradicted this entry's own 2026-10-26 update — corrected in the 5.2 CONTEXT edit. Status stays `Workaround`.
+
+| BUG-0064 | 2026-10-28 | S4 | test harness and lint | Initial Phase 6.8 integration run exposed test fixture, auth matrix expectation and import-sort authoring defects | Fixed | IMPL-0059 |
+
+### BUG-0064 — Initial Phase 6.8 integration run had test authoring defects
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / area: S4 / test harness and lint; no production grant state was written (pytest uses isolated test DBs).
+- Status: Fixed.
+- Expected: focused grant and exhaustive role/scope tests describe route authorization separately from business outcomes and supply eligible fixture records.
+- Actual: the first combined run failed because the malformed-intake test had not arranged grant eligibility; the grant reader returned 404 for an application with no grant (the matrix expected the endpoint to pass authorization); an import edit landed in a specialized-role expected set; `make lint` caught import ordering.
+- Reproduction: initial `pytest tests/test_phase6_grants.py tests/test_authz_matrix.py -q -p no:randomly` run during Phase 6.8 implementation.
+- Environment: Python 3.13, pytest, SQLite.
+- Hypotheses tried: checked whether failures arose from product authz vs fixture/business result; failures pointed to test expectations/setup, not broadened ACL.
+- Root cause: test authoring conflated authorization with absence-of-resource semantics, forgot to make the intake candidate eligible, and used broad text replacement in the matrix import/set.
+- Solution applied: no published grant now returns an explicit empty result for an in-scope application; test patches eligibility only for input-validation cases; matrix permission expectation is corrected; Ruff sorted imports.
+- Verification: focused grant/authz **36 passed, 2 upstream warnings**; subsequent full `make test` **820 passed, 2 upstream warnings**; `make lint` clean.
+- Regression test: `test_grant_batch_rejects_non_integer_intake_and_roles_are_narrow`, `test_matrix_lists_every_permission_gated_route`, and in-scope/out-of-scope matrix suite.
+- Related: IMPL-0059.

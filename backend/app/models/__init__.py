@@ -26,6 +26,7 @@ from .compliance import (
     RuleEvaluation,
     Undertaking,
 )
+from .grant import GrantBatch, GrantEntry
 from .identity import (
     CaseAssignment,
     ConflictOfInterest,
@@ -64,6 +65,8 @@ __all__ = [
     "ExtractedField",
     "FindingDisposition",
     "FraudReferral",
+    "GrantBatch",
+    "GrantEntry",
     "Institution",
     "JurisdictionAssignment",
     "LoginAttempt",

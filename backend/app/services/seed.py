@@ -21,6 +21,7 @@ from ..core.permissions import (
     EVC_MEMBER,
     INSTITUTION_REPRESENTATIVE,
     REGIONAL_OFFICER,
+    REGULATION_BUREAU,
     ROLE_PERMISSIONS,
     SAC_MEMBER,
     SCRUTINY_OFFICER,
@@ -255,6 +256,7 @@ def seed(db: Session) -> dict:
     sac_member = user("sac@demo.local", "Demo SAC Member")
     council_member = user("council@demo.local", "Demo Council Member")
     competent_authority = user("competent-authority@demo.local", "Demo Competent Authority")
+    regulation_bureau = user("regulation-bureau@demo.local", "Demo Regulation Bureau")
 
     def grant(user_obj: User, role_name: str, scope_type: str, scope_id: str | None):
         existing = db.scalars(
@@ -283,6 +285,7 @@ def seed(db: Session) -> dict:
     grant(sac_member, SAC_MEMBER, "region", region_north.id)
     grant(council_member, COUNCIL_MEMBER, "global", None)
     grant(competent_authority, COMPETENT_AUTHORITY, "region", region_north.id)
+    grant(regulation_bureau, REGULATION_BUREAU, "global", None)
 
     existing_jurisdiction = db.scalars(
         select(JurisdictionAssignment).where(

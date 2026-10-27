@@ -44,6 +44,11 @@ COUNCIL_DECISION_RECORD = "council.decision.record"
 COUNCIL_ORDER_UPLOAD = "council.order.upload"
 REOPENING_REQUEST = "reopening.request"
 REOPENING_REVIEW = "reopening.review"
+GRANT_BATCH_MANAGE = "grant.batch.manage"
+GRANT_COUNCIL_RATIFY = "grant.council.ratify"
+GRANT_LETTER_UPLOAD = "grant.letter.upload"
+GRANT_READ = "grant.read"
+REGULATION_BUREAU = "regulation_bureau"
 
 ALL_PERMISSIONS: dict[str, str] = {
     APPLICATION_READ: "Read applications within scope",
@@ -82,6 +87,10 @@ ALL_PERMISSIONS: dict[str, str] = {
     COUNCIL_ORDER_UPLOAD: "Upload the portal copy of a Council final decision",
     REOPENING_REQUEST: "Request the one-time reopening of a wrongly submitted application",
     REOPENING_REVIEW: "Review reopening requests and verify required payment evidence",
+    GRANT_BATCH_MANAGE: "Compile and publish Chapter II grant lists",
+    GRANT_COUNCIL_RATIFY: "Ratify consolidated Executive Committee grant decisions",
+    GRANT_LETTER_UPLOAD: "Upload an Extension of Approval letter",
+    GRANT_READ: "Read published grant details within application scope",
 }
 
 INSTITUTION_REPRESENTATIVE = "institution_representative"
@@ -111,6 +120,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         UNDERTAKING_SUBMIT,
         EVC_VISIT_CONFIRM,
         APPEAL_SUBMIT,
+        GRANT_READ,
     ),
     SCRUTINY_OFFICER: (
         CASE_READ,
@@ -155,7 +165,15 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         AUDIT_READ,
     ),
     SAC_MEMBER: (SAC_APPEAL_READ, SAC_APPEAL_MANAGE, AUDIT_READ),
-    COUNCIL_MEMBER: (COUNCIL_APPEAL_READ, COUNCIL_DECISION_RECORD, COUNCIL_ORDER_UPLOAD, AUDIT_READ),
+    COUNCIL_MEMBER: (
+        COUNCIL_APPEAL_READ,
+        COUNCIL_DECISION_RECORD,
+        COUNCIL_ORDER_UPLOAD,
+        GRANT_COUNCIL_RATIFY,
+        GRANT_READ,
+        AUDIT_READ,
+    ),
+    REGULATION_BUREAU: (GRANT_BATCH_MANAGE, GRANT_LETTER_UPLOAD, GRANT_READ, AUDIT_READ),
     SUPERVISORY_OFFICER: (
         MONITORING_READ,
         CASE_READ,
@@ -179,6 +197,10 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
             COUNCIL_ORDER_UPLOAD,
             REOPENING_REQUEST,
             REOPENING_REVIEW,
+            GRANT_COUNCIL_RATIFY,
+            GRANT_BATCH_MANAGE,
+            GRANT_LETTER_UPLOAD,
+            GRANT_READ,
         )
     ),
 }
@@ -199,6 +221,7 @@ ROLE_DEFAULT_SCOPE: dict[str, str] = {
     EXECUTIVE_COMMITTEE_MEMBER: SCOPE_REGION,
     SAC_MEMBER: SCOPE_REGION,
     COUNCIL_MEMBER: SCOPE_GLOBAL,
+    REGULATION_BUREAU: SCOPE_GLOBAL,
     SUPERVISORY_OFFICER: SCOPE_REGION,
     ADMINISTRATOR: SCOPE_GLOBAL,
 }

@@ -29,6 +29,7 @@ from .api import (
     demo_clock,
     documents,
     evc,
+    grants,
     institutions,
     officer_dashboard,
     portal,
@@ -195,6 +196,7 @@ def create_app() -> FastAPI:
         portal,
         reports,
         reopening,
+        grants,
     ):
         app.include_router(module.router, prefix=prefix)
 
