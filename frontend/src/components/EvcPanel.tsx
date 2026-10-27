@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
-import type { EvcCommittee, EvcVisit } from "../types";
+import type { EvcCommittee, EvcReport, EvcVisit } from "../types";
 import { Icon } from "./Icon";
 import { formatDate, plainState } from "../labels";
 
@@ -17,15 +17,23 @@ export function EvcPanel({
   applicationId,
   canSchedule,
   canConfirm,
+  canSubmitReport,
   onCaseMoved,
 }: {
   applicationId: string;
   canSchedule: boolean;
   canConfirm: boolean;
+  canSubmitReport: boolean;
   /** Called when booking also advanced the case, so the parent can reload it. */
   onCaseMoved?: () => void;
 }) {
   const [visits, setVisits] = useState<EvcVisit[]>([]);
+  const [report, setReport] = useState<EvcReport | null>(null);
+  const [reportFile, setReportFile] = useState<File | null>(null);
+  const [reportSummary, setReportSummary] = useState("");
+  const [deficiencyPresent, setDeficiencyPresent] = useState(false);
+  const [fraudFlag, setFraudFlag] = useState(false);
+  const [fraudReason, setFraudReason] = useState("");
   const [committees, setCommittees] = useState<EvcCommittee[]>([]);
   const [date, setDate] = useState("");
   const [visitMode, setVisitMode] = useState<"online" | "physical">("physical");
@@ -82,6 +90,20 @@ export function EvcPanel({
 
   const live = visits.find((visit) => visit.status === "scheduled") ?? null;
   const past = visits.filter((visit) => visit !== live);
+
+  useEffect(() => {
+    setReport(null);
+    if (!live) return;
+    let cancelled = false;
+    api.evcReport(applicationId, live.id).then((value) => {
+      if (!cancelled) setReport(value);
+    }).catch((cause) => {
+      if (!cancelled && (!(cause instanceof ApiError) || cause.status !== 404)) {
+        setError(cause instanceof ApiError ? cause.message : "Could not load the visit report");
+      }
+    });
+    return () => { cancelled = true; };
+  }, [applicationId, live?.id]);
 
   const schedule = async (event: FormEvent) => {
     event.preventDefault();
@@ -142,6 +164,30 @@ export function EvcPanel({
     }
   };
 
+  const submitReport = async (event: FormEvent) => {
+    event.preventDefault();
+    if (!live || !reportFile) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const uploaded = await api.uploadEvcReportDocument(applicationId, live.id, reportFile);
+      const saved = await api.submitEvcReport(applicationId, live.id, {
+        document_id: uploaded.document.id,
+        summary: reportSummary.trim(),
+        deficiency_present: deficiencyPresent,
+        fraud_flag: fraudFlag,
+        ...(fraudFlag ? { fraud_referral_reason: fraudReason.trim() } : {}),
+      });
+      setReport(saved);
+      setMessage("EVC report recorded. Any deficiency remains subject to the committee workflow; the fraud flag creates a referral only, with no penal action.");
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not record the EVC report");
+    } finally {
+      setBusy(false);
+    }
+  };
+
   return (
     <section className="panel">
       <header className="panel-head">
@@ -195,6 +241,45 @@ export function EvcPanel({
         <button type="button" onClick={() => void confirmVisit()} disabled={busy}>
           Confirm this visit date
         </button>
+      )}
+
+      {live && report && (
+        <div className="guide guide-info">
+          <span className="guide-text">
+            <strong>EVC report recorded</strong>
+            {report.deficiency_present ? " · Deficiency reported; committee review is required" : " · No deficiency recorded"}
+            {report.fraud_flag ? " · Referred to Competent Authority for review" : ""}
+            {report.summary ? <span className="tiny muted"> — {report.summary}</span> : null}
+          </span>
+        </div>
+      )}
+
+      {live && canSubmitReport && !report && (
+        <form className="form" onSubmit={(event) => void submitReport(event)}>
+          <h4>Record the visit report</h4>
+          <label className="field">
+            <span>Report file</span>
+            <input type="file" accept="application/pdf,image/*" onChange={(event) => setReportFile(event.target.files?.[0] ?? null)} required />
+          </label>
+          <label className="field">
+            <span>Summary</span>
+            <textarea value={reportSummary} onChange={(event) => setReportSummary(event.target.value)} maxLength={10000} />
+          </label>
+          <label className="field">
+            <span><input type="checkbox" checked={deficiencyPresent} onChange={(event) => setDeficiencyPresent(event.target.checked)} /> Report a deficiency for committee review</span>
+          </label>
+          <label className="field">
+            <span><input type="checkbox" checked={fraudFlag} onChange={(event) => setFraudFlag(event.target.checked)} /> Flag a concern for Competent Authority review</span>
+          </label>
+          {fraudFlag && (
+            <label className="field">
+              <span>Referral reason</span>
+              <textarea value={fraudReason} onChange={(event) => setFraudReason(event.target.value)} maxLength={2000} required />
+            </label>
+          )}
+          <button type="submit" disabled={busy || !reportFile}>Submit EVC report</button>
+          <p className="tiny muted">A referral does not determine fraud and does not trigger a penalty or other sanction.</p>
+        </form>
       )}
 
       {canSchedule && (

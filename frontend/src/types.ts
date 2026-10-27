@@ -674,6 +674,16 @@ export interface EvcVisit {
   case_advanced_to?: string | null;
 }
 
+export interface EvcReport {
+  id: string;
+  visit_id: string;
+  document_id: string;
+  summary: string;
+  deficiency_present: boolean;
+  fraud_flag: boolean;
+  created_at: string;
+}
+
 export interface EvcCalendarEvent {
   visit_id: string;
   application_id: string;

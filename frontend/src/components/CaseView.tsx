@@ -85,6 +85,7 @@ export function CaseView({
   // result (FR-14) — both are officer acts on the case, never the applicant's.
   const canScheduleVisit = user.permissions.includes("case.transition");
   const canConfirmVisit = user.permissions.includes("evc.visit.confirm");
+  const canSubmitEvcReport = user.permissions.includes("evc.report.upload");
 
   // Role, not permission flags, decides which workspace this is. A College rep
   // holds application.submit but never case.transition — gating on the latter
@@ -586,6 +587,7 @@ export function CaseView({
           applicationId={applicationId}
           canSchedule={canScheduleVisit}
           canConfirm={canConfirmVisit}
+          canSubmitReport={canSubmitEvcReport}
           onCaseMoved={() => void load()}
         />
       )}

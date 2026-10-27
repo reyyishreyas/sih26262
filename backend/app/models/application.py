@@ -6,6 +6,7 @@ from datetime import date, datetime
 
 from sqlalchemy import (
     JSON,
+    Boolean,
     Date,
     DateTime,
     Float,
@@ -248,6 +249,49 @@ class EvcVisit(Base):
     completed_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class EvcReport(Base):
+    """Human-authored visit report; flags create referrals but no penalties."""
+
+    __tablename__ = "evc_reports"
+    __table_args__ = (
+        UniqueConstraint("visit_id", name="uq_evc_report_visit"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    visit_id: Mapped[str] = mapped_column(
+        ForeignKey("evc_visits.id", ondelete="CASCADE"), index=True
+    )
+    document_id: Mapped[str] = mapped_column(
+        ForeignKey("documents.id", ondelete="RESTRICT"), index=True
+    )
+    submitted_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    summary: Mapped[str] = mapped_column(Text, default="")
+    deficiency_present: Mapped[bool] = mapped_column(Boolean, default=False)
+    fraud_flag: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
+class FraudReferral(Base):
+    """Referral to a competent authority; recording it causes no penal action."""
+
+    __tablename__ = "fraud_referrals"
+    __table_args__ = (
+        UniqueConstraint("report_id", name="uq_fraud_referral_report"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    report_id: Mapped[str] = mapped_column(
+        ForeignKey("evc_reports.id", ondelete="RESTRICT"), index=True
+    )
+    application_id: Mapped[str] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    )
+    referred_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    reason: Mapped[str] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String(24), default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
 class Deficiency(Base):

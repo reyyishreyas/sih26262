@@ -32,6 +32,58 @@
 - Related: IMPL-0051.
 - Update (2026-10-27): the same task-scoped changes were staged, committed as `fd98ee1`, and pushed to `origin/master` using the elevated repository operation. No unrelated files were staged; the four pre-existing image files remain untracked.
 
+### BUG-0051 — EVC report read route was missing from authorization matrix
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
+- Severity / Area: S4 / test contract.
+- Status: Fixed.
+- Where it showed up: focused authorization matrix after introducing the report read route.
+- Expected: discovered route permissions equal the explicit matrix.
+- Actual: expected `application.read`/`case.read`; endpoint declares `case.read`/`document.read`.
+- Steps to reproduce: `cd backend && ../.venv/bin/pytest -q tests/test_authz_matrix.py::test_matrix_lists_every_permission_gated_route`.
+- Environment: repo virtual environment, SQLite tests.
+- Hypotheses tried: none; discovery points to an outdated expected tuple.
+- Root cause: matrix row used the shared `READ_ANY` alias even though report reads are gated by `CASE_READ` or `DOCUMENT_READ`.
+- Solution applied: matrix row now asserts `CASE_READ`/`DOCUMENT_READ`, the endpoint's declared gates.
+- Verification: Ruff clean; focused matrix/report/EVC suite **42 passed, 1 upstream warning**.
+- Update (2026-10-27): first targeted run recorded the mismatch; corrected matrix and full focused suite passed.
+- Regression test: `test_matrix_lists_every_permission_gated_route` and complete authz matrix.
+- Related: Phase 6.3 / IMPL-0054.
+
+### BUG-0050 — New Competent Authority role was missing from role seeding
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
+- Severity / Area: S3 / role initialization.
+- Status: Fixed.
+- Where it showed up: first focused Phase 6.3 API test run during database seeding.
+- Expected: seeded role/permission matrix initializes with the new Competent Authority role.
+- Actual: `KeyError: 'competent_authority'` in `services/seed.py::_ensure_access_model`.
+- Steps to reproduce: `cd backend && ../.venv/bin/pytest -q tests/test_phase6_evc_report.py`.
+- Environment: SQLite test database, repo virtual environment.
+- Hypotheses tried: trace shows role permissions include the new role while the explicit role-creation tuple does not.
+- Root cause: role seeding uses an allowlist tuple that was not updated alongside `ROLE_PERMISSIONS`.
+- Solution applied: seed now creates roles from the canonical `ROLE_PERMISSIONS` mapping.
+- Verification: Ruff clean; focused report/referral/authz/EVC suite **42 passed, 1 upstream warning**.
+- Regression test: `test_assigned_expert_can_submit_report_and_flag_nonpenal_referral` seeds the complete role mapping and verifies scoped referral access.
+- Update (2026-10-27): role initialization failure fixed and verified.
+- Regression test: focused report/referral test and full backend suite.
+- Related: Phase 6.3 / IMPL-0054.
+
+### BUG-0049 — Phase 6.3 report API lint found import and name errors
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
+- Severity / Area: S4 / lint.
+- Status: Fixed.
+- Where it showed up: first Ruff check after adding EVC report submission and fraud referral routes.
+- Expected: touched backend files pass Ruff.
+- Actual: Ruff reported I001 import ordering and F821 missing names `CASE_DECIDE`, `DOCUMENT_READ`, and `current_request_id`.
+- Steps to reproduce: `cd backend && ../.venv/bin/ruff check app tests migrations`.
+- Environment: repo virtual environment, Ruff from `backend/ruff.toml`.
+- Hypotheses tried: none; static analysis identified the import/name defects.
+- Root cause: new route code referenced existing permission/request-context names without importing them; added imports were not sorted.
+- Solution applied: imported the required permission and request-id names; Ruff sorted all touched import blocks.
+- Verification: full Ruff check clean; focused report/referral/authz/EVC suite **42 passed, 1 upstream warning**.
+- Update (2026-10-27): import/name defects fixed and verified.
+- Regression test: backend Ruff check plus focused report/referral tests.
+- Related: Phase 6.3 / IMPL-0054.
+
 ### BUG-0048 — Phase 6.2 Ruff found EVC service import ordering
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
 - Severity / Area: S4 / lint.
@@ -129,6 +181,9 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0051 | 2026-10-27 | S4 | test contract | EVC report read route was missing from authorization matrix | Fixed | IMPL-0054 |
+| BUG-0050 | 2026-10-27 | S3 | role initialization | New Competent Authority role was missing from role seeding | Fixed | IMPL-0054 |
+| BUG-0049 | 2026-10-27 | S4 | lint | Phase 6.3 report API lint found import and name errors | Fixed | IMPL-0054 |
 | BUG-0048 | 2026-10-27 | S4 | lint | Phase 6.2 Ruff found EVC service import ordering | Fixed | IMPL-0053 |
 | BUG-0047 | 2026-10-27 | S4 | repository tooling | Git staging blocked by default filesystem sandbox | Workaround | IMPL-0051 |
 | BUG-0041 | 2026-10-27 | S4 | command | Local settings verification used a backend-relative Python path from repo root | Fixed | IMPL-0048 |

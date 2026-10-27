@@ -18,6 +18,8 @@ Two questions are asked separately for every request:
 | Scrutiny officer | Assigned cases | Work assigned files, verify extracted fields, evaluate compliance, request transitions |
 | Regional officer | Region | Supervise institutions in a region; transitions; monitoring and escalations |
 | EVC member | Committee | Record committee decisions on committee-assigned cases |
+| SHC member | Region | Read the SHC queue derived from completed EVC reports that record a deficiency |
+| Competent Authority | Region | Read fraud referrals; the referral is not a fraud finding or penalty |
 | Supervisory officer | Region | Read-only monitoring: pendency, ageing, escalations, alerts |
 | Administrator | Global | Users, role assignments, rule versions, assignments, deadline sweep |
 
@@ -27,27 +29,30 @@ assignments.
 
 ## Permission to role matrix
 
-| Permission | Institution | Scrutiny | Regional | EVC | Supervisory | Admin |
-|---|:-:|:-:|:-:|:-:|:-:|:-:|
-| `application.read` | ✓ | | | | | ✓ |
-| `application.create` | ✓ | | | | | ✓ |
-| `application.submit` | ✓ | | | | | ✓ |
-| `case.read` | | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `case.transition` | | ✓ | ✓ | | | ✓ |
-| `case.decide` | | | | ✓ | | ✓ |
-| `document.read` | ✓ | ✓ | ✓ | ✓ | | ✓ |
-| `document.upload` | ✓ | | | | | ✓ |
-| `document.verify` | | ✓ | | | | ✓ |
-| `compliance.evaluate` | ✓ | ✓ | ✓ | | | ✓ |
-| `rehearsal.run` | ✓ | ✓ | ✓ | | | ✓ |
-| `audit.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `monitoring.read` | | ✓ | ✓ | | ✓ | ✓ |
-| `undertaking.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
-| `undertaking.submit` | ✓ | | | | | ✓ |
-| `admin.users` | | | | | | ✓ |
-| `admin.rules` | | | | | | ✓ |
-| `admin.assignments` | | | | | | ✓ |
-| `alert.deliver` | | | | | | ✓ |
+| Permission | Institution | Scrutiny | Regional | EVC | SHC | Competent Authority | Supervisory | Admin |
+|---|:-:|:-:|:-:|:-:|:-:|:-:|:-:|:-:|
+| `application.read` | ✓ | | | | | | | ✓ |
+| `application.create` | ✓ | | | | | | | ✓ |
+| `application.submit` | ✓ | | | | | | | ✓ |
+| `case.read` | | ✓ | ✓ | ✓ | | | ✓ | ✓ |
+| `case.transition` | | ✓ | ✓ | | | | | ✓ |
+| `case.decide` | | | | ✓ | | | | ✓ |
+| `document.read` | ✓ | ✓ | ✓ | ✓ | | | | ✓ |
+| `document.upload` | ✓ | | | | | | | ✓ |
+| `evc.report.upload` | | | | ✓ | | | | ✓ |
+| `document.verify` | | ✓ | | | | | | ✓ |
+| `compliance.evaluate` | ✓ | ✓ | ✓ | | | | | ✓ |
+| `rehearsal.run` | ✓ | ✓ | ✓ | | | | | ✓ |
+| `audit.read` | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ | ✓ |
+| `fraud.referral.read` | | | | | | ✓ | | ✓ |
+| `shc.queue.read` | | | | | ✓ | | | ✓ |
+| `monitoring.read` | | ✓ | ✓ | | | | ✓ | ✓ |
+| `undertaking.read` | ✓ | ✓ | ✓ | ✓ | | | ✓ | ✓ |
+| `undertaking.submit` | ✓ | | | | | | | ✓ |
+| `admin.users` | | | | | | | | ✓ |
+| `admin.rules` | | | | | | | | ✓ |
+| `admin.assignments` | | | | | | | | ✓ |
+| `alert.deliver` | | | | | | | | ✓ |
 
 The matrix lives in `backend/app/core/permissions.py`; the database mirrors it for
 assignments, and `effective_access` reads permissions from the database, so a

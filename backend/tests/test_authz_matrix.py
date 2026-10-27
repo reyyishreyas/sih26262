@@ -37,14 +37,18 @@ from app.core.permissions import (
     APPLICATION_CREATE,
     APPLICATION_READ,
     AUDIT_READ,
+    CASE_DECIDE,
     CASE_READ,
     CASE_TRANSITION,
+    COMPETENT_AUTHORITY,
     COMPLIANCE_EVALUATE,
     DOCUMENT_READ,
     DOCUMENT_UPLOAD,
     DOCUMENT_VERIFY,
     EVC_MEMBER,
+    EVC_REPORT_UPLOAD,
     EVC_VISIT_CONFIRM,
+    FRAUD_REFERRAL_READ,
     INSTITUTION_REPRESENTATIVE,
     MONITORING_READ,
     REGIONAL_OFFICER,
@@ -53,6 +57,8 @@ from app.core.permissions import (
     ROLE_PERMISSIONS,
     SCOPE_GLOBAL,
     SCRUTINY_OFFICER,
+    SHC_MEMBER,
+    SHC_QUEUE_READ,
     SUPERVISORY_OFFICER,
     UNDERTAKING_READ,
     UNDERTAKING_SUBMIT,
@@ -240,6 +246,25 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
         "POST",
         "/api/v1/applications/{application_id}/evc/visits/{visit_id}/confirm",
     ): frozenset({EVC_VISIT_CONFIRM}),
+    (
+        "POST",
+        "/api/v1/applications/{application_id}/evc/visits/{visit_id}/report/document",
+    ): frozenset({EVC_REPORT_UPLOAD}),
+    (
+        "POST",
+        "/api/v1/applications/{application_id}/evc/visits/{visit_id}/report",
+    ): frozenset({CASE_DECIDE}),
+    (
+        "GET",
+        "/api/v1/applications/{application_id}/evc/visits/{visit_id}/report",
+    ): frozenset({CASE_READ, DOCUMENT_READ}),
+    ("GET", "/api/v1/evc/fraud-referrals"): frozenset({FRAUD_REFERRAL_READ}),
+    (
+        "GET",
+        "/api/v1/evc/fraud-referrals/{referral_id}/document",
+    ): frozenset({FRAUD_REFERRAL_READ}),
+    ("GET", "/api/v1/shc/queue"): frozenset({SHC_QUEUE_READ}),
+    ("GET", "/api/v1/shc/queue/{report_id}/document"): frozenset({SHC_QUEUE_READ}),
     ("GET", "/api/v1/evc/queue"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/evc/calendar"): frozenset({MONITORING_READ}),
     # reports
@@ -340,6 +365,14 @@ JSON_BODIES: dict[tuple[str, str], dict] = {
         "scheduled_date": "2026-11-05",
         "visit_mode": "physical",
         "venue": "Matrix probe",
+    },
+    (
+        "POST",
+        "/api/v1/applications/{application_id}/evc/visits/{visit_id}/report",
+    ): {
+        "document_id": "matrix-missing-document",
+        "deficiency_present": True,
+        "fraud_flag": False,
     },
     (
         "POST",
@@ -456,6 +489,11 @@ def _request(client, method: str, path: str, application_id: str, headers, db):
     ):
         kwargs["data"] = {"doc_type": "affidavit"}
         kwargs["files"] = {"file": ("affidavit.pdf", affidavit_pdf(), "application/pdf")}
+    if (method, path) == (
+        "POST",
+        "/api/v1/applications/{application_id}/evc/visits/{visit_id}/report/document",
+    ):
+        kwargs["files"] = {"file": ("evc-report.pdf", affidavit_pdf(), "application/pdf")}
     return client.request(method, url, headers=headers, **kwargs)
 
 
@@ -490,6 +528,14 @@ def test_matrix_lists_every_permission_gated_route():
         if MATRIX[key] != discovered[key]
     }
     assert not changed, f"permission set changed since the matrix was written: {changed}"
+
+
+def test_specialized_review_roles_do_not_gain_general_case_or_document_access():
+    assert set(ROLE_PERMISSIONS[SHC_MEMBER]) == {SHC_QUEUE_READ, AUDIT_READ}
+    assert set(ROLE_PERMISSIONS[COMPETENT_AUTHORITY]) == {
+        FRAUD_REFERRAL_READ,
+        AUDIT_READ,
+    }
 
 
 def test_permission_errors_map_to_403_and_scope_errors_to_404():

@@ -72,7 +72,7 @@ def _ensure_access_model(db: Session) -> dict[str, Role]:
     permissions = {p.code: p for p in db.scalars(select(Permission)).all()}
 
     roles: dict[str, Role] = {}
-    for name in (INSTITUTION_REPRESENTATIVE, SCRUTINY_OFFICER, REGIONAL_OFFICER, EVC_MEMBER, SUPERVISORY_OFFICER, ADMINISTRATOR):
+    for name in ROLE_PERMISSIONS:
         role, _ = _get_or_create(db, Role, {"description": name.replace("_", " ")}, name=name)
         roles[name] = role
     db.flush()

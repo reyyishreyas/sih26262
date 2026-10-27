@@ -13,6 +13,8 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| DEC-0018 | 2026-10-27 | Decision | Human EVC reports drive a deficiency queue; fraud flags create pending Competent Authority referrals only | Accepted (human instruction + PRD) | Phase 6 6.3; FR-22 | reyyishreyas + Codex |
+| IMPL-0054 | 2026-10-27 | Implementation | Phase 6.3: EVC report upload, deficiency-driven SHC queue and non-penal fraud referral | Tested | Phase 6 6.3 (FR-22) | Codex |
 | DEC-0017 | 2026-10-27 | Decision | Committee-scoped EVC members may be assigned as visit experts; institution representative confirms booking | Accepted (human, this session) | Phase 6 6.2; FR-20 | reyyishreyas + Codex |
 | IMPL-0053 | 2026-10-27 | Implementation | Phase 6.2: committee expert assignment, COI exclusion and institution visit confirmation | Tested | Phase 6 6.2 (FR-20) | Codex |
 | DEC-0014 | 2026-10-27 | Decision | Evidence highlighting reuses authenticated document bytes and stored boxes; PDF location guides disclose native-viewer alignment limits | Accepted | Phase 5 5.11; FR-48 | Codex |
@@ -115,6 +117,22 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0018 — EVC report flags feed human review queues only
+- Decision: the assigned EVC member authors and uploads the report. A human-recorded deficiency appears in the SHC queue only after the visit is completed. A human fraud flag creates a pending referral visible to the region-scoped Competent Authority. These records do not make a regulatory finding, move the application state, or create a penalty/sanction.
+- Authority: based on the PRD role names and FR-22 safeguards; the user authorized following the `md/` requirements for Phase 6/7. Regulatory values remain Unverified/advisory.
+- Scope: SHC and Competent Authority roles have only the permissions needed for these queues at this task; recommendation/decision powers arrive in their ordered Phase 6 tasks.
+
+### IMPL-0054 — Phase 6.3 EVC report and referrals (FR-22)
+- Task: Phase 6 **6.3**, FR-22.
+- Existing: EVC bookings, explicit expert assignments, audited document upload, structured deficiencies, scope predicates and workflow completion bookkeeping existed. There was no EVC report model, report upload path, SHC handoff queue, or fraud referral.
+- Changes: added one immutable report record per visit with a linked `evc_report` document, human summary, deficiency flag and fraud flag. Only a committee-scoped EVC expert assigned to that visit can upload/submit the report; the existing `complete_evc` transition is now audited/rejected until the report is recorded. A completed visit with a reported deficiency appears in a read-only, region-scoped SHC queue. A fraud flag requires a reason and creates a pending region-scoped Competent Authority referral. Referral views explicitly return `penal_action_taken: false`; no sanctions or automated fraud conclusions are implemented. Report/referral submissions and rejected report actions are audited. Report updates the case baseline version.
+- Files: EVC API, permissions, report/referral models and migration `0020_evc_reports_fraud_referrals.py`, seed role initialization, workflow service/report/authz/transaction tests, EVC panel/CaseView/API/types, role model, implementation/bug logs, plan and context.
+- API/schema/config: POST report document, POST report record, GET report, GET `/shc/queue`, GET `/shc/queue/{report_id}/document`, GET `/evc/fraud-referrals`, GET `/evc/fraud-referrals/{referral_id}/document`; new `evc_reports` and `fraud_referrals` tables. New narrow permissions and SHC/Competent Authority roles; no new workflow state, fee, deadline, or regulatory rule.
+- Permission/audit effects: EVC members receive only `evc.report.upload` for assigned visits; report document upload reuses existing content validation, malware scanning, OCR and audit code. SHC and Competent Authority receive no general case/document permissions; their document downloads require an in-scope queue/referral and reuse audited document access. SHC queue reads are region-scoped; fraud referrals are region-scoped; admin can inspect. New records are audited and do not trigger penalties or automatic outcomes.
+- Verification: targeted `pytest -q tests/test_phase6_evc_report.py tests/test_authz_matrix.py tests/test_transaction_boundary.py` → **34 passed, 1 upstream warning**; `make lint` clean; `make test` → **792 passed, 1 upstream warning, 0 skipped**; frontend `npm run build` clean; SQLite Alembic upgrade through 0020 + `alembic check` → no new operations. Bugs BUG-0049/0050/0051 fixed and recorded.
+- Limitations: report and referral are one-per-visit/one-per-report. SHC queue is a derived read-only handoff until Phase 6.4 implements scheduling/recommendations. Competent Authority referrals remain pending for manual action; no fraud adjudication or penalty exists. No Postgres/Compose run yet.
+- Next: Phase 6.4 SHC scheduling, compliance record and recommendation (FR-24).
 
 ### DEC-0017 — EVC experts are committee-scoped and institution representatives confirm bookings
 - Decision: active `evc_member` grants scoped to the chosen committee define eligible experts; users with an open COI for the application are excluded. The application-scoped institution representative confirms the booking. This is the least-privilege interpretation accepted when the user instructed completion of Phase 6 after the role clarification request. Experts receive no decision authority; administrators do not receive confirmation permission.

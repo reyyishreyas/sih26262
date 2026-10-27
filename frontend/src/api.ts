@@ -15,6 +15,7 @@ import type {
   DocumentRow,
   EvcCommittee,
   EvcRegionCalendar,
+  EvcReport,
   EvcQueue,
   EvcVisit,
   FullReport,
@@ -471,6 +472,33 @@ export const api = {
     request<EvcVisit>(
       `/applications/${applicationId}/evc/visits/${visitId}/confirm`,
       { method: "POST" },
+    ),
+  uploadEvcReportDocument: (applicationId: string, visitId: string, file: File) => {
+    const form = new FormData();
+    form.set("file", file);
+    return request<UploadResult>(
+      `/applications/${applicationId}/evc/visits/${visitId}/report/document`,
+      { method: "POST", body: form },
+    );
+  },
+  submitEvcReport: (
+    applicationId: string,
+    visitId: string,
+    body: {
+      document_id: string;
+      summary: string;
+      deficiency_present: boolean;
+      fraud_flag: boolean;
+      fraud_referral_reason?: string;
+    },
+  ) =>
+    request<EvcReport>(
+      `/applications/${applicationId}/evc/visits/${visitId}/report`,
+      { method: "POST", body: JSON.stringify(body) },
+    ),
+  evcReport: (applicationId: string, visitId: string) =>
+    request<EvcReport>(
+      `/applications/${applicationId}/evc/visits/${visitId}/report`,
     ),
   scheduleEvcVisit: (
     id: string,

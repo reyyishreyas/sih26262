@@ -16,6 +16,7 @@ below see the leftover half and fail.
 from __future__ import annotations
 
 import pytest
+from pdf_factory import affidavit_pdf
 from sqlalchemy import func, select
 
 from app.models import (
@@ -51,7 +52,7 @@ def _assignments(db, app_id: str) -> list[CaseAssignment]:
     ).all()
 
 
-def _evc_case_in_committee_stage(db, client, as_user) -> str:
+def _evc_case_in_committee_stage(db, client, as_user, *, with_report: bool = True) -> str:
     """A fresh evc_only case at ``evc_scheduled`` with a live booking."""
     college = as_user("institution@demo.local")
     officer = as_user("regional@demo.local")
@@ -73,6 +74,12 @@ def _evc_case_in_committee_stage(db, client, as_user) -> str:
         headers=college,
         json={"action": "submit", "reason": ""},
     )
+    committees = client.get("/api/v1/evc/committees", headers=officer).json()
+    committee_id = committees[0]["id"]
+    experts = client.get(
+        f"/api/v1/applications/{application_id}/evc/committees/{committee_id}/experts",
+        headers=officer,
+    ).json()
     booked = client.post(
         f"/api/v1/applications/{application_id}/evc/visits",
         headers=officer,
@@ -80,10 +87,31 @@ def _evc_case_in_committee_stage(db, client, as_user) -> str:
             "scheduled_date": "2026-11-05",
             "visit_mode": "physical",
             "venue": "Campus",
+            "committee_id": committee_id,
+            "expert_user_ids": [experts[0]["id"]],
         },
     )
     assert booked.status_code == 201
     assert booked.json()["case_advanced_to"] == "evc_scheduled"
+    if with_report:
+        visit_id = booked.json()["id"]
+        expert_headers = as_user("evc@demo.local")
+        uploaded = client.post(
+            f"/api/v1/applications/{application_id}/evc/visits/{visit_id}/report/document",
+            headers=expert_headers,
+            files={"file": ("evc-report.pdf", affidavit_pdf(), "application/pdf")},
+        )
+        assert uploaded.status_code == 201, uploaded.text
+        submitted = client.post(
+            f"/api/v1/applications/{application_id}/evc/visits/{visit_id}/report",
+            headers=expert_headers,
+            json={
+                "document_id": uploaded.json()["document"]["id"],
+                "summary": "Synthetic visit report",
+                "deficiency_present": False,
+            },
+        )
+        assert submitted.status_code == 201, submitted.text
     # The API committed in its own session; drop this session's snapshot.
     db.expire_all()
     return application_id
@@ -256,6 +284,31 @@ def test_complete_evc_updates_the_case_and_the_visit_together(
     ).one()
     assert visit.status == "completed"
     assert verify_chain(db).ok is True
+
+
+def test_complete_evc_requires_an_uploaded_report(db, client, as_user, access_for):
+    application_id = _evc_case_in_committee_stage(
+        db, client, as_user, with_report=False
+    )
+    decision = workflow_service.request_transition(
+        db,
+        access_for("evc@demo.local"),
+        application_id,
+        "complete_evc",
+        reason="Visit completed on site",
+    )
+    assert decision.accepted is False
+    assert "report must be recorded" in decision.reasons[0]
+    assert db.get(Application, application_id).current_state == "evc_scheduled"
+    visit = db.scalars(
+        select(EvcVisit).where(EvcVisit.application_id == application_id)
+    ).one()
+    assert visit.status == "scheduled"
+    assert any(
+        event.action == "workflow.complete_evc"
+        and event.outcome == "rejected"
+        for event in _audit_events(db, application_id)
+    )
 
 
 def test_visit_update_failure_rolls_back_the_whole_evc_completion(

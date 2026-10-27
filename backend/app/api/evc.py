@@ -13,25 +13,36 @@ from __future__ import annotations
 from datetime import date, timedelta
 from typing import Literal
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy import and_, false, or_, select
 from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock, iso, to_utc
+from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import (
     APPLICATION_READ,
+    CASE_DECIDE,
     CASE_READ,
     CASE_TRANSITION,
+    COMPETENT_AUTHORITY,
+    DOCUMENT_READ,
+    EVC_REPORT_UPLOAD,
     EVC_VISIT_CONFIRM,
+    FRAUD_REFERRAL_READ,
     MONITORING_READ,
+    SHC_MEMBER,
+    SHC_QUEUE_READ,
 )
 from ..models import (
     Application,
     CaseAssignment,
     Committee,
+    Document,
+    EvcReport,
     EvcVisit,
+    FraudReferral,
     Institution,
     Region,
 )
@@ -41,6 +52,7 @@ from ..services.authorization_service import (
     EffectiveAccess,
     require_application,
     require_permission,
+    scope_filter,
 )
 from ..services.policy import stage_sla_days
 from .deps import require, require_any
@@ -58,6 +70,86 @@ class VisitScheduleRequest(BaseModel):
     committee_id: str | None = None
     expert_user_ids: list[str] = Field(default_factory=list, max_length=20)
     notes: str = Field(default="", max_length=1024)
+
+
+class EvcReportRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    document_id: str
+    summary: str = Field(default="", max_length=10000)
+    deficiency_present: bool
+    fraud_flag: bool = False
+    fraud_referral_reason: str | None = Field(default=None, max_length=2000)
+
+
+def _reject_evc_action(
+    db: Session,
+    *,
+    application: Application,
+    access: EffectiveAccess,
+    visit_id: str,
+    reason_code: str,
+    message: str,
+    status_code: int,
+) -> None:
+    AuditService(db).append(
+        action="evc.report_submission_rejected",
+        entity_type="application",
+        entity_id=application.id,
+        outcome="rejected",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        reason=reason_code,
+        after={"visit_id": visit_id, "reason_code": reason_code},
+        request_id=current_request_id(),
+    )
+    db.commit()
+    raise HTTPException(status_code, message)
+
+
+@router.post(
+    "/applications/{application_id}/evc/visits/{visit_id}/report/document",
+    status_code=201,
+)
+def upload_evc_report_document(
+    application_id: str,
+    visit_id: str,
+    file: UploadFile = File(...),
+    access: EffectiveAccess = Depends(require(EVC_REPORT_UPLOAD)),
+    db: Session = Depends(get_db),
+) -> dict:
+    application = require_application(db, access, application_id)
+    visit = db.get(EvcVisit, visit_id)
+    if visit is None or visit.application_id != application.id:
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=visit_id,
+            reason_code="visit_not_found", message="visit not found",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    if "evc_member" not in access.roles or not evc_service.is_assigned_expert(
+        db, visit_id=visit.id, user_id=access.user_id
+    ):
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=visit_id,
+            reason_code="expert_not_assigned", message="assigned EVC expert role required",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+    if visit.status != "scheduled":
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=visit_id,
+            reason_code="visit_not_open", message="visit is not open for report upload",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+    from .documents import upload_document
+
+    return upload_document(
+        application_id=application.id,
+        doc_type="evc_report",
+        file=file,
+        reason="EVC visit report",
+        access=access,
+        db=db,
+    )
 
 
 def _serialise(
@@ -82,6 +174,294 @@ def _serialise(
         "created_at": iso(visit.created_at),
         "completed_at": iso(visit.completed_at),
     }
+
+
+@router.post("/applications/{application_id}/evc/visits/{visit_id}/report", status_code=201)
+def submit_evc_report(
+    application_id: str,
+    visit_id: str,
+    payload: EvcReportRequest,
+    access: EffectiveAccess = Depends(require(CASE_DECIDE)),
+    db: Session = Depends(get_db),
+) -> dict:
+    application = require_application(db, access, application_id)
+    visit = db.get(EvcVisit, visit_id)
+    if visit is None or visit.application_id != application.id:
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=visit_id,
+            reason_code="visit_not_found", message="visit not found",
+            status_code=status.HTTP_404_NOT_FOUND,
+        )
+    if "evc_member" not in access.roles or not evc_service.is_assigned_expert(
+        db, visit_id=visit.id, user_id=access.user_id
+    ):
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=visit_id,
+            reason_code="expert_not_assigned", message="assigned EVC expert role required",
+            status_code=status.HTTP_403_FORBIDDEN,
+        )
+    document = db.get(Document, payload.document_id)
+    if (
+        document is None
+        or document.application_id != application.id
+        or document.doc_type != "evc_report"
+    ):
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=visit_id,
+            reason_code="invalid_report_document",
+            message="an EVC report document for this case is required",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    if visit.status != "scheduled":
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=visit_id,
+            reason_code="visit_not_open", message="visit is not open for report submission",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+    if payload.fraud_flag and not (payload.fraud_referral_reason or "").strip():
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=visit_id,
+            reason_code="fraud_reason_required",
+            message="fraud referral reason is required",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
+        )
+    if db.scalar(select(EvcReport.id).where(EvcReport.visit_id == visit.id)):
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=visit_id,
+            reason_code="report_already_recorded",
+            message="a report is already recorded for this visit",
+            status_code=status.HTTP_409_CONFLICT,
+        )
+
+    report = EvcReport(
+        visit_id=visit.id,
+        document_id=document.id,
+        submitted_by=access.user_id,
+        summary=payload.summary.strip(),
+        deficiency_present=payload.deficiency_present,
+        fraud_flag=payload.fraud_flag,
+        created_at=get_clock().now(),
+    )
+    db.add(report)
+    db.flush()
+    application.baseline_version += 1
+    if payload.fraud_flag:
+        referral = FraudReferral(
+            report_id=report.id,
+            application_id=application.id,
+            referred_by=access.user_id,
+            reason=payload.fraud_referral_reason.strip(),
+            status="pending",
+            created_at=get_clock().now(),
+        )
+        db.add(referral)
+        db.flush()
+    else:
+        referral = None
+
+    AuditService(db).append(
+        action="evc.report_submitted",
+        entity_type="application",
+        entity_id=application.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        after={
+            "visit_id": visit.id,
+            "report_id": report.id,
+            "document_id": document.id,
+            "deficiency_present": report.deficiency_present,
+            "fraud_flag": report.fraud_flag,
+            "fraud_referral_id": referral.id if referral else None,
+        },
+        request_id=current_request_id(),
+    )
+    if referral:
+        AuditService(db).append(
+            action="fraud.referral_created",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="accepted",
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+            after={"referral_id": referral.id, "report_id": report.id},
+            request_id=current_request_id(),
+        )
+    db.commit()
+    return {
+        "id": report.id,
+        "visit_id": visit.id,
+        "document_id": document.id,
+        "deficiency_present": report.deficiency_present,
+        "fraud_flag": report.fraud_flag,
+        "fraud_referral_id": referral.id if referral else None,
+        "created_at": iso(report.created_at),
+    }
+
+
+@router.get("/applications/{application_id}/evc/visits/{visit_id}/report")
+def get_evc_report(
+    application_id: str,
+    visit_id: str,
+    access: EffectiveAccess = Depends(require_any(CASE_READ, DOCUMENT_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    application = require_application(db, access, application_id)
+    report = db.scalar(
+        select(EvcReport).join(EvcVisit).where(
+            EvcVisit.id == visit_id,
+            EvcVisit.application_id == application.id,
+        )
+    )
+    if report is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "report not found")
+    return {
+        "id": report.id,
+        "visit_id": report.visit_id,
+        "document_id": report.document_id,
+        "summary": report.summary,
+        "deficiency_present": report.deficiency_present,
+        "fraud_flag": report.fraud_flag,
+        "created_at": iso(report.created_at),
+    }
+
+
+@router.get("/evc/fraud-referrals")
+def list_fraud_referrals(
+    access: EffectiveAccess = Depends(require(FRAUD_REFERRAL_READ)),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    if COMPETENT_AUTHORITY not in access.roles and "administrator" not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "competent authority role required")
+    query = (
+        select(FraudReferral, Application, EvcReport)
+        .join(Application, Application.id == FraudReferral.application_id)
+        .join(EvcReport, EvcReport.id == FraudReferral.report_id)
+        .where(FraudReferral.status == "pending")
+    )
+    clause = scope_filter(access)
+    if clause is not None:
+        query = query.where(clause)
+    return [
+        {
+            "id": referral.id,
+            "application_id": application.id,
+            "report_id": referral.report_id,
+            "reason": referral.reason,
+            "summary": report.summary,
+            "status": referral.status,
+            "created_at": iso(referral.created_at),
+            "penal_action_taken": False,
+        }
+        for referral, application, report in db.execute(
+            query.order_by(FraudReferral.created_at, FraudReferral.id)
+        ).all()
+    ]
+
+
+@router.get("/evc/fraud-referrals/{referral_id}/document")
+def download_fraud_referral_report(
+    referral_id: str,
+    access: EffectiveAccess = Depends(require(FRAUD_REFERRAL_READ)),
+    db: Session = Depends(get_db),
+) -> Response:
+    if COMPETENT_AUTHORITY not in access.roles and "administrator" not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "competent authority role required")
+    query = (
+        select(FraudReferral, EvcReport, Application)
+        .join(EvcReport, EvcReport.id == FraudReferral.report_id)
+        .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
+        .join(Application, Application.id == FraudReferral.application_id)
+        .where(FraudReferral.id == referral_id, FraudReferral.status == "pending")
+    )
+    clause = scope_filter(access)
+    if clause is not None:
+        query = query.where(clause)
+    row = db.execute(query).first()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "referral not found")
+    _referral, report, application = row
+    from .documents import download_document
+
+    return download_document(
+        application_id=application.id,
+        document_id=report.document_id,
+        access=access,
+        db=db,
+    )
+
+
+@router.get("/shc/queue")
+def shc_queue(
+    access: EffectiveAccess = Depends(require(SHC_QUEUE_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    if SHC_MEMBER not in access.roles and "administrator" not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "SHC member role required")
+    query = (
+        select(EvcReport, Application, Institution, EvcVisit)
+        .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
+        .join(Application, Application.id == EvcVisit.application_id)
+        .join(Institution, Institution.id == Application.institution_id)
+        .where(
+            EvcReport.deficiency_present.is_(True),
+            EvcVisit.status == "completed",
+        )
+    )
+    clause = scope_filter(access)
+    if clause is not None:
+        query = query.where(clause)
+    rows = db.execute(query.order_by(EvcVisit.completed_at, EvcReport.id)).all()
+    return {
+        "count": len(rows),
+        "source": "human-recorded EVC deficiency reports",
+        "rows": [
+            {
+                "application_id": application.id,
+                "institution": institution.name,
+                "report_id": report.id,
+                "summary": report.summary,
+                "visit_id": visit.id,
+                "reported_at": iso(report.created_at),
+            }
+            for report, application, institution, visit in rows
+        ],
+    }
+
+
+@router.get("/shc/queue/{report_id}/document")
+def download_shc_report(
+    report_id: str,
+    access: EffectiveAccess = Depends(require(SHC_QUEUE_READ)),
+    db: Session = Depends(get_db),
+) -> Response:
+    if SHC_MEMBER not in access.roles and "administrator" not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "SHC member role required")
+    query = (
+        select(EvcReport, Application)
+        .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
+        .join(Application, Application.id == EvcVisit.application_id)
+        .where(
+            EvcReport.id == report_id,
+            EvcReport.deficiency_present.is_(True),
+            EvcVisit.status == "completed",
+        )
+    )
+    clause = scope_filter(access)
+    if clause is not None:
+        query = query.where(clause)
+    row = db.execute(query).first()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "SHC report not found")
+    report, application = row
+    from .documents import download_document
+
+    return download_document(
+        application_id=application.id,
+        document_id=report.document_id,
+        access=access,
+        db=db,
+    )
 
 
 @router.get("/evc/committees")

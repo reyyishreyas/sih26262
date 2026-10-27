@@ -83,3 +83,13 @@ def assign_visit_experts(
                 assigned_at=get_clock().now(),
             )
         )
+
+
+def is_assigned_expert(db: Session, *, visit_id: str, user_id: str) -> bool:
+    return db.scalars(
+        select(CaseAssignment.id).where(
+            CaseAssignment.source_evc_visit_id == visit_id,
+            CaseAssignment.user_id == user_id,
+            CaseAssignment.revoked_at.is_(None),
+        )
+    ).first() is not None

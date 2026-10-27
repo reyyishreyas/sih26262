@@ -32,6 +32,8 @@ from ..core.permissions import PermissionDenied
 from ..models import (
     Application,
     Deficiency,
+    EvcReport,
+    EvcVisit,
     FindingDisposition,
     RuleEvaluation,
     WorkflowTransition,
@@ -254,6 +256,27 @@ def request_transition(
             ],
             request_id=request_id,
         )
+
+    if action == "complete_evc":
+        live_visit_id = db.scalar(
+            select(EvcVisit.id).where(
+                EvcVisit.application_id == application.id,
+                EvcVisit.status == "scheduled",
+            )
+        )
+        has_report = live_visit_id and db.scalar(
+            select(EvcReport.id).where(EvcReport.visit_id == live_visit_id)
+        )
+        if not has_report:
+            return _reject(
+                db,
+                application=application,
+                access=access,
+                action=action,
+                from_state=from_state,
+                reasons=["an EVC visit report must be recorded before the visit can be completed"],
+                request_id=request_id,
+            )
 
     if definition.requires_reason and not reason.strip():
         return _reject(
