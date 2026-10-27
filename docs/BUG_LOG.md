@@ -16,6 +16,9 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0014 | 2026-10-27 | S3 | workflow config | `existing_technical` route defines no `return_for_clarification`/`resubmit` transitions — the FR-15 deficiency→compliance loop is unreachable on that route; route-table change needs human approval | Open | IMPL-0035 |
+| BUG-0013 | 2026-10-27 | S4 | test | Third run of the FR-15 suite: `select().count()` misuse (AttributeError), 23:59 asserted on a UTC timestamp (it is 23:59 in the business timezone), re-return attempted from `submitted` without `start_scrutiny` | Fixed | IMPL-0035 |
+| BUG-0012 | 2026-10-27 | S4 | test | First run of the FR-15 suite: 11 failures — wrong seeded route (`existing_technical` has no return leg → BUG-0014) and a missing mandatory FR-28 reason code on the return | Fixed | IMPL-0035 |
 | BUG-0011 | 2026-10-27 | S4 | migration | `alembic check` red on the new scrutiny tables: model said `unique=True` on the column, migration created a named constraint — two DDL forms for one rule | Fixed | IMPL-0034 |
 | BUG-0010 | 2026-10-27 | S4 | test | New scrutiny-result tests wrote invented user ids (`user-a`, `user-scrutiny`) into the real `recorded_by` FK — 12 × IntegrityError | Fixed | IMPL-0034 |
 | BUG-0009 | 2026-10-27 | S4 | test | New Phase 3 exit-check test failed `make lint` on first run (F401: unused `timedelta` import left from drafting; also a stray mid-file `import pytest` and hard-coded guessed user ids `user-regional`/`user-supervisory` that do not exist — seeded ids are auto-generated) | Fixed | IMPL-0032 |
@@ -50,6 +53,68 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0014 — the `existing_technical` route defines no deficiency-return or resubmit transition at all (FR-15 loop unreachable on that route)
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), while driving the Phase 4.4 deficiency-report tests on the first seeded case
+- Branch / commit: master (work uncommitted at time of discovery)
+- Severity / Area: **S3** (feature degraded on one route; other routes work, tests use `new_technical`) / workflow config (`backend/rules/workflow_routes.json`)
+- Status: **Open** — a route-table change is a human-approval gate (AGENTS.md: "new regulatory routes/states"); I did NOT edit the route config
+- Where it showed up: `workflow_service.request_transition(..., "return_for_clarification")` on `app-existing-0003` →
+  ```
+  TransitionDecision(accepted=False, ..., reasons=["action 'return_for_clarification' is not defined for route 'existing_technical'"])
+  ```
+- Expected behaviour: every route whose cases can be scrutinised can also be returned for clarification with a deficiency report and later resubmitted (FR-15, PRD flow line 116: "Scrutiny/Re-Scrutiny ⇄ Compliance cycle"), unless a documented regulatory reason says otherwise.
+- Actual behaviour: the route table has `return_for_clarification` (scrutiny→returned) and `resubmit` (returned→submitted) for `new_technical`, `evc_only` (from submitted) and `evc_sac_shc`, but **neither** transition for `existing_technical`. An officer on an existing-technical case therefore cannot return it with a deficiency report through the configured workflow at all — `api/deficiencies.py` will happily create draft rows, but there is no route that issues them.
+- Steps to reproduce: seeded DB → `request_transition(db, scrutiny_access, "app-existing-0003", "return_for_clarification", reason="x", reason_code="RC-CLARIFICATION")` → refused as above. Route dump: `json.load(open("backend/rules/workflow_routes.json"))["routes"]["existing_technical"]["transitions"]` contains only submit/start_scrutiny/schedule_evc/complete_evc/approve/reject.
+- Environment: macOS, Python 3.13, SQLite, fixed clock; `workflow_routes.json` as of commit `c2e054d`.
+- Hypotheses tried: (1) mis-read the route key? — no, `Application.route_key == "existing_technical"` in seed and the route's own transition list confirms the absence; (2) maybe the return happens from `submitted` instead? — `evc_only` returns from `submitted`, but `existing_technical` defines the action nowhere.
+- Root cause: **not determined — and it needs a human.** Either the route table is incomplete for `existing_technical` (likely: `md/GAP_NOTES.md` line 15 documents the other routes' returned-state shape but not this one), or the regulatory handling of existing-technical applications genuinely differs. Deciding which is an APH-interpretation call.
+- Solution applied: **none to the config.** Worked around for testing by driving the FR-15 loop on `app-main-0001` (`new_technical`, which has both legs) and recorded the gap here + in IMPL-0035's limitations/open-questions. Nothing in `compliance.py` or the API assumes a route, so the feature works the moment a human adds the transitions.
+- Verification: `pytest tests/test_compliance_report.py -q` → 25 passed on `new_technical`; `pytest tests/test_authz_matrix.py` → green.
+- Side effects / follow-ups: if confirmed a gap, the fix is two entries in `workflow_routes.json` (same shape as `new_technical`) + a regression test per route — route config change needs approval first. Related IMPL-0035.
+- Update history: 2026-10-27 — found; left Open pending a human decision.
+
+### BUG-0013 — third run of the new FR-15 suite: three test-authoring defects (`select().count()`, business-tz hour asserted on a UTC timestamp, re-return attempted from `submitted`)
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), `pytest tests/test_compliance_report.py` after fixing BUG-0012
+- Branch / commit: master (work uncommitted at time of fix)
+- Severity / Area: **S4** (test-only; the product code was never wrong) / test
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_compliance_report.py -q` → 3 failed, 22 passed:
+  1. `AttributeError: 'Select' object has no attribute 'count'` in `test_the_sweep_raises_the_7d_2d_and_due_reminders`
+  2. `assert (18 == 23)` in `test_the_window_closes_at_the_end_of_the_configured_day`
+  3. `AssertionError: ["action 'return_for_clarification' requires state 'scrutiny', case is in 'submitted'"]` in `test_a_re_return_starts_a_fresh_reminder_cycle`
+- Expected behaviour: all 25 tests pass.
+- Actual behaviour: three independent failures, all in the draft test code.
+- Environment: macOS, Python 3.13, SQLite, fixed clock.
+- Hypotheses tried and what each showed: (1) for the hour assertion — maybe `end_of_day` was wrong? No: `deadline_service.end_of_day` builds 23:59:59 in `settings.business_timezone` and converts to UTC, and `compliance.iso()` renders UTC, so 18:29 is *correct* (Asia/Kolkata 23:59); the assertion was checking the wrong timezone. (2) for the AttributeError — no hypothesis needed, SQLAlchemy 2.0 `select()` has no `.count()`; `select(func.count()).select_from(Alert).where(...)` is the repo's style. (3) for the state error — the resubmit had moved the case to `submitted`, and only then does `start_scrutiny` (submitted→scrutiny) make a second return legal; the helper needed that leg, mirroring the real Re-Scrutiny loop.
+- Root cause: three drafting mistakes in the new suite — a SQLAlchemy API slip, an assertion that ignored the documented end-of-day-in-business-tz convention, and an incomplete walk of the workflow loop.
+- Solution applied: `backend/tests/test_compliance_report.py` — an `alert_count()` helper using `select(func.count()).select_from(...)`; the close-time assertion now converts with `ZoneInfo(get_settings().business_timezone)` before checking 23:59; the re-return test drives `start_scrutiny` an hour before the second `return_for_clarification`. Product code unchanged — each failure was a wrong expectation about correct behaviour.
+- Verification: `pytest tests/test_compliance_report.py -q` → **25 passed**; `make lint` clean; full `make test` → 649 passed.
+- Side effects / follow-ups: none. Related IMPL-0035.
+- Update history: 2026-10-27 — found and fixed in the same session.
+
+### BUG-0012 — first run of the new FR-15 suite: 11 failures from two test-authoring mistakes (wrong seeded route; missing mandatory FR-28 reason code)
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first `pytest tests/test_compliance_report.py` after writing the suite
+- Branch / commit: master (work uncommitted at time of fix; baseline `c2e054d`)
+- Severity / Area: **S4** (test-only) / test
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_compliance_report.py -q` → 11 failed, 14 passed:
+  ```
+  AssertionError: ["action 'return_for_clarification' is not defined for route 'existing_technical'"]
+  ```
+  then, after switching the case, still 11 failed:
+  ```
+  AssertionError: ['a reason code is mandatory on return (PRD FR-28); valid codes: RC-DOC-MISSING, RC-CLARIFICATION, RC-OTHER']
+  ```
+- Expected behaviour: the helper issues the report (draft deficiencies + accepted return) so the window tests can assert against it.
+- Actual behaviour: every test that needed an issued report failed at the setup helper.
+- Environment: macOS, Python 3.13, SQLite, fixed clock (2026-10-22 09:00 UTC).
+- Hypotheses tried: (1) the transition helper was wrong? — no, `request_transition` correctly refused both times; (2) which seeded route actually has the legs? — dumped `workflow_routes.json`: `new_technical` and `evc_sac_shc` have return+resubmit, `existing_technical` has neither (that absence became BUG-0014, still Open); (3) the reason-code refusal — no hypothesis needed, the message names the rule (FR-28) and the valid codes.
+- Root cause: two test-authoring mistakes — the suite picked `app-existing-0003` for convenience without checking its route's transitions, and the return call omitted the reason code that FR-28 (via `reason_codes.json`) makes mandatory.
+- Solution applied: `backend/tests/test_compliance_report.py` — the case became `app-main-0001` (`new_technical`: both legs, institution-owned, assigned to the scrutiny officer), and `_transition()` gained a `reason_code` parameter with `RC-CLARIFICATION` on every return. The workflow rules themselves are untouched — they were right.
+- Verification: `pytest tests/test_compliance_report.py -q` → 22 passed (3 remained, filed as BUG-0013).
+- Side effects / follow-ups: surfaced BUG-0014 (route-config gap). Related IMPL-0035.
+- Update history: 2026-10-27 — found and fixed in the same session.
 
 ### BUG-0011 — `alembic check` red on the new scrutiny tables: model said `unique=True` on the column, migration created a named constraint
 - Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first `alembic check` after writing `backend/migrations/versions/0015_scrutiny_results.py`

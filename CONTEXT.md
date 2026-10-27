@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 624 passing
+make test      # pytest — 649 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **624 passing** (~500 test functions; some parametrised).
+- `make test` → **649 passing** (~500 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -548,9 +548,28 @@ tamper-evidence).
   422 on refusal; 3 matrix rows; EvidencePanel result-recording UI
   (per-line remarks + Nil/Deficiency buttons + overall form, gated
   `case.transition`; 422 shown as the server's own words)).
+  `test_compliance_report.py` (25 — Phase 4.4: the deficiency report and
+  the compliance window (FR-15). `compliance.py` computes the report on
+  read: issue instant = the accepted `return_for_clarification`
+  transition, close = end-of-day in the business timezone at issue +
+  `window_days − 1`; before issue the institution is *always* answered
+  `not_issued` (the status value alone must not leak that a draft
+  exists); window open → overdue → received, with
+  `resubmitted_at`/`awaiting_re_scrutiny` surfacing the Re-Scrutiny leg;
+  overdue never blocks a resubmission (proven) and the report stores
+  nothing (row counts + baseline_version unchanged across reads);
+  `compliance_policy.json` placeholder window (10 days, §19 Q1 open) +
+  `deadline_policy.json` `compliance` ladder = the PRD §11 "7d, 2d, due
+  date" cadence as offsets from the close; the sweep raises
+  `compliance_7d`/`compliance_2d`/`compliance_due` idempotently, stops
+  on resubmit, and re-keys `compliance:{issue_date}` on a re-return;
+  `GET .../deficiency-report` (`READ_ANY`, institution ⇒ drafts hidden,
+  scope-filtered 404); EvidencePanel report/window summary; 1 matrix
+  row; BUG-0014 open — `existing_technical` defines no return/resubmit
+  route, so the loop is driven on `new_technical`).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `c0a0dee` (Phase 4.3).
+  repo is currently green at `ff754df` (Phase 4.4).
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on

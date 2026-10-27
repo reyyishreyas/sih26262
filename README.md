@@ -279,7 +279,7 @@ backend/
   migrations/     Alembic environment and revisions
   scripts/        verify_isolation.py (live PostgreSQL role proof)
   sql/            bootstrap_roles.sql, roles.sql (least-privilege grants)
-  tests/          624 tests
+  tests/          649 tests
 frontend/         React + TypeScript + Vite review UI; Dockerfile.prod + nginx.conf
 scripts/          setup.sh (one-time setup), dev.sh (start both servers), smoke.sh
 docs/             architecture, rules, rehearsal, roles, data model, tests, production
