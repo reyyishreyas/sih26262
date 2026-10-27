@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 573 passing
+make test      # pytest — 582 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **573 passing** (~490 test functions; some parametrised).
+- `make test` → **582 passing** (~500 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -507,6 +507,15 @@ tamper-evidence).
    `scripts/reconcile_clocks.py` nightly job (`--fail-on-diff` for a
    monitoring cron). The exit-check property holds: reconciliation stays 0
    after a 30-day demo-clock jump).
+  `test_phase3_exit_check.py` (7 — Phase 3 exit check: the demo narrative
+  composed end to end on one seeded case — silence before the first lead
+  time, `due_soon`→L0 at 80%, `overdue`→L1 at 100% (regional officer in
+  recipients), `escalated`→L2 at 150% (supervisory officer), each payload
+  carrying `escalation_level` on the sweep's own clock; time moves through
+  the real audited `demo_clock.advance` service; re-sweep creates nothing
+  new; `reconcile` reports 0 drift at every stop and the
+  `/internal/reconcile-clocks` endpoint confirms it after the jumps;
+  process-wide clock reset after every test).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
   repo is currently green at `dfb42f2` (Phase 4.1).
