@@ -14,7 +14,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-from sqlalchemy import false, or_, select
+from sqlalchemy import and_, false, or_, select
 from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock
@@ -29,6 +29,7 @@ from ..core.permissions import (
 from ..models import (
     Application,
     CaseAssignment,
+    ConflictOfInterest,
     Institution,
     JurisdictionAssignment,
     Permission,
@@ -143,14 +144,25 @@ def scope_filter(access: EffectiveAccess):
             )
         )
     if access.assigned_cases_only:
-        clauses.append(
-            Application.id.in_(
-                select(CaseAssignment.application_id).where(
-                    CaseAssignment.user_id == access.user_id,
-                    CaseAssignment.revoked_at.is_(None),
-                )
+        # COI hiding (FR-12): an assigned-scoped officer must not see a case
+        # they have an OPEN conflict declaration on. Surgical: this only
+        # removes cases from the assigned-scoped officer's own list; region,
+        # institution and committee scope are untouched, so a regional officer
+        # who declared a COI still sees their region (hiding is per-declarer,
+        # not a case-wide lock). Advisory — it hides, never gates (DEC-0003).
+        assigned_clause = Application.id.in_(
+            select(CaseAssignment.application_id).where(
+                CaseAssignment.user_id == access.user_id,
+                CaseAssignment.revoked_at.is_(None),
             )
         )
+        conflicted = Application.id.in_(
+            select(ConflictOfInterest.application_id).where(
+                ConflictOfInterest.declarant_id == access.user_id,
+                ConflictOfInterest.status == "open",
+            )
+        )
+        clauses.append(and_(assigned_clause, ~conflicted))
     if not clauses:
         return false()
     return or_(*clauses)
@@ -213,9 +225,15 @@ def can_access_application(db: Session, access: EffectiveAccess, application: Ap
     ).all()
     if any(a.committee_id in access.committees for a in assignments if a.committee_id):
         return True
-    return access.assigned_cases_only and any(
-        a.user_id == access.user_id for a in assignments
-    )
+    if not access.assigned_cases_only:
+        return False
+    if not any(a.user_id == access.user_id for a in assignments):
+        return False
+    # COI hiding (FR-12): an assigned-scoped officer does not see a case they
+    # have an OPEN conflict declaration on. Advisory — it hides, never gates.
+    from .conflict_of_interest import has_open_coi
+
+    return not has_open_coi(db, access.user_id, application.id)
 
 
 def require_application(

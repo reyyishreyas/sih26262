@@ -15,6 +15,7 @@ from .base import Base, canonical_json, new_id, sha256_hex, utcnow
 from .compliance import Alert, AlertDelivery, RuleEvaluation, Undertaking
 from .identity import (
     CaseAssignment,
+    ConflictOfInterest,
     JurisdictionAssignment,
     LoginAttempt,
     Permission,
@@ -37,6 +38,7 @@ __all__ = [
     "Base",
     "CaseAssignment",
     "Committee",
+    "ConflictOfInterest",
     "Deficiency",
     "Document",
     "EvcVisit",

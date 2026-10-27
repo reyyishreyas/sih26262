@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from .base import Base, new_id, utcnow
@@ -133,3 +133,44 @@ class CaseAssignment(Base):
     revoked_at: Mapped[datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
+
+
+class ConflictOfInterest(Base):
+    """An officer's declared conflict of interest on one case (FR-12, PRD Appendix E).
+
+    The PRD proposes a COI schema (declaration, type, timestamp, reviewer,
+    exclusion, reassignment) but explicitly says not to claim COI handling
+    exists "without approved policy and tests" (Appendix E, line 412). So this
+    records the *declaration* and HIDES the case from the declarer — the minimum
+    honest behaviour that does not invent a conflict rule. A human reviewer
+    decides the exclusion and any reassignment; the declaration itself never
+    gates, moves or rejects a case (DEC-0003). Resolving or revoking a
+    declaration restores visibility.
+    """
+
+    __tablename__ = "conflict_of_interest_declarations"
+    __table_args__ = (
+        UniqueConstraint(
+            "application_id", "declarant_id", name="uq_coi_case_declarant"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    application_id: Mapped[str] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    )
+    declarant_id: Mapped[str] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    conflict_type: Mapped[str] = mapped_column(String(64))
+    description: Mapped[str] = mapped_column(Text, default="")
+    declared_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    # "open" hides the case from the declarer; "resolved"/"revoked" restore it.
+    status: Mapped[str] = mapped_column(String(32), default="open")
+    reviewer_id: Mapped[str | None] = mapped_column(
+        ForeignKey("users.id", ondelete="SET NULL"), nullable=True
+    )
+    reviewed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    resolution_note: Mapped[str] = mapped_column(Text, default="")

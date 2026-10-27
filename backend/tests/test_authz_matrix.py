@@ -214,6 +214,16 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("GET", "/api/v1/reports/documents"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/reports/overdue"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/reports/workload"): frozenset({MONITORING_READ}),
+    # conflict of interest (FR-12): declare + list are case-scoped, review is monitoring
+    ("POST", "/api/v1/applications/{application_id}/conflicts-of-interest"): (
+        frozenset({CASE_READ, MONITORING_READ})
+    ),
+    ("GET", "/api/v1/applications/{application_id}/conflicts-of-interest"): (
+        frozenset({CASE_READ, MONITORING_READ})
+    ),
+    ("POST", "/api/v1/conflicts-of-interest/{declaration_id}/review"): frozenset(
+        {MONITORING_READ}
+    ),
 }
 
 # Valid bodies, so a refused request is refused by the permission gate and not
@@ -237,6 +247,12 @@ JSON_BODIES: dict[tuple[str, str], dict] = {
     },
     ("PATCH", "/api/v1/applications/{application_id}/deficiencies/{deficiency_id}"): {
         "resolution_note": "Authorisation matrix probe"
+    },
+    # A valid conflict_type keeps the probe past request validation so the
+    # scope gate (404) is what answers, not a 422.
+    ("POST", "/api/v1/applications/{application_id}/conflicts-of-interest"): {
+        "conflict_type": "other",
+        "description": "authorisation matrix probe",
     },
     (
         "POST",
@@ -504,7 +520,14 @@ def test_in_scope_case_passes_authorisation_for_every_role_that_may_act(
     role = ROLES[email]
     headers = as_user(email)
     failures = []
-    for (method, path), permissions in MATRIX.items():
+    # Read before write: declaring a conflict HIDES the case from the declarer
+    # (FR-12), so a declare probe would make a later read probe legitimately
+    # 404 and mask a real scope bug. The probe is order-dependent by design.
+    ordered = sorted(
+        MATRIX.items(),
+        key=lambda item: 0 if item[0][0] in {"GET", "HEAD"} else 1,
+    )
+    for (method, path), permissions in ordered:
         if not (permissions & set(ROLE_PERMISSIONS[role])):
             continue
         status = _request(client, method, path, IN_SCOPE, headers, db).status_code

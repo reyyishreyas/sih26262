@@ -1,0 +1,45 @@
+{
+  "version": "2026.1",
+  "status": "unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "recorded_on": "2026-10-27",
+  "source": "md/1_PRD.md FR-12 (line 184: 'Assign to committee/member by Region and workload, with conflict-of-interest declaration') and PRD §19 Appendix E (line 412: 'Proposed fields: declaration, type, timestamp, reviewer, exclusion, reassignment. Do not claim COI handling exists without approved policy and tests'). The PRD names workload balancing and a COI declaration as requirements but defines neither a workload formula nor a conflict rule — both are open, so they ship as clearly-labelled placeholder configuration (the same pattern as the 3.3 stage-limit day counts and the 3.4 escalation ladder).",
+  "note": "PLACEHOLDER ASSIGNMENT POLICY — FR-12 requires assignment 'by Region and workload, with conflict-of-interest declaration', but the PRD defines no workload formula and no conflict rule, and Appendix E explicitly says COI handling must not be claimed 'without approved policy and tests'. So both halves ship as clearly-labelled placeholder configuration: AICTE must confirm the workload-balancing formula and what actually constitutes a conflict before any of it is treated as Unverified. Workload balancing only reorders who gets a case among officers the route + jurisdiction already allow — it never grants access to an officer whose jurisdiction does not cover the case. COI is ADVISORY and HIDING only (DEC-0003): a declared, unresolved conflict hides the case from that officer and keeps them out of the assignment pool; it never gates, moves, blocks or rejects a case, and a workflow action is never refused because someone declared a COI.",
+  "workload": {
+    "strategy": "lowest_active_load",
+    "eligible_roles": ["scrutiny_officer"],
+    "soft_max_active_per_officer": 10,
+    "soft_max_note": "PLACEHOLDER — no PRD figure exists for a per-officer caseload cap. 10 is a project proposal, not an AICTE rule. Advisory only: the assignment pool still includes an officer above the soft max (they are simply ordered last), so a queue is never left empty because everyone is 'busy'. AICTE must confirm the real cap before this is trusted.",
+    "source": "PRD FR-12 line 184: 'by Region and workload'. The PRD names workload as a factor but defines no formula and no cap, so this is a labelled placeholder."
+  },
+  "conflict_of_interest": {
+    "status": "declared_only",
+    "note": "The PRD (Appendix E) proposes a COI schema but explicitly says not to claim COI handling exists without an approved policy. So this prototype RECORDS a declaration and HIDES the case from the declarer — the minimum honest behaviour — but does NOT apply an automatic conflict *rule* (it does not guess that same-region or same-institution is a conflict). The types below are the declaration vocabulary; the decision of what counts as a conflict stays with a human reviewer, exactly as Appendix E describes (reviewer, exclusion, reassignment).",
+    "declaration_types": [
+      {
+        "type": "personal_relationship",
+        "label": "Personal relationship with the institution or its staff",
+        "source": "Appendix E 'type'. AICTE must confirm the full list of conflict types."
+      },
+      {
+        "type": "financial_interest",
+        "label": "Financial interest in the institution",
+        "source": "Appendix E 'type'. AICTE must confirm the full list of conflict types."
+      },
+      {
+        "type": "prior_affiliation",
+        "label": "Former employment or study at the institution",
+        "source": "Appendix E 'type'. AICTE must confirm the full list of conflict types."
+      },
+      {
+        "type": "other",
+        "label": "Other — described in the declaration text",
+        "source": "Appendix E 'type' free-text fallback."
+      }
+    ],
+    "effect": "hide_and_exclude_from_pool",
+    "effect_note": "A declared, unresolved COI HIDES the case from the declarer (they are skipped in assignment and excluded from an assigned-scoped officer's visible list) and keeps them out of the workload pool. It is advisory and never gates: the case still moves through the workflow, and a human reviewer decides the exclusion/reassignment (Appendix E). Resolving or revoking a declaration restores visibility.",
+    "source": "Appendix E (line 412): declaration, type, timestamp, reviewer, exclusion, reassignment. The hiding effect is the minimum honest behaviour that does not claim an approved conflict rule."
+  }
+}

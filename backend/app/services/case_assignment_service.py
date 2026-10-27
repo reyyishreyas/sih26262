@@ -43,8 +43,21 @@ from ..models import (
     WorkflowTransitionDefinition,
 )
 from .authorization_service import can_access_application, effective_access
+from .policy import assignment_policy
 
 _INSTITUTION_ROLE = "institution_representative"
+
+
+def _active_load(db: Session, user_id: str) -> int:
+    """Active (unrevoked) case assignments held by this user — the workload count."""
+    return (
+        db.query(CaseAssignment)
+        .filter(
+            CaseAssignment.user_id == user_id,
+            CaseAssignment.revoked_at.is_(None),
+        )
+        .count()
+    )
 
 
 def next_actor_roles(db: Session, application: Application) -> set[str]:
@@ -97,6 +110,19 @@ def assign_next_actors(db: Session, application: Application) -> list[CaseAssign
     held_users = {row.user_id for row in existing if row.user_id}
     held_committees = {row.committee_id for row in existing if row.committee_id}
 
+    # Workload balancing (FR-12): order the eligible pool by fewest active
+    # assignments so the next case goes to the least-loaded officer. Advisory
+    # ordering only — it never grants access to an officer whose jurisdiction
+    # does not cover the case, and it never leaves a queue empty because
+    # everyone is over a soft cap (an over-cap officer is ordered last, not
+    # dropped). The formula is a labelled placeholder (assignment_policy.json).
+    from .conflict_of_interest import has_open_coi
+
+    strategy = assignment_policy().get("workload", {}).get("strategy")
+    candidates = list(candidates)
+    if strategy == "lowest_active_load":
+        candidates.sort(key=lambda row: _active_load(db, row[0].id))
+
     created: list[CaseAssignment] = []
     for user, grant, role_name in candidates:
         committee_id = (
@@ -105,6 +131,12 @@ def assign_next_actors(db: Session, application: Application) -> list[CaseAssign
         if user.id in held_users:
             continue
         if committee_id and committee_id in held_committees:
+            continue
+
+        # Conflict of interest (FR-12): an open declaration hides the case from
+        # the declarer and keeps them out of the pool. Advisory — it never gates
+        # the workflow, it only decides who does NOT get handed the case.
+        if has_open_coi(db, user.id, application.id):
             continue
 
         access = effective_access(db, user)
