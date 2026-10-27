@@ -81,6 +81,8 @@ export function CaseView({
   const canUpload = user.permissions.includes("document.upload");
   const canVerify = user.permissions.includes("document.verify");
   const canSubmitUndertaking = user.permissions.includes("undertaking.submit");
+  // case.transition covers scheduling an EVC visit and recording a scrutiny
+  // result (FR-14) — both are officer acts on the case, never the applicant's.
   const canScheduleVisit = user.permissions.includes("case.transition");
 
   // Role, not permission flags, decides which workspace this is. A College rep
@@ -567,6 +569,7 @@ export function CaseView({
           applicationId={applicationId}
           canUpload={canUpload}
           canVerify={canVerify}
+          canRecordResult={canScheduleVisit}
           onEvidenceChanged={() => void load()}
         />
       )}

@@ -137,6 +137,15 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("GET", "/api/v1/applications/{application_id}/security-deposit"): READ_ANY,
     # Annexure-2 checklist: Phase 4.2 advisory FR-13 (read-only, computed on read)
     ("GET", "/api/v1/applications/{application_id}/checklist"): READ_ANY,
+    # scrutiny results: Phase 4.3 FR-14 (officer's recorded judgement; never gates)
+    ("GET", "/api/v1/applications/{application_id}/scrutiny-results"): READ_ANY,
+    ("POST", "/api/v1/applications/{application_id}/scrutiny-results"): frozenset(
+        {CASE_TRANSITION}
+    ),
+    (
+        "POST",
+        "/api/v1/applications/{application_id}/scrutiny-results/overall",
+    ): frozenset({CASE_TRANSITION}),
     # portal: FR-01 stubbed feed (Phase 2.5) — read-only, scope-filtered
     ("GET", "/api/v1/portal/feed"): READ_ANY,
     # rehearsals
@@ -261,6 +270,19 @@ JSON_BODIES: dict[tuple[str, str], dict] = {
         "/api/v1/applications/{application_id}/deficiencies/{deficiency_id}/close",
     ): {"resolution_note": "Authorisation matrix probe"},
     ("POST", "/api/v1/applications/{application_id}/rehearsals"): {"overrides": {}},
+    # Valid pydantic shapes so the scope gate (404) answers, not a 422; the
+    # service-level checks (unknown category/item) may still refuse in-scope
+    # probes with 422, which is a business rule, not access control.
+    ("POST", "/api/v1/applications/{application_id}/scrutiny-results"): {
+        "category_id": "t23-13",
+        "item_id": "noc_format_2",
+        "result": "deficiency",
+        "remarks": "authorisation matrix probe",
+    },
+    (
+        "POST",
+        "/api/v1/applications/{application_id}/scrutiny-results/overall",
+    ): {"result": "deficiency", "remarks": "authorisation matrix probe"},
     (
         "POST",
         "/api/v1/applications/{application_id}/blocked-flags/{flag_id}",

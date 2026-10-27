@@ -18,6 +18,7 @@ import type {
   OfficerDashboard,
   RehearsalReport,
   RouteScoreboard,
+  ScrutinyResultsView,
   SessionUser,
   Undertaking,
   UploadResult,
@@ -133,6 +134,31 @@ export const api = {
     request<DocumentRow[]>(`/applications/${id}/documents`),
   /** The Annexure-2 checklist for this case's category — advisory, read-only. */
   checklist: (id: string) => request<ChecklistOut>(`/applications/${id}/checklist`),
+  /** The recorded scrutiny results (FR-14) — checklist lines joined with the
+   * officer's per-item and overall verdicts. Read-only. */
+  scrutinyResults: (id: string) =>
+    request<ScrutinyResultsView>(`/applications/${id}/scrutiny-results`),
+  /** Record the officer's verdict on one checklist line, with remarks.
+   * Refused (422) if the category/item is not a real checklist line or the
+   * result is outside the configured vocabulary. */
+  recordScrutinyItemResult: (
+    id: string,
+    body: { category_id: string; item_id: string; result: string; remarks: string },
+  ) =>
+    request<{ result: string }>(`/applications/${id}/scrutiny-results`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
+  /** Record the officer's overall verdict, with remarks. Refused (422) if it
+   * contradicts a recorded "deficiency" item result. */
+  recordScrutinyOverallResult: (
+    id: string,
+    body: { result: string; remarks: string },
+  ) =>
+    request<{ result: string }>(`/applications/${id}/scrutiny-results/overall`, {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   uploadDocument: (id: string, docType: string, file: File) => {
     const form = new FormData();
     form.set("doc_type", docType);

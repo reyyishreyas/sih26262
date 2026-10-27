@@ -380,6 +380,50 @@ export interface ChecklistOut {
   items: ChecklistItem[];
 }
 
+/** One checklist line joined with the officer's recorded verdict (FR-14).
+ * `result` is null while no one has decided that line yet. */
+export interface ScrutinyItemResultOut {
+  category_id: string;
+  item_id: string;
+  title: string;
+  result: string | null;
+  remarks: string;
+  recorded_by: string | null;
+  recorded_at: string | null;
+}
+
+export interface ScrutinyOverallResultOut {
+  result: string;
+  remarks: string;
+  recorded_by: string | null;
+  recorded_at: string | null;
+}
+
+export interface ScrutinyResultsView {
+  placeholder: boolean;
+  source: string | null;
+  checklist_status: string;
+  items: ScrutinyItemResultOut[];
+  orphaned_item_results: Array<{
+    category_id: string;
+    item_id: string;
+    result: string;
+    remarks: string;
+    recorded_by: string | null;
+    recorded_at: string | null;
+  }>;
+  overall: ScrutinyOverallResultOut | null;
+  counts: {
+    items_configured: number;
+    items_recorded: number;
+    items_deficiency: number;
+    open_deficiencies: number;
+  };
+  derived_overall: string | null;
+  aa_gate: "open" | "closed" | "needs_review";
+  note: string | null;
+}
+
 export interface DeficiencyRow {
   id: string;
   application_id: string;

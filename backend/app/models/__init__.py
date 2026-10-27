@@ -9,6 +9,8 @@ from .application import (
     Institution,
     ReadinessFlag,
     Region,
+    ScrutinyItemResult,
+    ScrutinyOverallResult,
 )
 from .audit import AuditChainHead, AuditEvent
 from .base import Base, canonical_json, new_id, sha256_hex, utcnow
@@ -55,6 +57,8 @@ __all__ = [
     "RuleEvaluation",
     "RuleTest",
     "RuleVersion",
+    "ScrutinyItemResult",
+    "ScrutinyOverallResult",
     "SimInputSnapshot",
     "SimMetric",
     "SimRuleResult",

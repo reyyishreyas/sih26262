@@ -1,18 +1,27 @@
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict
 from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock
 from ..core.context import current_request_id
 from ..core.db import get_db
-from ..core.permissions import APPLICATION_READ, CASE_READ
+from ..core.permissions import APPLICATION_READ, CASE_READ, CASE_TRANSITION
 from ..schemas.api import TransitionRequest
-from ..services import appeal, checklist, escalation, routing, security_deposit, workflow_service
+from ..services import (
+    appeal,
+    checklist,
+    escalation,
+    routing,
+    scrutiny_results,
+    security_deposit,
+    workflow_service,
+)
+from ..services.audit_service import AuditService
 from ..services.authorization_service import EffectiveAccess, require_application
 from ..services.policy import reason_codes_policy, workflow_routes
-from .deps import get_access, require_any
+from .deps import get_access, require, require_any
 
 router = APIRouter(tags=["workflow"])
 
@@ -214,3 +223,147 @@ def case_checklist(
     """
     application = require_application(db, access, application_id)
     return checklist.case_checklist(db, application)
+
+
+class ScrutinyItemResultRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    category_id: str
+    item_id: str
+    # "nil_deficiency" | "deficiency" — validated against the configured
+    # aa_gate.scrutiny_results vocabulary (the PRD's own FR-14 wording).
+    result: str
+    remarks: str = ""
+
+
+class ScrutinyOverallResultRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    result: str
+    remarks: str = ""
+
+
+@router.get("/applications/{application_id}/scrutiny-results")
+def case_scrutiny_results(
+    application_id: str,
+    access: EffectiveAccess = Depends(require_any(CASE_READ, APPLICATION_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """The scrutiny results view for one case (Phase 4.3, FR-14).
+
+    Joins the Annexure-2 checklist lines with the officer's recorded
+    per-item and overall results (both with remarks), plus counts, a
+    derived-overall answer and the FR-10 "AA" gate's advisory opinion.
+    Read-only: it stores nothing and moves nothing.
+    """
+    application = require_application(db, access, application_id)
+    return scrutiny_results.results_view(db, application)
+
+
+@router.post("/applications/{application_id}/scrutiny-results")
+def record_scrutiny_item_result(
+    application_id: str,
+    payload: ScrutinyItemResultRequest,
+    access: EffectiveAccess = Depends(require(CASE_TRANSITION)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Record the officer's result for ONE checklist line, with remarks.
+
+    Refused loudly (422) for an unknown result value, a category the case
+    does not record, or an item outside that category's configured list —
+    a result must never attach to a checklist line that does not exist.
+    Recording is a human judgement: it never moves or gates the case
+    (DEC-0003), and the audit timeline keeps every recording.
+    """
+    application = require_application(db, access, application_id)
+    try:
+        row = scrutiny_results.record_item_result(
+            db,
+            application,
+            category_id=payload.category_id,
+            item_id=payload.item_id,
+            result=payload.result,
+            remarks=payload.remarks,
+            actor_id=access.user_id,
+        )
+    except KeyError as exc:  # unknown category id — configuration, not guesswork
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT, f"unknown category {exc.args[0]!r}"
+        ) from exc
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    AuditService(db).append(
+        action="scrutiny.item_result_recorded",
+        entity_type="scrutiny_item_result",
+        entity_id=row.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        reason=payload.result,
+        after={
+            "application_id": application_id,
+            "category_id": row.category_id,
+            "item_id": row.item_id,
+            "result": row.result,
+            "remarks": row.remarks,
+        },
+        request_id=current_request_id(),
+    )
+    db.commit()
+    return {
+        "category_id": row.category_id,
+        "item_id": row.item_id,
+        "result": row.result,
+        "remarks": row.remarks,
+        "recorded_by": row.recorded_by,
+        "recorded_at": row.recorded_at.isoformat() if row.recorded_at else None,
+    }
+
+
+@router.post("/applications/{application_id}/scrutiny-results/overall")
+def record_scrutiny_overall_result(
+    application_id: str,
+    payload: ScrutinyOverallResultRequest,
+    access: EffectiveAccess = Depends(require(CASE_TRANSITION)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Record the officer's OVERALL result for the case, with remarks.
+
+    An overall "nil_deficiency" is refused (422) while any recorded item
+    result is "deficiency" — the record cannot contradict itself. Overall
+    "deficiency" is always accepted: a deficiency may exist outside the
+    checklist. Recording never moves or gates the case (DEC-0003).
+    """
+    application = require_application(db, access, application_id)
+    try:
+        row = scrutiny_results.record_overall_result(
+            db,
+            application,
+            result=payload.result,
+            remarks=payload.remarks,
+            actor_id=access.user_id,
+        )
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+    AuditService(db).append(
+        action="scrutiny.overall_result_recorded",
+        entity_type="scrutiny_overall_result",
+        entity_id=row.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        reason=payload.result,
+        after={
+            "application_id": application_id,
+            "result": row.result,
+            "remarks": row.remarks,
+        },
+        request_id=current_request_id(),
+    )
+    db.commit()
+    return {
+        "result": row.result,
+        "remarks": row.remarks,
+        "recorded_by": row.recorded_by,
+        "recorded_at": row.recorded_at.isoformat() if row.recorded_at else None,
+    }

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
-import type { ChecklistOut, DeficiencyRow, DocumentRow } from "../types";
+import type { ChecklistOut, DeficiencyRow, DocumentRow, ScrutinyResultsView } from "../types";
 import { useFileCheck } from "../useFileCheck";
 import { useRefreshOnFocus } from "../useRefreshOnFocus";
 import { ACCEPT_ATTRIBUTE, MAX_UPLOAD_BYTES, formatBytes } from "../uploadCheck";
@@ -13,10 +13,13 @@ import {
   formatDateTime,
   humanize,
   methodTone,
+  plainAaGate,
   plainDeficiencyStatus,
   plainDocType,
   plainMethod,
+  plainScrutinyResult,
   plainVerification,
+  scrutinyResultTone,
   verificationTone,
 } from "../labels";
 
@@ -45,11 +48,15 @@ export function EvidencePanel({
   applicationId,
   canUpload,
   canVerify,
+  canRecordResult,
   onEvidenceChanged,
 }: {
   applicationId: string;
   canUpload: boolean;
   canVerify: boolean;
+  /** Recording a scrutiny verdict is a case action (case.transition) — the
+   * applicant never records their own result. */
+  canRecordResult: boolean;
   onEvidenceChanged: () => void;
 }) {
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
@@ -57,6 +64,13 @@ export function EvidencePanel({
   // The Annexure-2 checklist is advisory; a failure to load it must never
   // hide the documents themselves, so it loads best-effort like deficiencies.
   const [checklist, setChecklist] = useState<ChecklistOut | null>(null);
+  // The recorded scrutiny results (FR-14) — same best-effort contract.
+  const [results, setResults] = useState<ScrutinyResultsView | null>(null);
+  // Recording forms: one remarks box per checklist line, plus the overall one.
+  const [itemRemarks, setItemRemarks] = useState<Record<string, string>>({});
+  const [overallResult, setOverallResult] = useState<string>("deficiency");
+  const [overallRemarks, setOverallRemarks] = useState("");
+  const [busyLine, setBusyLine] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [docType, setDocType] = useState<string>("lease_agreement");
   // Deficiencies modal / form state for when marking wrong or manual deficiency
@@ -120,14 +134,16 @@ export function EvidencePanel({
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [docs, defs, checklistResult] = await Promise.all([
+      const [docs, defs, checklistResult, resultsView] = await Promise.all([
         api.documents(applicationId),
         api.deficiencies(applicationId).catch(() => []),
         api.checklist(applicationId).catch(() => null),
+        api.scrutinyResults(applicationId).catch(() => null),
       ]);
       setDocuments(docs);
       setDeficiencies(defs);
       setChecklist(checklistResult);
+      setResults(resultsView);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not load documents");
     } finally {
@@ -140,11 +156,64 @@ export function EvidencePanel({
   useEffect(() => {
     setDocuments([]);
     setChecklist(null);
+    setResults(null);
+    setItemRemarks({});
     setError(null);
     setMessage(null);
     setWarning(null);
     void load();
   }, [load]);
+
+  // Recording a verdict (FR-14) is data entry by an officer: it never moves
+  // the case, and a refusal (422 — contradiction, unknown line) is shown as
+  // the server's own words, not swallowed.
+  async function recordItemResult(
+    categoryId: string,
+    itemId: string,
+    result: string,
+  ) {
+    const lineKey = `${categoryId}:${itemId}`;
+    setBusyLine(lineKey);
+    try {
+      await api.recordScrutinyItemResult(applicationId, {
+        category_id: categoryId,
+        item_id: itemId,
+        result,
+        remarks: itemRemarks[lineKey] ?? "",
+      });
+      setMessage(`Result recorded for this line: ${plainScrutinyResult(result)}.`);
+      setItemRemarks((prev) => ({ ...prev, [lineKey]: "" }));
+      setResults(await api.scrutinyResults(applicationId).catch(() => null));
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError ? cause.message : "Could not record the result",
+      );
+    } finally {
+      setBusyLine(null);
+    }
+  }
+
+  async function recordOverall(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusyLine("overall");
+    try {
+      await api.recordScrutinyOverallResult(applicationId, {
+        result: overallResult,
+        remarks: overallRemarks,
+      });
+      setMessage(
+        `Overall result recorded: ${plainScrutinyResult(overallResult)}.`,
+      );
+      setOverallRemarks("");
+      setResults(await api.scrutinyResults(applicationId).catch(() => null));
+    } catch (cause) {
+      setError(
+        cause instanceof ApiError ? cause.message : "Could not record the result",
+      );
+    } finally {
+      setBusyLine(null);
+    }
+  }
 
   async function upload(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -661,6 +730,175 @@ export function EvidencePanel({
               {checklist.source}
             </p>
           )}
+        </div>
+      )}
+
+      {/* Scrutiny result per line and overall (Phase 4.3, FR-14) — an
+          officer's recorded verdict with remarks. Recording never moves the
+          case; the server refuses contradictions and unknown lines. */}
+      {results && (
+        <div className="panel" style={{ marginTop: "1.5rem" }}>
+          <div className="panel-head">
+            <div>
+              <h3>
+                <Icon name="checkCircle" size={18} /> Scrutiny result
+              </h3>
+              <p className="tiny muted">
+                Your verdict on each checklist line and overall, with remarks.
+                Recording a result does not move the case by itself.
+              </p>
+            </div>
+            <span className="pill small">
+              {results.counts.items_recorded} of{" "}
+              {results.counts.items_configured} lines decided
+            </span>
+          </div>
+
+          {results.note && <p className="tiny muted">{results.note}</p>}
+
+          {results.items.length > 0 && (
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {results.items.map((item) => {
+                const lineKey = `${item.category_id}:${item.item_id}`;
+                return (
+                  <li key={lineKey} style={{ padding: "0.35rem 0" }}>
+                    <div
+                      style={{
+                        display: "flex",
+                        gap: "0.5rem",
+                        alignItems: "center",
+                        flexWrap: "wrap",
+                      }}
+                    >
+                      <span>{item.title}</span>
+                      <span
+                        className={`pill small ${scrutinyResultTone(item.result)}`}
+                      >
+                        {plainScrutinyResult(item.result)}
+                      </span>
+                      {item.remarks && (
+                        <span className="tiny muted">“{item.remarks}”</span>
+                      )}
+                    </div>
+                    {canRecordResult && (
+                      <div
+                        style={{
+                          display: "flex",
+                          gap: "0.4rem",
+                          marginTop: "0.3rem",
+                          alignItems: "center",
+                          flexWrap: "wrap",
+                        }}
+                      >
+                        <input
+                          className="field-input"
+                          style={{ flex: "1 1 14rem", minWidth: "12rem" }}
+                          placeholder="Remarks (what you saw in this document)"
+                          value={itemRemarks[lineKey] ?? ""}
+                          onChange={(event) =>
+                            setItemRemarks((prev) => ({
+                              ...prev,
+                              [lineKey]: event.target.value,
+                            }))
+                          }
+                        />
+                        <button
+                          type="button"
+                          className="secondary small"
+                          disabled={busyLine === lineKey}
+                          onClick={() =>
+                            void recordItemResult(
+                              item.category_id,
+                              item.item_id,
+                              "nil_deficiency",
+                            )
+                          }
+                        >
+                          Nil Deficiency
+                        </button>
+                        <button
+                          type="button"
+                          className="secondary small"
+                          disabled={busyLine === lineKey}
+                          onClick={() =>
+                            void recordItemResult(
+                              item.category_id,
+                              item.item_id,
+                              "deficiency",
+                            )
+                          }
+                        >
+                          Deficiency
+                        </button>
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+
+          <div style={{ marginTop: "0.8rem" }}>
+            <p style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+              <strong>Overall:</strong>
+              <span
+                className={`pill ${scrutinyResultTone(results.overall?.result ?? null)}`}
+              >
+                {results.overall
+                  ? plainScrutinyResult(results.overall.result)
+                  : "Not recorded yet"}
+              </span>
+              {results.derived_overall && !results.overall && (
+                <span className="tiny muted">
+                  (lines so far suggest {plainScrutinyResult(results.derived_overall)})
+                </span>
+              )}
+              <span
+                className="pill small warn"
+                title="Advisory answer from the FR-10 gate: a committee stage is due only on a deficiency or a negative result. It never moves the case by itself."
+              >
+                {plainAaGate(results.aa_gate)}
+              </span>
+            </p>
+            {results.overall?.remarks && (
+              <p className="tiny muted">“{results.overall.remarks}”</p>
+            )}
+            {canRecordResult && (
+              <form
+                onSubmit={recordOverall}
+                style={{
+                  display: "flex",
+                  gap: "0.4rem",
+                  marginTop: "0.3rem",
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                }}
+              >
+                <select
+                  value={overallResult}
+                  onChange={(event) => setOverallResult(event.target.value)}
+                  aria-label="Overall result"
+                >
+                  <option value="deficiency">Deficiency</option>
+                  <option value="nil_deficiency">Nil Deficiency</option>
+                </select>
+                <input
+                  className="field-input"
+                  style={{ flex: "1 1 14rem", minWidth: "12rem" }}
+                  placeholder="Remarks for the overall result"
+                  value={overallRemarks}
+                  onChange={(event) => setOverallRemarks(event.target.value)}
+                />
+                <button
+                  type="submit"
+                  className="secondary small"
+                  disabled={busyLine === "overall"}
+                >
+                  Record overall
+                </button>
+              </form>
+            )}
+          </div>
         </div>
       )}
 

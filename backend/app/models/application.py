@@ -297,3 +297,87 @@ class ReadinessFlag(Base):
 
     application: Mapped[Application] = relationship()
 
+
+class ScrutinyItemResult(Base):
+    """The scrutiny officer's recorded result for ONE Annexure-2 checklist
+    item (Phase 4.3, FR-14: "Result per checklist item and overall").
+
+    The result vocabulary ("nil_deficiency" / "deficiency") is PRD FR-14's
+    own wording, carried by the ``aa_gate.scrutiny_results`` configuration —
+    never invented here. Recording a result is a *human officer's* recorded
+    judgement; the checklist (Phase 4.2) stays advisory, and recording
+    neither moves the case nor gates anything (DEC-0003) — the workflow
+    transition remains a separate audited action.
+
+    One row per (case, category, item); re-recording updates the row and the
+    audit timeline keeps both judgements (same contract as ReadinessFlag).
+    """
+
+    __tablename__ = "scrutiny_item_results"
+    __table_args__ = (
+        UniqueConstraint(
+            "application_id",
+            "category_id",
+            "item_id",
+            name="uq_scrutiny_item_result_line",
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    application_id: Mapped[str] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    )
+    # The Table 2.3 category + configured Annexure-2 item this result is
+    # recorded against; both are validated against configuration at the edge,
+    # so a result can never be attached to a checklist line that does not exist.
+    category_id: Mapped[str] = mapped_column(String(16))
+    item_id: Mapped[str] = mapped_column(String(64))
+    # "nil_deficiency" | "deficiency" (aa_gate.scrutiny_results vocabulary).
+    result: Mapped[str] = mapped_column(String(32))
+    remarks: Mapped[str] = mapped_column(Text, default="")
+    recorded_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+
+    application: Mapped[Application] = relationship()
+
+
+class ScrutinyOverallResult(Base):
+    """The scrutiny officer's OVERALL result for one case (FR-14 "and
+    overall"), with remarks.
+
+    The overall result is the officer's own judgement — the advisory checklist
+    does not compute it. What the system does enforce is *self-consistency*:
+    an overall "nil_deficiency" is refused while any recorded item result is
+    "deficiency" (Nil Deficiency means no deficiency anywhere — accepting the
+    contradiction would put a wrong regulatory record in the chain). The
+    reverse is allowed: overall "deficiency" with all items clean, because a
+    deficiency may exist outside the Annexure-2 checklist (compliance findings,
+    document contents). One row per case; re-recording updates it.
+
+    Feeds the FR-10 "AA" gate advisory lookup — the gate still never moves a
+    case by itself.
+    """
+
+    __tablename__ = "scrutiny_overall_results"
+    __table_args__ = (
+        UniqueConstraint(
+            "application_id", name="uq_scrutiny_overall_result_case"
+        ),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    application_id: Mapped[str] = mapped_column(
+        ForeignKey("applications.id", ondelete="CASCADE"), index=True
+    )
+    # "nil_deficiency" | "deficiency" (aa_gate.scrutiny_results vocabulary).
+    result: Mapped[str] = mapped_column(String(32))
+    remarks: Mapped[str] = mapped_column(Text, default="")
+    recorded_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    recorded_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=utcnow
+    )
+
+    application: Mapped[Application] = relationship()
+

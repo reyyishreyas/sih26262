@@ -346,6 +346,29 @@ export function plainDeficiencyStatus(status: string): string {
   return humanize(status);
 }
 
+// ---------------------------------------------------------------------------
+// Scrutiny result (FR-14 vocabulary: nil_deficiency / deficiency)
+// ---------------------------------------------------------------------------
+
+export function plainScrutinyResult(result: string | null): string {
+  if (result === null) return "Not decided yet";
+  if (result === "nil_deficiency") return "Nil Deficiency";
+  if (result === "deficiency") return "Deficiency";
+  return humanize(result);
+}
+
+export function scrutinyResultTone(result: string | null): string {
+  if (result === "nil_deficiency") return "active";
+  if (result === "deficiency") return "warn";
+  return "";
+}
+
+export function plainAaGate(gate: string): string {
+  if (gate === "open") return "Committee due (deficiency or negative outcome)";
+  if (gate === "closed") return "Committee not due";
+  return "Needs review";
+}
+
 export function deficiencyTone(status: string): string {
   if (status === "closed") return "good";
   if (status === "addressed") return "active";
