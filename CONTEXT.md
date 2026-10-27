@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 582 passing
+make test      # pytest — 600 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **582 passing** (~500 test functions; some parametrised).
+- `make test` → **600 passing** (~500 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -516,9 +516,21 @@ tamper-evidence).
   new; `reconcile` reports 0 drift at every stop and the
   `/internal/reconcile-clocks` endpoint confirms it after the jumps;
   process-wide clock reset after every test).
+  `test_annexure_checklist.py` (18 — Phase 4.2: the Annexure-2 checklist
+  beside the documents (FR-13). `annexure_2.json` carries all 21 Table 2.3
+  categories; only t23-13 (Change of Site) is transcribed (Format-2 NOC,
+  Format-3 resolution, new-site lease/ownership, sourced from `things.md`
+  §1), every other category ships an empty list + a "needs review, list
+  not transcribed" note (§19 Q8); the checklist is computed on read and
+  stored nowhere; a case with no recorded category answers `needs_review`
+  with a note, an unrecognised/untranscribed category answers per-category
+  `needs_review` (never a 500, never an empty all-clear); presence is not
+  validity; rejected documents do not satisfy a line; the blurriest
+  category wins; endpoint is `require_any(CASE_READ, APPLICATION_READ)`
+  and scope-filtered).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `dfb42f2` (Phase 4.1).
+  repo is currently green at `801f9da` (Phase 4.2).
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on

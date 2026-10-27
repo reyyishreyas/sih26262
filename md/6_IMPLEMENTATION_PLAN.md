@@ -70,7 +70,7 @@ Do not run phases concurrently without agreed interfaces (see `4_AGENTS.md`). Ea
 
 ## Phase 4 — Scrutiny, deficiency, compliance (FR-06, FR-12–FR-15)
 - [x] 4.1 Assignment by Region/workload + conflict-of-interest declaration and hiding (FR-12).
-- [ ] 4.2 Checklist generated from category Annexure-2 list beside documents (FR-13); start with the Change of Site list, others as data.
+- [x] 4.2 Checklist generated from category Annexure-2 list beside documents (FR-13); start with the Change of Site list, others as data. → `backend/rules/annexure_2.json` (**placeholder**, 21 categories; only `t23-13` Change of Site transcribed from `things.md` §1 research — Format-2 NOC, Format-3 resolution, new-site lease/ownership — every other category `items: []` + "needs review, list not transcribed" pending note, §19 Q8 open) + `services/checklist.py` (`case_checklist()` **computed on read, never stored**; no recorded category ⇒ `needs_review` with note, unrecognised/untranscribed category ⇒ per-category `needs_review` never a 500 or an empty all-clear; presence ≠ validity; rejected docs don't satisfy a line; blurriest category wins) + `GET /applications/{id}/checklist` (`require_any(CASE_READ, APPLICATION_READ)`, matrix row) + `EvidencePanel.tsx` advisory checklist block beside the document list (best-effort load, "Unverified list" pill, per-item Uploaded/Not uploaded, plain copy). `test_annexure_checklist.py` (18). `make lint` clean; `make test` **600 passed**; `npm run build` ✓ (IMPL-0033, 2026-10-27).
 - [ ] 4.3 Per-item and overall result with remarks (FR-14).
 - [ ] 4.4 Deficiency report draft (labelled draft) → compliance window → institution upload → Re-Scrutiny (FR-15).
 - [ ] 4.5 Affidavit 2 / DSC-signed check as RULE-DOC-01 (FR-06).
