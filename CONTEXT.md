@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 694 passing
+make test      # pytest — 704 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **694 passing** (~500 test functions; some parametrised).
+- `make test` → **704 passing** (~500 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -604,14 +604,30 @@ tamper-evidence).
   the upload's warnings on a 201 and the recorded doc_type is never
   touched; BUG-0018 fixed — the note now composes the filename and
   mismatch caveats).
+  `test_field_provenance.py` (10 — Phase 5.2: `ExtractedField` + candidate
+  gain `bbox` (JSON, normalised `origin: top_left`/`level: line` line box),
+  `engine` (pypdf/tesseract/mock/grounded_lease/gemini) and `engine_version`
+  (read at runtime, cached); line geometry from pypdf `visitor_text`
+  baselines (widths **estimated** — a highlight aid) and Tesseract
+  `image_to_data` pixel unions; `_locate` value → parser label → honest
+  `None` (no match ⇒ no highlight); mock/grounded/seeded rows keep NULL
+  provenance; officer verification never rewrites it; migration
+  `f7e6eed3fa19`; BUG-0019 fixed — run `ruff --fix` right after
+  `alembic revision`).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `becfa4e` (Phase 5.1).
+  repo is currently green at `f9c5118` (Phase 5.2).
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on
-  3.14. Tesseract is not installed here, so the 2 OCR tests skip
-  (BUG-0001, Workaround) — everything else runs.
+  3.14. **Correction (5.2):** an earlier version of this note said
+  "Tesseract is not installed here, so the 2 OCR tests skip" — that was
+  wrong: Tesseract **5.5.3** is present at `/opt/homebrew/bin/tesseract`
+  (symlink dated 24 Oct 2026, i.e. installed before that note was written),
+  so the suite runs **0 skipped** and every `requires_ocr` test executes
+  for real (3 of them now: 2 in `test_document_extraction.py` + 1 in
+  `test_field_provenance.py`). BUG-0001 stays `Workaround` — the skip path
+  remains the honest degradation for hosts *without* the binary.
 
 ---
 

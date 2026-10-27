@@ -16,6 +16,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0019 | 2026-10-27 | S4 | migrations tooling | `make lint` failed after autogenerating the 5.2 migration: Alembic's template imports fail ruff `I001` — `ruff --fix` on the file | Fixed | IMPL-0039 |
 | BUG-0018 | 2026-10-27 | S4 | classification note | First run of the 5.1 suite: a classification resting on the file name lost that caveat whenever the declared type also mismatched — the note now composes both caveats | Fixed | IMPL-0038 |
 | BUG-0017 | 2026-10-27 | S4 | test | Exit check's audit-order helper read rows in `entity_id` index order (no `ORDER BY`) — chronology faked, ordering walk failed; now ordered by `AuditEvent.seq` | Fixed | IMPL-0037 |
 | BUG-0016 | 2026-10-27 | S4 | compliance window / test | Exit check read `open` instead of `received` after resubmit: `_resubmitted_at`'s strict `>` vs return+resubmit at the identical fixed-clock instant — test now advances the audited demo clock between the steps (service correct) | Fixed | IMPL-0037 |
@@ -57,6 +58,31 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0019 — `make lint` failed after generating the 5.2 migration: unsorted imports in the Alembic file
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), `make lint` gate after `alembic revision --autogenerate` for Phase 5.2
+- Branch / commit: master (work uncommitted at time of fix; baseline `4398f07`)
+- Severity / Area: **S4** (lint only; no test failed, no behaviour involved) / migrations tooling
+- Status: **Fixed**
+- Where it showed up: `make lint` → exit 1:
+  ```
+  I001 [*] Import block is un-sorted or un-formatted
+    --> migrations/versions/f7e6eed3fa19_extracted_field_provenance_bbox_engine_.py:16:1
+     |
+  16 | from __future__ import annotations
+  17 |
+  18 | from alembic import op
+  19 | import sqlalchemy as sa
+  ```
+- Expected behaviour: `make lint` green (ruff checks `migrations/`).
+- Actual behaviour: Alembic's template emits `from alembic import op` before `import sqlalchemy as sa`, which ruff's `I` rule sorts the other way.
+- Environment: macOS, repo ruff config `backend/ruff.toml` (`select` includes `"I"`).
+- Hypotheses tried: (1) my migration edits broke it? — no: the failure is in the untouched autogenerate header (`revision`/`down_revision` block); (2) an older generated migration has the same shape and passes? — prior migrations were written/adjusted by hand and are sorted; autogenerate's raw output never met the `I` rule before (this is the first migration generated in this session — earlier ones were pre-existing); (3) **root cause** — `alembic revision --autogenerate` writes imports in its own template order, not ruff's isort order.
+- Root cause: tool template vs lint config mismatch, not a logic error.
+- Solution applied: `ruff check --fix` on just that file (1 fix — reorders the two imports). No hand-rewriting, no config change; the `--fix` output is the canonical isort order.
+- Verification: `ruff check app tests migrations scripts` → "All checks passed!"; `make lint` → green; full suite unaffected (**704 passed**).
+- Side effects / follow-ups: none. Note for future migrations: run `ruff --fix` (or `make lint`) immediately after `alembic revision --autogenerate` — the generated imports will fail `I001`. Related IMPL-0039.
+- Update history: 2026-10-27 — found and fixed in the same session.
 
 ### BUG-0018 — first run of the Phase 5.1 classifier suite: filename-only note was swallowed by the mismatch note
 - Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first `pytest tests/test_doc_classifier.py` after writing the suite
@@ -455,4 +481,4 @@
 - Solution applied: install Tesseract on the dev/CI host, or document it as optional and keep the skip explicit (`backend/tests/test_document_extraction.py::requires_ocr` = `skipif shutil.which("tesseract") is None`)
 - Verification: **rerun 2026-10-26** on this machine (macOS, Python 3.13.9): `make test` → `163 passed, 1 warning in 16.59s`, **0 skipped** — Tesseract is present locally, so the OCR tests ran and passed. The skip mechanism remains as the honest degradation path for machines without the binary.
 - Follow-ups: decide whether Tesseract is required or optional in CI (log as a DEC entry) — answered for the prototype in `docs/DECISIONS.md` D-0006: **optional** by design.
-- Update history: 2026-10-26 — verified on a Tesseract-equipped machine: 0 skipped, status stays `Workaround` (skip path still exists for other hosts).
+- Update history: 2026-10-26 — verified on a Tesseract-equipped machine: 0 skipped, status stays `Workaround` (skip path still exists for other hosts). 2026-10-27 (Phase 5.2, IMPL-0039): a **third** `requires_ocr` test added (`test_field_provenance.py`); re-verified on this machine — Tesseract 5.5.3 present since **24 Oct** (symlink date, i.e. before this task, not installed by it), `make test` → **704 passed, 0 skipped**; CONTEXT's "Tesseract is not installed here, so the 2 OCR tests skip" note (added `604fd54` the same day) was wrong for this machine and contradicted this entry's own 2026-10-26 update — corrected in the 5.2 CONTEXT edit. Status stays `Workaround`.
