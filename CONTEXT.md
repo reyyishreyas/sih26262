@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 649 passing
+make test      # pytest — 673 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **649 passing** (~500 test functions; some parametrised).
+- `make test` → **673 passing** (~500 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -567,9 +567,24 @@ tamper-evidence).
   scope-filtered 404); EvidencePanel report/window summary; 1 matrix
   row; BUG-0014 open — `existing_technical` defines no return/resubmit
   route, so the loop is driven on `new_technical`).
+  `test_doc_check.py` (24 — Phase 4.5: the RULE-DOC-01 document
+  pre-check (FR-06). `doc_check.py` evaluates three legs on read — the
+  Annexure-2 inventory (untranscribed ⇒ needs review, never an empty
+  all-clear), Affidavit 2 (absent ⇒ candidate; present ⇒ satisfied but
+  `confirmed:false` — the upload vocabulary cannot number the affidavit),
+  and the DSC signature (a stub ⇒ **always needs review**, never
+  passed/failed); the outcome vocabulary is `md/rules.json`'s own, pinned
+  to the spec file by a test, with the precedence labelled prototype
+  policy; `needs_review` rides every response including `PRE-CHECK
+  PASSED`; `POST .../doc-check/drafts` stages uncovered candidates as
+  audited `draft` rows keyed by line (idempotent while a live row covers
+  the line; a `closed` row does not cover it), never moves the case and
+  never leaks to the institution in 4.4's report; `GET` is a read-only
+  `READ_ANY` route; EvidencePanel pre-check panel; 2 matrix rows;
+  BUG-0015 fixed — a wrong test expectation, not service behaviour).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `ff754df` (Phase 4.4).
+  repo is currently green at `f4ddd5e` (Phase 4.5).
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on

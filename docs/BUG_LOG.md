@@ -16,6 +16,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0015 | 2026-10-27 | S4 | test | First run of the RULE-DOC-01 suite: expected candidate set omitted `affidavit_2` on a case that uploads no affidavit — the service was right, the expectation incomplete | Fixed | IMPL-0036 |
 | BUG-0014 | 2026-10-27 | S3 | workflow config | `existing_technical` route defines no `return_for_clarification`/`resubmit` transitions — the FR-15 deficiency→compliance loop is unreachable on that route; route-table change needs human approval | Open | IMPL-0035 |
 | BUG-0013 | 2026-10-27 | S4 | test | Third run of the FR-15 suite: `select().count()` misuse (AttributeError), 23:59 asserted on a UTC timestamp (it is 23:59 in the business timezone), re-return attempted from `submitted` without `start_scrutiny` | Fixed | IMPL-0035 |
 | BUG-0012 | 2026-10-27 | S4 | test | First run of the FR-15 suite: 11 failures — wrong seeded route (`existing_technical` has no return leg → BUG-0014) and a missing mandatory FR-28 reason code on the return | Fixed | IMPL-0035 |
@@ -53,6 +54,28 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0015 — first run of the new RULE-DOC-01 suite: one failure from a wrong test expectation (candidates omitted the affidavit)
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first `pytest tests/test_doc_check.py` after writing the suite
+- Branch / commit: master (work uncommitted at time of fix; baseline `6545a09`)
+- Severity / Area: **S4** (test-only; the service behaviour was correct) / test
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_doc_check.py -q` → 1 failed, 23 passed:
+  ```
+  E         Extra items in the left set:
+  E         'affidavit_2'
+  tests/test_doc_check.py:199: AssertionError
+  ```
+  (in `test_a_transcribed_checklist_names_each_missing_line`)
+- Expected behaviour: the candidate set for `app-second-0002` + t23-13 was asserted as exactly the two Annexure-2 lines missing there (`noc_format_2`, `resolution_format_3`).
+- Actual behaviour: the service also named `affidavit_2` — correctly: `app-second-0002` uploads only `lease_deed`, so FR-06's affidavit is missing too and the precedence makes it a definite candidate.
+- Environment: macOS, Python 3.13, SQLite, fixed clock.
+- Hypotheses tried: (1) wrong line keys from the service? — no, both `annexure:t23-13:*` keys were present as expected, the diff showed one *extra* item only; (2) should the affidavit be suppressed on a case with a transcribed checklist? — no: FR-06 names Affidavit 2 independently of the inventory, and suppressing it would hide a real candidate.
+- Root cause: my test premise forgot the affidavit leg while exercising the inventory leg — the expectation was incomplete, not the rule evaluation.
+- Solution applied: `backend/tests/test_doc_check.py` — the expected key set now includes `affidavit_2` with a comment that SECOND uploads no affidavit. Service and config unchanged.
+- Verification: `pytest tests/test_doc_check.py -q` → **24 passed**; `make lint` clean; full `make test` → 673 passed.
+- Side effects / follow-ups: none. Related IMPL-0036.
+- Update history: 2026-10-27 — found and fixed in the same session.
 
 ### BUG-0014 — the `existing_technical` route defines no deficiency-return or resubmit transition at all (FR-15 loop unreachable on that route)
 - Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), while driving the Phase 4.4 deficiency-report tests on the first seeded case
