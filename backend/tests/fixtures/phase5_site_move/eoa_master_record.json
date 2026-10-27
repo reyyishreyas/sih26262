@@ -1,0 +1,12 @@
+{
+  "fixture_label": "SYNTHETIC TEST DATA — NOT AN AICTE RECORD",
+  "record_role": "test-only stand-in; public EoA master source is referenced in docs/SOURCES.md",
+  "document_type": "eoa_letter",
+  "institution_name": "Example Institute of Technology",
+  "trust_name": "Demo Education Trust",
+  "institution_address": "10 Example Road, Sample City",
+  "survey_number": "SYN-100",
+  "pid": "SYNTHETIC-PID-001",
+  "institution_type": "Technical Institution",
+  "approved_programmes": ["Computer Engineering", "Civil Engineering"]
+}

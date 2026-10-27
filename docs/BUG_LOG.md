@@ -1,5 +1,35 @@
 # docs/BUG_LOG.md
 
+### BUG-0043 — Phase 5.10 test import ordering failed Ruff
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
+- Severity / Area: S4 / lint.
+- Status: Fixed.
+- Where it showed up: required `make lint` after adding the Phase 5.10 fixture test.
+- Expected: Ruff accepts the new test import block.
+- Actual: Ruff reported `I001` in `backend/tests/test_phase5_site_move_fixtures.py`.
+- Steps to reproduce: run `make lint`.
+- Environment: repo virtualenv, Ruff configured by `backend/ruff.toml`.
+- Hypotheses tried: none; Ruff identified the import block directly.
+- Root cause: imports in the new regression test did not match repository ordering.
+- Solution applied: format the import block with Ruff's import fixer; no product behavior changed.
+- Verification: `make lint` clean; `make test` → **777 passed, 1 warning, 0 skipped**.
+- Related: IMPL-0049.
+
+### BUG-0042 — System pytest auto-loaded an unrelated Anaconda plugin
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
+- Severity / Area: S4 / local test environment.
+- Status: Workaround.
+- Where it showed up: first targeted Phase 5.10 invocation, `pytest -q tests/test_phase5_site_move_fixtures.py`, from `backend/`.
+- Expected: pytest collects and runs the repository test.
+- Actual: pytest failed before collection while importing the globally installed `napari` pytest plugin; Numba cache initialization raised `RuntimeError: cannot cache function ... no locator available`.
+- Steps to reproduce: run bare system `pytest` in this environment with global setuptools pytest entrypoints enabled.
+- Environment: macOS, system Anaconda Python 3.13, repo `backend/`.
+- Hypotheses tried: no product code was loaded; traceback shows failure in global `napari`/`numba` plugin initialization.
+- Root cause: command selected `/opt/anaconda3/bin/pytest` rather than the repository's documented `.venv` runner, causing unrelated global plugins to load.
+- Solution applied: use `../.venv/bin/pytest` from `backend/` (or documented `make test`) to isolate repo dependencies; no dependency or plugin configuration changed.
+- Verification: `../.venv/bin/pytest -q tests/test_phase5_site_move_fixtures.py` → **1 passed, 1 upstream warning**; full `make test` pending.
+- Related: Phase 5.10 / IMPL-0049.
+
 **Purpose:** every error, bug, failed test, failed command, regression, environment problem or surprising behaviour hit while working on this repo, **with the solution that was actually applied** (or the status if unsolved). Decisions and normal implementation go in `docs/IMPLEMENTATION_LOG.md`; link the two by ID.
 
 ## Rules

@@ -57,5 +57,8 @@ Only persisted operational `FAIL` and `NEEDS_REVIEW` findings from the latest ev
 - Which repo/remote is authoritative and who may push (master prompt: never change remotes or push without confirmation).
 - Acceptance date and sign-off authority for the evaluation build.
 
+### DEC-0013 — Phase 5.10 public EoA source and synthetic fixture handling
+The PRD's public EoA demo source is recorded as a source pointer, but the real institution PDF and its data are not copied into the repository because `AGENTS.md` prohibits committing real institution documents. The executable master-record JSON is fictional, labelled synthetic, and test-only. Synthetic Format-2-style NOC and Format-3-style Resolution JSON fixtures exercise existing classification and advisory cross-check/site-check services. Official form fields and regulatory interpretations remain Unverified; fixtures do not establish compliance or authority.
+
 ### DEC-0012 — When may the OpenRouter fallback send a page?
 The fallback is off by default, even when an API key exists. It also requires a server-side caller to assert that the page is from a public or synthetic source and requires OCR confidence below the configured threshold. The upload endpoint does not accept a client-supplied public/synthetic assertion and does not invoke this adapter. Only metadata is stored in `ExternalCallLog`; no page image, document text, prompt, response, or API key is persisted. This preserves the PRD/Essentials privacy constraint while leaving a controlled path for verified public or synthetic fixtures.

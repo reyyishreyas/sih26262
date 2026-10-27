@@ -13,6 +13,8 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| DEC-0013 | 2026-10-27 | Decision | Public EoA source is a pointer only; executable fixture master record and NOC/Resolution data remain fictional and synthetic | Accepted | Phase 5 5.10; FR-38/42/44; PRD §16 | Codex |
+| IMPL-0049 | 2026-10-27 | Implementation | Phase 5.10: synthetic EoA-shaped master fixture, labelled Format-2/3 fixtures, source pointer and advisory regression test | Tested | Phase 5 5.10 (AGENT-04; FR-38, FR-42, FR-44) | Codex |
 | IMPL-0048 | 2026-10-27 | Implementation | Phase 5.9: optional OpenRouter vision adapter, metadata-only ExternalCallLog, strict JSON schema and grounding; default off | Tested | Phase 5 5.9 (AGENT-04; FR-39, FR-51) | Codex |
 | DEC-0012 | 2026-10-27 | Decision | OpenRouter calls require an explicit switch plus server-trusted public/synthetic low-confidence source; API key alone never enables processing | Accepted | Phase 5 5.9; FR-39/51; PRD §19 Q13 | Codex |
 | IMPL-0047 | 2026-10-27 | Implementation | Phase 5.8: audited officer dispositions for operational amber/red findings; scrutiny exits require each current finding to have one | Tested | Phase 5 5.8 (AGENT-05; FR-47) | Codex |
@@ -109,6 +111,22 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0013 — Public EoA source pointer and fictional regression fixture
+The PRD's public EoA demo source is recorded as a source pointer, but the real institution PDF and its data are not copied into the repository because `AGENTS.md` prohibits committing real institution documents. The executable master-record JSON is fictional, labelled synthetic, and test-only. Synthetic Format-2-style NOC and Format-3-style Resolution JSON fixtures exercise existing classification and advisory cross-check/site-check services. Official form fields and regulatory interpretations remain Unverified; fixtures do not establish compliance or authority.
+
+### IMPL-0049 — Phase 5.10 synthetic site-move fixtures (FR-38, FR-42, FR-44)
+- Task / PRD IDs: Phase 5.10, FR-38, FR-42, FR-44.
+- What existed: classifier and advisory E01–E03 / SITE-01/02 services existed, but no joined labelled fixture pack tied them together. The repo already contained a synthetic DOCX NOC example; no Format-3 fixture was present.
+- Work: added JSON-only fictional test fixtures for the EoA-shaped master-record values, Format-2-style NOC, and Format-3-style Resolution. Added a source pointer for the public demo EoA; did not download or copy the real institution PDF/data. Added one contract test for class recognition, cross-document matches, full programme coverage and advisory-only outputs.
+- Files changed: `backend/tests/fixtures/phase5_site_move/{README.md,eoa_master_record.json,format_2_noc.json,format_3_resolution.json}`, `backend/tests/test_phase5_site_move_fixtures.py`, `docs/SOURCES.md`, `docs/DECISIONS.md`, `md/6_IMPLEMENTATION_PLAN.md`, `CONTEXT.md`, `README.md`, `docs/BUG_LOG.md`.
+- Existing code reused: `doc_classifier.classify`, `evidence_crosschecks.evaluate`, `site_checks.evaluate`, and `Snapshot`.
+- API/schema/config: none; no migration or dependency change.
+- Permission/audit effects: none; no persisted application state or audit events.
+- Verification: `../.venv/bin/pytest -q tests/test_phase5_site_move_fixtures.py` → **1 passed, 1 upstream warning**; `make lint` → clean; `make test` → **777 passed, 1 upstream warning, 0 skipped**. Initial bare system pytest failed before collection from an unrelated global plugin (BUG-0042); initial lint flagged test import order, fixed (BUG-0043).
+- Limitations: fixture values are wholly fictional; official Format-2/Format-3 templates and field mappings are not verified. Source pointer is not an integrated live/public data feed. No UI/demo auto-fill or split-screen work is claimed here; planned next task is 5.11.
+- Open questions: PRD §19 template/field mapping questions remain unresolved; no regulatory rule status changed.
+- Git status at implementation: pending final commit and push; unrelated untracked image files were left untouched.
 
 ### IMPL-0048 — Phase 5.9: optional OpenRouter vision fallback (FR-39, FR-51)
 - Date / agent / branch / commit: 2026-10-27 / Codex / master / pending commit.
