@@ -23,7 +23,8 @@
       "unverified_outcome": "NEEDS_REVIEW",
       "failure_outcome": "FAIL",
       "blocking": true,
-      "severity": "major"
+      "severity": "major",
+      "regulatory_status": "unverified"
     },
     {
       "key": "LEASE_ISSUING_AUTHORITY",
@@ -41,7 +42,8 @@
       "unverified_outcome": "NEEDS_REVIEW",
       "failure_outcome": "FAIL",
       "blocking": true,
-      "severity": "minor"
+      "severity": "minor",
+      "regulatory_status": "unverified"
     },
     {
       "key": "REQUIRED_DOC_AFFIDAVIT",
@@ -59,7 +61,8 @@
       "unverified_outcome": "NEEDS_REVIEW",
       "failure_outcome": "FAIL",
       "blocking": true,
-      "severity": "major"
+      "severity": "major",
+      "regulatory_status": "unverified"
     },
     {
       "key": "LEASE_DATE_CONSISTENCY",
@@ -82,7 +85,8 @@
       "unverified_outcome": "NEEDS_REVIEW",
       "failure_outcome": "NEEDS_REVIEW",
       "blocking": false,
-      "severity": "major"
+      "severity": "major",
+      "regulatory_status": "unverified"
     },
     {
       "key": "INSTITUTION_IDENTITY_MATCH",
@@ -105,7 +109,8 @@
       "unverified_outcome": "NEEDS_REVIEW",
       "failure_outcome": "FAIL",
       "blocking": true,
-      "severity": "major"
+      "severity": "major",
+      "regulatory_status": "unverified"
     },
     {
       "key": "EXISTING_INSTITUTION_FACULTY_RATIO",
@@ -134,7 +139,8 @@
       "unverified_outcome": "NEEDS_REVIEW",
       "failure_outcome": "FAIL",
       "blocking": false,
-      "severity": "minor"
+      "severity": "minor",
+      "regulatory_status": "unverified"
     },
     {
       "key": "UNDERTAKING_NO_OVERDUE",
@@ -157,7 +163,8 @@
       "unverified_outcome": "NEEDS_REVIEW",
       "failure_outcome": "FAIL",
       "blocking": true,
-      "severity": "major"
+      "severity": "major",
+      "regulatory_status": "unverified"
     }
   ]
 }

@@ -11,6 +11,8 @@ def _finding(db, *, outcome: str, rule_key: str) -> RuleEvaluation:
         application_id=APP_ID,
         rule_key=rule_key,
         rule_version=1,
+        regulatory_status="verified",
+        blocking=True,
         batch_id="phase5-disposition-batch",
         outcome=outcome,
         application_baseline_version=application.baseline_version,

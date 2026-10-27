@@ -399,7 +399,8 @@ def request_transition(
         unmet = [
             result
             for result in rule_results
-            if result.outcome not in (RuleOutcome.PASS, RuleOutcome.NOT_APPLICABLE)
+            if result.blocking
+            and result.outcome not in (RuleOutcome.PASS, RuleOutcome.NOT_APPLICABLE)
         ]
         if unmet:
             return _reject(
@@ -435,6 +436,8 @@ def request_transition(
                 finding_rows, key=lambda row: (row.evaluated_at, row.batch_id)
             ).batch_id
             findings = [row for row in finding_rows if row.batch_id == latest_batch
+                        and row.blocking
+                        and row.regulatory_status == "verified"
                         and row.outcome in ("FAIL", "NEEDS_REVIEW")]
             dispositions = {
                 row.rule_evaluation_id: row.disposition
@@ -635,7 +638,10 @@ def available_transitions(
             unmet.append("missing documents: " + ", ".join(missing))
         required = [specs[key] for key in (definition.required_rules or []) if key in specs]
         for result in evaluate_rules(required, snapshot):
-            if result.outcome not in (RuleOutcome.PASS, RuleOutcome.NOT_APPLICABLE):
+            if result.blocking and result.outcome not in (
+                RuleOutcome.PASS,
+                RuleOutcome.NOT_APPLICABLE,
+            ):
                 unmet.append(f"{result.rule_key}: {result.outcome.value}")
         out.append(
             {

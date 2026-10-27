@@ -4,9 +4,16 @@ from __future__ import annotations
 
 from sqlalchemy import func, select
 
-from app.models import Application, AuditEvent, WorkflowTransition
+from app.models import (
+    Application,
+    AuditEvent,
+    RuleEvaluation,
+    WorkflowTransition,
+    WorkflowTransitionDefinition,
+)
 from app.services import workflow_service
 from app.services.audit_service import verify_chain
+from app.services.rule_engine import RuleOutcome, RuleSpec
 
 
 def _app(db, app_id: str) -> Application:
@@ -63,6 +70,87 @@ def test_transition_blocked_by_missing_document_is_audited(db, access_for):
     assert rejected, "a rejected transition must be recorded"
     assert rejected[-1].action == "workflow.schedule_evc"
     assert "required document" in rejected[-1].reason.lower()
+
+
+def test_unverified_rule_findings_do_not_block_a_transition(db, access_for):
+    """Only verified rule versions may gate; unverified findings stay advisory."""
+    access = access_for("scrutiny@demo.local")
+    application = _app(db, "app-main-0001")
+    definition = db.scalars(
+        select(WorkflowTransitionDefinition).where(
+            WorkflowTransitionDefinition.route_key == application.route_key,
+            WorkflowTransitionDefinition.action == "schedule_evc",
+        )
+    ).one()
+    # Isolate the rule gate: the separately configured document guard remains
+    # independently covered by test_transition_blocked_by_missing_document.
+    definition.required_documents = []
+    db.add(
+        RuleEvaluation(
+            application_id=application.id,
+            rule_key="REQUIRED_DOC_AFFIDAVIT",
+            rule_version=1,
+            outcome="FAIL",
+            blocking=True,
+            application_baseline_version=application.baseline_version,
+            context="operational",
+            batch_id="unverified-rule-batch",
+        )
+    )
+    db.commit()
+
+    decision = workflow_service.request_transition(
+        db, access, application.id, "schedule_evc"
+    )
+
+    assert decision.accepted is True
+    assert _app(db, application.id).current_state == "evc_scheduled"
+
+
+def test_verified_rule_still_blocks_a_transition_and_marks_option_unavailable(
+    db, access_for, monkeypatch
+):
+    access = access_for("scrutiny@demo.local")
+    application = _app(db, "app-main-0001")
+    definition = db.scalars(
+        select(WorkflowTransitionDefinition).where(
+            WorkflowTransitionDefinition.route_key == application.route_key,
+            WorkflowTransitionDefinition.action == "schedule_evc",
+        )
+    ).one()
+    definition.required_documents = []
+    definition.required_rules = ["VERIFIED_TEST_RULE"]
+    monkeypatch.setattr(
+        workflow_service.compliance_service,
+        "load_rule_specs",
+        lambda _db: [
+            RuleSpec(
+                key="VERIFIED_TEST_RULE",
+                version=1,
+                condition={
+                    "op": "eq",
+                    "left": {"literal": 1},
+                    "right": {"literal": 2},
+                },
+                failure_outcome=RuleOutcome.FAIL,
+                blocking=True,
+                regulatory_status="verified",
+            )
+        ],
+    )
+    db.commit()
+
+    option = next(
+        item
+        for item in workflow_service.available_transitions(db, access, application)
+        if item["action"] == "schedule_evc"
+    )
+    assert option["available"] is False
+    assert "VERIFIED_TEST_RULE: FAIL" in option["blocked_by"]
+
+    decision = workflow_service.request_transition(db, access, application.id, "schedule_evc")
+    assert decision.accepted is False
+    assert any("VERIFIED_TEST_RULE is FAIL" in reason for reason in decision.reasons)
 
 
 def test_transition_blocked_by_role_is_audited(db, access_for):

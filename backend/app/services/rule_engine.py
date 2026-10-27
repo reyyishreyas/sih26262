@@ -139,6 +139,7 @@ class RuleSpec:
     unverified_outcome: RuleOutcome = RuleOutcome.NEEDS_REVIEW
     failure_outcome: RuleOutcome = RuleOutcome.FAIL
     blocking: bool = False
+    regulatory_status: str = "unverified"
     severity: str = "major"
     title: str = ""
     regulatory_reference: str = ""
@@ -154,7 +155,8 @@ class RuleSpec:
             missing_outcome=RuleOutcome(version.missing_outcome),
             unverified_outcome=RuleOutcome(version.unverified_outcome),
             failure_outcome=RuleOutcome(version.failure_outcome),
-            blocking=version.blocking,
+            blocking=version.blocking and version.regulatory_status == "verified",
+            regulatory_status=version.regulatory_status,
             severity=version.severity,
             title=version.rule.title,
             regulatory_reference=version.rule.regulatory_reference,
@@ -165,6 +167,7 @@ class RuleSpec:
 class RuleEvaluationResult:
     rule_key: str
     rule_version: int
+    regulatory_status: str
     outcome: RuleOutcome
     explanation: str
     evidence_refs: list[str] = field(default_factory=list)
@@ -179,6 +182,7 @@ class RuleEvaluationResult:
         return {
             "rule_key": self.rule_key,
             "rule_version": self.rule_version,
+            "regulatory_status": self.regulatory_status,
             "outcome": self.outcome.value,
             "explanation": self.explanation,
             "evidence_refs": self.evidence_refs,
@@ -358,6 +362,7 @@ def evaluate_rule(spec: RuleSpec, snapshot: Snapshot) -> RuleEvaluationResult:
     validate_condition(spec.condition)
     if spec.applicability:
         validate_condition(spec.applicability)
+    blocking = spec.blocking and spec.regulatory_status == "verified"
 
     # Applicability first: a rule that does not apply is not a finding.
     if spec.applicability:
@@ -367,6 +372,7 @@ def evaluate_rule(spec: RuleSpec, snapshot: Snapshot) -> RuleEvaluationResult:
             return RuleEvaluationResult(
                 rule_key=spec.key,
                 rule_version=spec.version,
+                regulatory_status=spec.regulatory_status,
                 outcome=RuleOutcome.NOT_EVALUATED,
                 explanation=(
                     "Applicability could not be decided because required inputs are "
@@ -375,7 +381,7 @@ def evaluate_rule(spec: RuleSpec, snapshot: Snapshot) -> RuleEvaluationResult:
                 evidence_refs=sorted(app_trace.refs),
                 missing_inputs=sorted(app_trace.missing),
                 unverified_inputs=sorted(app_trace.unverified),
-                blocking=spec.blocking,
+                blocking=blocking,
                 severity=spec.severity,
                 regulatory_reference=spec.regulatory_reference,
                 title=spec.title,
@@ -384,10 +390,11 @@ def evaluate_rule(spec: RuleSpec, snapshot: Snapshot) -> RuleEvaluationResult:
             return RuleEvaluationResult(
                 rule_key=spec.key,
                 rule_version=spec.version,
+                regulatory_status=spec.regulatory_status,
                 outcome=RuleOutcome.NOT_APPLICABLE,
                 explanation="The approved applicability conditions do not apply to this case.",
                 evidence_refs=sorted(app_trace.refs),
-                blocking=spec.blocking,
+                blocking=blocking,
                 severity=spec.severity,
                 regulatory_reference=spec.regulatory_reference,
                 title=spec.title,
@@ -426,12 +433,13 @@ def evaluate_rule(spec: RuleSpec, snapshot: Snapshot) -> RuleEvaluationResult:
     return RuleEvaluationResult(
         rule_key=spec.key,
         rule_version=spec.version,
+        regulatory_status=spec.regulatory_status,
         outcome=outcome,
         explanation=explanation,
         evidence_refs=sorted(trace.refs),
         missing_inputs=sorted(trace.missing),
         unverified_inputs=sorted(trace.unverified),
-        blocking=spec.blocking,
+        blocking=blocking,
         severity=spec.severity,
         regulatory_reference=spec.regulatory_reference,
         title=spec.title,

@@ -119,6 +119,7 @@ def _ensure_rules(db: Session, admin: User) -> None:
             rule_id=rule.id,
             version=1,
             status="approved",
+            regulatory_status=entry.get("regulatory_status", "unverified"),
             applicability=entry.get("applicability", {"op": "always"}),
             condition=entry["condition"],
             missing_outcome=entry.get("missing_outcome", "NOT_EVALUATED"),

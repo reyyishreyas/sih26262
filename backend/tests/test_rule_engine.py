@@ -23,6 +23,7 @@ def spec(**overrides) -> RuleSpec:
         key="TEST_RULE",
         version=1,
         condition={"op": "gte", "left": {"field": "documents.lease.valid_to"}, "right": {"literal": "2027-01-01"}},
+        regulatory_status="verified",
     )
     base.update(overrides)
     return RuleSpec(**base)
@@ -174,3 +175,13 @@ def test_unmet_blocking_rules_include_review_and_not_evaluated():
     results = [evaluate_rule(spec(blocking=True), snapshot)]
     assert unmet_blocking_rules(results) == results
     assert MISSING is not None
+
+
+def test_unverified_regulatory_status_can_never_produce_a_blocking_result():
+    result = evaluate_rule(
+        spec(regulatory_status="unverified", blocking=True),
+        Snapshot(values={"documents": {}}),
+    )
+    assert result.regulatory_status == "unverified"
+    assert result.blocking is False
+    assert unmet_blocking_rules([result]) == []

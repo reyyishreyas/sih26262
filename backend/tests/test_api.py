@@ -49,9 +49,12 @@ def test_compliance_returns_typed_outcomes(client, as_user):
     assert findings["INSTITUTION_IDENTITY_MATCH"]["outcome"] == "PASS"
     assert findings["EXISTING_INSTITUTION_FACULTY_RATIO"]["outcome"] == "NOT_APPLICABLE"
 
-    # A blocking FAIL with a documented reason, not a silent pass.
+    # The rule has a mapped outcome but no verified APH clause, so it is
+    # explicitly nonblocking until a verified version is approved.
     blocking = {row["rule_key"] for row in response.json()["blocking_unmet"]}
-    assert "REQUIRED_DOC_AFFIDAVIT" in blocking
+    assert findings["REQUIRED_DOC_AFFIDAVIT"]["regulatory_status"] == "unverified"
+    assert findings["REQUIRED_DOC_AFFIDAVIT"]["blocking"] is False
+    assert "REQUIRED_DOC_AFFIDAVIT" not in blocking
 
 
 def test_compliance_get_returns_the_latest_batch(client, as_user):

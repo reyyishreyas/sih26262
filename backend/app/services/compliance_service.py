@@ -100,6 +100,7 @@ def evaluate_application(
                     application_id=application.id,
                     rule_key=result.rule_key,
                     rule_version=result.rule_version,
+                    regulatory_status=result.regulatory_status,
                     outcome=result.outcome.value,
                     explanation=result.explanation,
                     evidence_refs=result.evidence_refs,

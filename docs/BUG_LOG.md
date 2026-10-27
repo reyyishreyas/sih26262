@@ -1,5 +1,8 @@
 # docs/BUG_LOG.md
 
+| BUG-0065 | 2026-10-28 | S1 | regulatory gate safety | Unverified rule versions blocked transitions and required officer dispositions | Fixed | IMPL-0060 / DEC-0024 |
+| BUG-0066 | 2026-10-28 | S3 | migration compatibility | Historical trigger referenced the new column before its migration | Fixed | IMPL-0060 |
+| BUG-0067 | 2026-10-28 | S4 | verification command | Focused pytest command used two nonexistent test filenames | Fixed | IMPL-0060 |
 | BUG-0058 | 2026-10-28 | S2 | release packaging | Appeal API module omitted from Phase 6.6 commit | Fixed | IMPL-0057 |
 | BUG-0060 | 2026-10-28 | S3 | regression tests | Reopening integration exposed assignment and stage bookkeeping assumptions | Fixed | IMPL-0058 |
 | BUG-0059 | 2026-10-28 | S3 | lint | Ruff rejected generated migration import order | Fixed | IMPL-0058 |
@@ -503,6 +506,52 @@
 ```
 
 ## Entries (newest first)
+
+### BUG-0065 — Unverified regulatory rules were used as binding workflow gates
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / working tree.
+- Severity / Area: **S1 / regulatory outcome and workflow authorization**.
+- Status: **Fixed**.
+- Expected: only a rule mapping with regulatory status `verified` may gate or require a disposition; other findings remain advisory (Architecture Essentials 11/11a).
+- Actual: approved lifecycle status was the only status stored. A `FAIL` from a clause-pending rule could reject a transition, disable its UI option, or require an officer disposition.
+- Reproduction: `cd backend && ../.venv/bin/pytest -q tests/test_workflow.py::test_unverified_rule_findings_do_not_block_a_transition`; before the fix it failed with `accepted=False` and the “clause mapping pending verification” rule result. Full suite also demonstrated the unverified overdue-rule gate.
+- Environment: macOS, Python 3.13, SQLite tests.
+- Hypotheses tried: inspected the rule source and workflow path; `RuleVersion.status` represented only draft/approved/retired, and `RuleSpec` carried no regulatory verification status.
+- Root cause: lifecycle approval was implicitly treated as legal-source verification; transition/available-transition/disposition code ignored regulatory verification.
+- Solution applied: add immutable regulatory status to rule versions and persisted evaluations, default all existing/current rules to Unverified, expose it in API/UI, and gate only if status is Verified and blocking is true. Existing document-presence guards remain separate.
+- Verification: targeted gate/rule suite passed; final `make lint && make test` → 826 passed, 2 upstream warnings; frontend build passed; SQLite migration upgrade/check and downgrade/re-upgrade passed.
+- Regression tests: `test_unverified_rule_findings_do_not_block_a_transition`, `test_verified_rule_still_blocks_a_transition_and_marks_option_unavailable`, `test_unverified_overdue_rule_is_advisory_for_approval`, `test_unverified_regulatory_status_can_never_produce_a_blocking_result`, `test_regulatory_status_cannot_be_changed_on_approved_version`, and existing disposition/authz checks.
+- Human report: reported in commentary when discovered; no new regulation or authority was enabled.
+- Related: IMPL-0060 / DEC-0024.
+
+### BUG-0066 — Fresh SQLite migration chain referenced regulatory_status too early
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / working tree.
+- Severity / Area: S3 / migration compatibility.
+- Status: **Fixed**.
+- Expected: a fresh SQLite database upgrades all revisions and Alembic check matches models.
+- Actual: migration `0005_alert_lifecycle` failed during SQLite table rename with `OperationalError: error in trigger rule_versions_immutable_update: no such column: NEW.regulatory_status`.
+- Reproduction: fresh `SIH_DATABASE_URL=sqlite:////tmp/...db` Alembic upgrade after updating the shared trigger builder.
+- Environment: SQLite, Python 3.13, repository Alembic environment.
+- Hypotheses tried: the historical revision `0004` imports the current guard builder; after the shared builder gained the new field, that old revision installed an invalid trigger.
+- Root cause: historical migration behavior depended on the current schema's trigger fields.
+- Solution applied: pin migration `0004` to its historical field set (`include_regulatory_status=False`); the new revision drops/replaces that trigger after creating the column.
+- Verification: fresh upgrade through `e3a8c2b1d740`, Alembic check returned `No new upgrade operations detected`; downgrade to `d948f3303deb` and upgrade again passed; full backend suite passed.
+- Regression test: fresh migration and model check sequence recorded in IMPL-0060.
+- Related: IMPL-0060.
+
+### BUG-0067 — Initial focused pytest command named stale paths
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / working tree.
+- Severity / Area: S4 / verification command.
+- Status: **Fixed**.
+- Expected: selected workflow, compliance and finding tests run.
+- Actual: pytest reported `file or directory not found` for guessed filenames `test_phase5_findings.py` and `test_compliance_api.py`.
+- Reproduction: initial focused pytest invocation during IMPL-0060.
+- Environment: repository backend test tree.
+- Hypotheses tried: queried tracked test paths using `rg --files`.
+- Root cause: command used stale/invented test module names.
+- Solution applied: used actual paths `test_workflow.py`, `test_rule_engine.py`, `test_finding_dispositions.py`, `test_compliance_report.py`, `test_rules_service.py`, and `test_hardening.py`.
+- Verification: focused suite passed; final full suite passed.
+- Regression test: none required; command path only.
+- Related: IMPL-0060.
 
 ### BUG-0037 — Phase 5.7 policy contract test compared the wrong side of the mapping
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / working tree for Phase 5.7

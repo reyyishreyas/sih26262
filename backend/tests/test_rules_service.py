@@ -5,7 +5,7 @@ from __future__ import annotations
 import pytest
 from sqlalchemy import select
 
-from app.models import Rule, RuleVersion
+from app.models import Application, Rule, RuleVersion
 from app.services import compliance_service
 
 
@@ -16,12 +16,32 @@ def test_seeded_rule_set_loads_only_approved_versions(db):
     assert "UNDERTAKING_NO_OVERDUE" in keys
     assert len(specs) == 7
     assert all(spec.version == 1 for spec in specs)
+    assert all(spec.regulatory_status == "unverified" for spec in specs)
+    assert all(spec.blocking is False for spec in specs)
+
+
+def test_operational_assessment_labels_unverified_rules_nonblocking(db):
+    report = compliance_service.evaluate_application(
+        db, db.get(Application, "app-main-0001"), persist=False
+    )
+    assert report.results
+    assert all(result.regulatory_status == "unverified" for result in report.results)
+    assert all(result.blocking is False for result in report.results)
 
 
 def test_approved_version_is_immutable(db):
     version = db.scalars(select(RuleVersion)).first()
     assert version.status == "approved"
     version.condition = {"op": "always"}
+    with pytest.raises(ValueError, match="immutable"):
+        db.flush()
+    db.rollback()
+
+
+def test_regulatory_status_cannot_be_changed_on_approved_version(db):
+    version = db.scalars(select(RuleVersion)).first()
+    assert version.status == "approved"
+    version.regulatory_status = "verified"
     with pytest.raises(ValueError, match="immutable"):
         db.flush()
     db.rollback()

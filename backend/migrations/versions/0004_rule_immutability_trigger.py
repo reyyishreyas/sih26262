@@ -23,7 +23,9 @@ depends_on = None
 
 
 def upgrade() -> None:
-    install_rule_version_guard(op.get_bind())
+    # This historical revision predates regulatory_status; the next revision
+    # replaces the trigger after adding that column.
+    install_rule_version_guard(op.get_bind(), include_regulatory_status=False)
 
 
 def downgrade() -> None:

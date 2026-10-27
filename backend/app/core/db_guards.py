@@ -13,6 +13,7 @@ from sqlalchemy.engine import Connection
 _SQLITE_IMMUTABLE_FIELDS = (
     "rule_id",
     "version",
+    "regulatory_status",
     "applicability",
     "condition",
     "missing_outcome",
@@ -29,13 +30,14 @@ _SQLITE_IMMUTABLE_FIELDS = (
 _POSTGRES_IMMUTABLE_FIELDS = _SQLITE_IMMUTABLE_FIELDS
 
 
-def _sqlite_changed_clause() -> str:
+def _sqlite_changed_clause(fields: tuple[str, ...] = _SQLITE_IMMUTABLE_FIELDS) -> str:
     return "\n      OR ".join(
-        f"NEW.{field} IS NOT OLD.{field}" for field in _SQLITE_IMMUTABLE_FIELDS
+        f"NEW.{field} IS NOT OLD.{field}" for field in fields
     )
 
 
-SQLITE_UPDATE_TRIGGER = f"""
+def _sqlite_update_trigger(fields: tuple[str, ...] = _SQLITE_IMMUTABLE_FIELDS) -> str:
+    return f"""
 CREATE TRIGGER IF NOT EXISTS rule_versions_immutable_update
 BEFORE UPDATE ON rule_versions
 WHEN OLD.status IN ('approved', 'retired')
@@ -45,7 +47,7 @@ BEGIN
       THEN RAISE(ABORT, 'retired rule versions cannot change status')
     WHEN OLD.status = 'approved' AND NEW.status NOT IN ('approved', 'retired')
       THEN RAISE(ABORT, 'approved rule versions may only be retired')
-    WHEN {_sqlite_changed_clause()}
+    WHEN {_sqlite_changed_clause(fields)}
       THEN RAISE(ABORT, 'approved or retired rule versions are immutable; draft a new version')
   END;
 END;
@@ -61,14 +63,14 @@ END;
 """
 
 
-def _postgres_changed_clause() -> str:
+def _postgres_changed_clause(fields: tuple[str, ...] = _POSTGRES_IMMUTABLE_FIELDS) -> str:
     return "\n       OR ".join(
-        f"NEW.{field}::text IS DISTINCT FROM OLD.{field}::text"
-        for field in _POSTGRES_IMMUTABLE_FIELDS
+        f"NEW.{field}::text IS DISTINCT FROM OLD.{field}::text" for field in fields
     )
 
 
-POSTGRES_FUNCTION = f"""
+def _postgres_function(fields: tuple[str, ...] = _POSTGRES_IMMUTABLE_FIELDS) -> str:
+    return f"""
 CREATE OR REPLACE FUNCTION enforce_rule_version_immutability()
 RETURNS trigger
 LANGUAGE plpgsql
@@ -91,7 +93,7 @@ BEGIN
       RAISE EXCEPTION 'approved rule versions may only be retired'
         USING ERRCODE = '23514';
     END IF;
-    IF {_postgres_changed_clause()}
+    IF {_postgres_changed_clause(fields)}
     THEN
       RAISE EXCEPTION 'approved or retired rule versions are immutable; draft a new version'
         USING ERRCODE = '23514';
@@ -110,18 +112,29 @@ FOR EACH ROW EXECUTE FUNCTION enforce_rule_version_immutability();
 """
 
 
-def install_sqlite_rule_version_guard(connection: Connection) -> None:
-    connection.exec_driver_sql(SQLITE_UPDATE_TRIGGER)
+def install_sqlite_rule_version_guard(
+    connection: Connection, fields: tuple[str, ...] = _SQLITE_IMMUTABLE_FIELDS
+) -> None:
+    connection.exec_driver_sql(_sqlite_update_trigger(fields))
     connection.exec_driver_sql(SQLITE_DELETE_TRIGGER)
 
 
-def install_postgres_rule_version_guard(connection: Connection) -> None:
-    connection.exec_driver_sql(POSTGRES_FUNCTION)
+def install_postgres_rule_version_guard(
+    connection: Connection, fields: tuple[str, ...] = _POSTGRES_IMMUTABLE_FIELDS
+) -> None:
+    connection.exec_driver_sql(_postgres_function(fields))
     connection.exec_driver_sql(POSTGRES_TRIGGER)
 
 
-def install_rule_version_guard(connection: Connection) -> None:
+def install_rule_version_guard(
+    connection: Connection,
+    *,
+    include_regulatory_status: bool = True,
+) -> None:
+    fields = _SQLITE_IMMUTABLE_FIELDS
+    if not include_regulatory_status:
+        fields = tuple(field for field in fields if field != "regulatory_status")
     if connection.dialect.name == "sqlite":
-        install_sqlite_rule_version_guard(connection)
+        install_sqlite_rule_version_guard(connection, fields)
     elif connection.dialect.name == "postgresql":
-        install_postgres_rule_version_guard(connection)
+        install_postgres_rule_version_guard(connection, fields)

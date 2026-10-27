@@ -254,6 +254,9 @@ export function FindingsTable({
                 {finding.regulatory_reference && (
                   <> · {finding.regulatory_reference}</>
                 )}
+                {finding.regulatory_status && (
+                  <> · Regulatory status: {finding.regulatory_status === "verified" ? "Verified" : "Unverified — advisory only"}</>
+                )}
                 {(finding.evidence_refs ?? []).length > 0 && (
                   <> · used: {(finding.evidence_refs ?? []).join(", ")}</>
                 )}

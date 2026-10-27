@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 798 passing (2026-10-27 verification)
+make test      # pytest — 826 passing (2026-10-28 verification)
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -203,6 +203,7 @@ in `styles.css`, icons are **inline SVG** in `components/Icon.tsx`.
 - Rule **versions are immutable once approved** (`rule_versions.status`,
   migration `0004_rule_immutability_trigger`), with `content_hash`,
   approver and effective dates; `rule_tests` store golden inputs per version.
+- Regulatory verification is tracked separately from approval lifecycle (`rule_versions.regulatory_status`, migration `e3a8c2b1d740`); the current clause-pending rules are Unverified, so their findings stay visible but cannot block workflow or require a disposition. The finding API and UI show this status.
 - `services/evidence_service.py::build_snapshot` builds the plain-value
   snapshot the rules read (values + `verified` map + `source` map) — no ORM
   objects cross into the engine.
@@ -820,3 +821,4 @@ Phase 6.7 complete: one-time submitted-state reopening now requires a same-case 
 **48-hour cut line: items 1–9 + 11.**
 
 Phase 6.8 implemented and tested: human-reviewed Chapter II grant batches carry per-course approved intake and explicit Academic Calendar date/source; Council ratification, EoA letter upload, guarded publication, institution scoped view/download and audit are added. Chapter I remains excluded and dates/intake are not inferred (IMPL-0059 / DEC-0023). Verification: `make lint`; `make test` 820 passed / 2 upstream warnings; frontend build; fresh SQLite upgrade/check through `d948f3303deb`. Full Phase 6 exit journey remains partial because yearly security-deposit inputs are placeholders.
+2026-10-28 S1 safety update: rule approval lifecycle is separate from regulatory-source verification. All current clause-pending rules are Unverified and advisory only; only Verified blocking outcomes can gate transitions or dispositions (IMPL-0060 / DEC-0024). Verification: `make lint && make test` (826 passed, 2 upstream warnings), frontend build, fresh SQLite upgrade/check and downgrade/re-upgrade. Full Phase 6 exit journey remains partial pending deposit-intimation data and a complete integrated route test.

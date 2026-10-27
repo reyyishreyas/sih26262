@@ -56,6 +56,9 @@ class RuleVersion(Base):
     )
     version: Mapped[int] = mapped_column(Integer)
     status: Mapped[str] = mapped_column(String(16), default="draft", index=True)
+    regulatory_status: Mapped[str] = mapped_column(
+        String(24), default="unverified", server_default="unverified"
+    )
     applicability: Mapped[dict] = mapped_column(JSON, default=dict)
     condition: Mapped[dict] = mapped_column(JSON, default=dict)
     # Outcome when the required evidence does not exist at all.
@@ -86,6 +89,7 @@ class RuleVersion(Base):
 _IMMUTABLE_FIELDS = (
     "rule_id",
     "version",
+    "regulatory_status",
     "applicability",
     "condition",
     "missing_outcome",

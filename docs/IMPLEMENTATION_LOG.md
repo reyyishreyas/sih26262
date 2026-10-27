@@ -13,6 +13,11 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| DEC-0024 | 2026-10-28 | Decision | Regulatory verification is independent of approval lifecycle; unverified rules remain advisory | Accepted | Safety correction for workflow/compliance gates; Essentials 11 | Codex |
+| IMPL-0060 | 2026-10-28 | Implementation | Unverified rule findings no longer gate workflow/disposition; status exposed in API/UI | Tested | Phase 6 safety prerequisite; FR-46/47, FR-18/20 | Codex |
+| BUG-0065 | 2026-10-28 | Bug | Clause-pending rules could block transitions and disposition gates | Fixed | IMPL-0060 / DEC-0024 |
+| BUG-0066 | 2026-10-28 | Bug | Fresh migration chain installed a trigger before its referenced regulatory-status column | Fixed | IMPL-0060 |
+| BUG-0067 | 2026-10-28 | Bug | Initial focused pytest invocation named two test files that do not exist | Fixed | IMPL-0060 |
 | DEC-0023 | 2026-10-28 | Decision | Chapter II grant list, Council ratification and EoA publication scoped to verified APH clauses | Accepted for prototype workflow; role delegation remains an app ACL | Phase 6 6.8; FR-31/32 | Project lead scope + Codex source check |
 | IMPL-0059 | 2026-10-28 | Implementation | Phase 6.8: consolidated approved-intake grant list, Council ratification and institution EoA publication | Tested | Phase 6 6.8 (FR-31/32) | Codex |
 | IMPL-0059 Update | 2026-10-28 | Update | Phase 6.8 commit and push recorded | Pushed `ce4fa6a` to `origin/master`; tree clean except six pre-existing untracked user documents/images listed in status | Phase 6 6.8 | Codex |
@@ -132,6 +137,25 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0024 — Regulatory status is distinct from rule approval lifecycle
+- Date / owner: 2026-10-28 / Codex.
+- Status: Accepted as a safety interpretation of Architecture Essentials 11 and `md/rules2.json`; no regulatory mapping is declared Verified here.
+- Decision: `RuleVersion.status` continues to mean draft/approved/retired lifecycle. A separate immutable `regulatory_status` determines whether a blocking rule may gate: only `verified` rules can block. Missing or invalid status fails closed to advisory.
+- Effect: seeded rules with clause mappings pending verification remain visible, retain typed outcomes, and cannot reject transitions or require Phase 5.8 dispositions. Verified blocking rules retain their gate.
+- Related: IMPL-0060; BUG-0065/0066.
+
+### IMPL-0060 — Unverified regulatory rules remain advisory
+- Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: safety correction discovered while completing Phase 6; FR-18, FR-20, FR-46, FR-47; Architecture Essentials 11 and 11a.
+- What existed: approved rule versions had no separate regulatory-verification status. Transition guard, available-transition view and scrutiny disposition gate treated all configured blocking rules as authority even when every mapped rule cited a clause “pending verification.”
+- What changed: immutable `RuleVersion.regulatory_status` and persisted `RuleEvaluation.regulatory_status`; new JSON status for all current rules is `unverified`; `RuleSpec` computes effective blocking only for `verified`; transition guard and available-transition UI only gate on effective blocking; Phase 5.8 disposition gate ignores non-Verified findings; API and FindingsTable label status. Added migration `e3a8c2b1d740` and kept migration `0004`'s historical trigger schema compatible.
+- Files changed: `backend/app/models/rules.py`, `backend/app/models/compliance.py`, `backend/app/core/db_guards.py`, `backend/app/services/rule_engine.py`, `backend/app/services/compliance_service.py`, `backend/app/services/workflow_service.py`, `backend/app/services/seed.py`, `backend/app/api/applications.py`, `backend/rules/compliance_rules.json`, migrations `0004_rule_immutability_trigger.py` and `e3a8c2b1d740_rule_regulatory_status.py`, `backend/tests/test_workflow.py`, `test_rule_engine.py`, `test_rules_service.py`, `test_finding_dispositions.py`, `test_undertakings_and_gate.py`, `test_api.py`, `test_hardening.py`, `frontend/src/types.ts`, `frontend/src/components/FindingsTable.tsx`, `md/6_IMPLEMENTATION_PLAN.md`, `CONTEXT.md`, this log, `docs/BUG_LOG.md`.
+- Migration / API / config: two non-null status columns defaulting to `unverified`; no permission changes. Compliance findings now include regulatory status. Audit records still capture accepted/rejected transitions as before; this correction does not add mutation or decision authority.
+- Verification: focused suite **88 passed** before final compatibility assertions; final `make lint && make test` → **826 passed, 2 upstream Starlette warnings**; `cd frontend && npm run build` → TypeScript and Vite passed; fresh SQLite Alembic upgrade to `e3a8c2b1d740` + `alembic check` → `No new upgrade operations detected`; SQLite downgrade to `d948f3303deb` then upgrade to head passed. Postgres migration was not run.
+- Limitations: all seven current compliance rules remain Unverified and advisory until a source-verified version is recorded. This does not remove route-configured document-presence checks. There is no admin workflow for changing regulatory status; a new rule version is required.
+- Related decisions and bugs: DEC-0024; BUG-0065/0066/0067.
+- Next: continue the Phase 6 exit journey; verify joined workflow behavior and preserve the explicitly advisory Security Deposit limitations.
 
 ### IMPL-0059 Update — commit and push
 - Commit: `ce4fa6a feat(phase6): implement grant consolidation and publication`; pushed successfully to `origin/master`.

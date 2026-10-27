@@ -180,7 +180,7 @@ def test_the_lateness_rule_passes_when_nothing_is_overdue(db, client, as_user):
     assert results["UNDERTAKING_NO_OVERDUE"].outcome.value == "PASS"
 
 
-def test_an_overdue_condition_blocks_approval(db, client, as_user, access_for):
+def test_unverified_overdue_rule_is_advisory_for_approval(db, client, as_user, access_for):
     headers = as_user("scrutiny@demo.local")
     created = client.post(
         "/api/v1/applications/app-existing-0003/undertakings",
@@ -198,12 +198,15 @@ def test_an_overdue_condition_blocks_approval(db, client, as_user, access_for):
     decision = workflow_service.request_transition(
         db, access, "app-existing-0003", "approve", reason="All good"
     )
-    assert decision.accepted is False
-    assert any("UNDERTAKING_NO_OVERDUE" in reason for reason in decision.reasons)
-    assert db.get(Application, "app-existing-0003").current_state == "scrutiny"
+    assert decision.accepted is True
+    result = next(row for row in decision.rule_results if row.rule_key == "UNDERTAKING_NO_OVERDUE")
+    assert result.outcome.value == "FAIL"
+    assert result.regulatory_status == "unverified"
+    assert result.blocking is False
+    assert db.get(Application, "app-existing-0003").current_state == "approved"
 
 
-def test_clearing_the_condition_unblocks_the_gate(db, client, as_user, access_for):
+def test_unverified_overdue_rule_does_not_disable_transition_option(db, client, as_user, access_for):
     headers = as_user("scrutiny@demo.local")
     created = client.post(
         "/api/v1/applications/app-existing-0003/undertakings",
@@ -222,7 +225,7 @@ def test_clearing_the_condition_unblocks_the_gate(db, client, as_user, access_fo
         )
         if entry["action"] == "approve"
     )
-    assert any("UNDERTAKING_NO_OVERDUE" in item for item in before["blocked_by"])
+    assert not any("UNDERTAKING_NO_OVERDUE" in item for item in before["blocked_by"])
 
     # The officer waives it with a reason; the gate reopens on the next check.
     waived = client.post(

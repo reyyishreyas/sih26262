@@ -489,6 +489,18 @@ def test_database_trigger_blocks_direct_rule_updates(db):
     db.rollback()
 
 
+def test_database_trigger_blocks_regulatory_status_changes(db):
+    version = db.query(RuleVersion).first()
+    assert version is not None
+    with pytest.raises(IntegrityError):
+        db.execute(
+            text("UPDATE rule_versions SET regulatory_status = 'verified' WHERE id = :id"),
+            {"id": version.id},
+        )
+        db.commit()
+    db.rollback()
+
+
 def test_database_trigger_allows_retirement_and_blocks_changes_after_it(db):
     version = db.query(RuleVersion).first()
     assert version is not None

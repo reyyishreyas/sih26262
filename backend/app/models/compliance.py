@@ -55,6 +55,9 @@ class RuleEvaluation(Base):
     )
     rule_key: Mapped[str] = mapped_column(String(64))
     rule_version: Mapped[int] = mapped_column(Integer)
+    regulatory_status: Mapped[str] = mapped_column(
+        String(24), default="unverified", server_default="unverified"
+    )
     batch_id: Mapped[str] = mapped_column(String(36), index=True, default=new_id)
     outcome: Mapped[str] = mapped_column(String(24), index=True)
     explanation: Mapped[str] = mapped_column(String(1024), default="")

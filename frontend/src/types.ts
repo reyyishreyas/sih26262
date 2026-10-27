@@ -12,6 +12,7 @@ export interface Finding {
   explanation: string;
   blocking: boolean;
   rule_version: number;
+  regulatory_status?: "verified" | "unverified";
   // Present on a fresh evaluation; the stored-batch view returns a smaller shape.
   title?: string;
   severity?: string;

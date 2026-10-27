@@ -206,6 +206,7 @@ def get_compliance(
                 "rule_key": row.rule_key,
                 "finding_id": row.id,
                 "rule_version": row.rule_version,
+                "regulatory_status": row.regulatory_status,
                 "outcome": row.outcome,
                 "explanation": row.explanation,
                 "evidence_refs": row.evidence_refs,
