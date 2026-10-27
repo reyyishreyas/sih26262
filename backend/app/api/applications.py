@@ -5,6 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock, iso
+from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.pagination import PageParams, apply_page, pagination, set_total
 from ..core.permissions import APPLICATION_CREATE, APPLICATION_READ, CASE_READ
@@ -144,6 +145,21 @@ def get_compliance(
         or latest.application_baseline_version != application.baseline_version
     ):
         report = compliance_service.evaluate_application(db, application, persist=True)
+        AuditService(db).append(
+            action="finding.batch_evaluated",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="accepted",
+            actor_role="system",
+            after={
+                "batch_id": report.batch_id,
+                "baseline_version": report.baseline_version,
+                "rule_set_version": report.rule_set_version,
+                "outcomes": report.counted(),
+                "trigger": "stale_or_missing_batch_read",
+            },
+            request_id=current_request_id(),
+        )
         db.commit()
         return report.as_dict()
 

@@ -109,10 +109,10 @@ Do not run phases concurrently without agreed interfaces (see `4_AGENTS.md`). Ea
 - [ ] **Exit check:** dashboard counts equal drill-down lists (reuse existing reconcile test pattern).
 
 ## Phase 8 — Audit completeness · build order #5
-- [ ] 8.1 Audit every PRD-listed event type, including document views.
-- [ ] 8.2 Single-application timeline endpoint + `AuditTimeline.tsx`.
-- [ ] 8.3 Export with hash-check; `scripts/tamper_demo.py` on a throwaway DB shows the check failing.
-- [ ] **Exit check:** tamper test fails the chain; untouched chain passes.
+- [ ] 8.1 **Partial:** audited material events for implemented flows: document content access and extraction start/completion/failure/replacement, compliance finding-batch evaluation, automatic case assignment, and explicit audit verification/export; existing workflow, deficiency, alert, undertaking and officer actions retain their audited paths. Remaining PRD event sources—rule/configuration edits and appeals—have no mutation route/model yet and must be instrumented when those capabilities are implemented (Phase 6/9).
+- [x] 8.2 Single-application timeline endpoint + `AuditTimeline.tsx`; endpoint remains object-scoped and paginated, UI states the tamper-evident limitation, and offers explicit chain verification and export.
+- [x] 8.3 Case-scoped JSON export checks the complete chain and records the export; `scripts/tamper_demo.py` operates on a temporary SQLite DB and demonstrates the check failing after an intentional row alteration.
+- [ ] **Exit check (partial):** tamper demo reports the untouched chain passes and the altered chain fails; Phase 8 targeted tests verify access, scoping, event writes, export refusal and verification behavior. Overall audit coverage remains open for the Phase 8.1 event sources listed above.
 
 ## Phase 9 — Thin slices and admin · build order #6–7
 - [ ] 9.1 Lease thin slice: end date read, advance + overdue alerts (FR-45).

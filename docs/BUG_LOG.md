@@ -16,6 +16,16 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0032 | 2026-10-27 | S4 | test harness | Update: the four Phase 5.4 failures first seen in BUG-0023 are gone; final suite is green | Fixed | IMPL-0041 |
+| BUG-0031 | 2026-10-27 | S4 | GitHub tooling | Default sandbox could not reach GitHub API to verify requested repo access; escalated read confirmed ADMIN | Fixed | IMPL-0041 |
+| BUG-0030 | 2026-10-27 | S4 | patch tooling | One Phase 8 patch did not apply because its context did not match current source; no changes from the failed patch | Fixed | IMPL-0041 |
+| BUG-0029 | 2026-10-27 | S4 | test harness | Targeted pytest command named a nonexistent node under `test_evidence_flow.py`; corrected to `test_case_assignment.py` | Fixed | IMPL-0041 |
+| BUG-0028 | 2026-10-27 | S4 | lint | New Phase 8 test imports failed Ruff `I001`; `ruff --fix` corrected ordering | Fixed | IMPL-0041 |
+| BUG-0027 | 2026-10-27 | S4 | tooling | Ruff command used a path relative to `backend/` while run from repository root | Fixed | IMPL-0041 |
+| BUG-0026 | 2026-10-27 | S4 | audit | First Phase 8 lint found `application` referenced but not bound in the content-download handler | Fixed | IMPL-0041 |
+| BUG-0025 | 2026-10-27 | S4 | audit | Repository script inspection used the wrong path; `scripts/verify_isolation.py` does not exist at root | Fixed | IMPL-0041 |
+| BUG-0024 | 2026-10-27 | S4 | git tooling | `git fetch origin` could not write `.git/FETCH_HEAD` in the restricted sandbox; fetch succeeded with approved escalation | Fixed | IMPL-0041 |
+| BUG-0023 | 2026-10-27 | S3 | test harness / Phase 5.4 in-progress | Baseline `make test` has four failures in uncommitted three-value work (missing spec key and missing claim route) | Open | IMPL-0041 |
 | BUG-0022 | 2026-10-27 | S4 | test harness | Phase 5.3 API test: field lookup not scoped to the uploaded document hit seeded `lessee_name` rows (`MultipleResultsFound`) | Fixed | IMPL-0040 |
 | BUG-0021 | 2026-10-27 | S4 | test harness | Phase 5.3 API test read upload warnings from the wrong key — they live at `body["extraction"]["warnings"]` | Fixed | IMPL-0040 |
 | BUG-0020 | 2026-10-27 | S3 | document grounding | Phase 5.3: `matching.case_sensitive` polarity inverted at the read site — case differences failed the ground check (`not on page: Sub`) | Fixed | IMPL-0040 |
@@ -60,6 +70,176 @@
 ```
 
 ## Entries (newest first)
+
+### BUG-0032 — Update: temporary Phase 5.4 failures are no longer present
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / shared worktree after concurrent changes
+- Severity / Area: S4 / test harness
+- Status: Fixed (update to BUG-0023)
+- Where it showed up: final `make lint && make test` during IMPL-0041.
+- Expected behaviour: the suite should pass after the in-progress Phase 5.4 work is completed.
+- Actual behaviour: `742 passed, 1 warning in 70.55s`; the four earlier Phase 5.4 failures from BUG-0023 were absent.
+- Exact error output: none on the final run.
+- Steps to reproduce: `make lint && make test` in the current shared worktree.
+- Environment: macOS, Python 3.13.9, SQLite, fixed test clock.
+- Hypotheses tried: no product diagnosis; the shared Phase 5.4 files changed after BUG-0023 was observed.
+- Root cause: the incomplete concurrent Phase 5.4 implementation was completed in the shared worktree; this agent did not change its three-value API/model/service files.
+- Solution applied: none in Phase 8; the status is recorded so BUG-0023 remains as the original observation.
+- Verification: `make lint && make test` → **742 passed, 1 warning, 0 skipped**.
+- Side effects / follow-ups / related IMPL: BUG-0023 remains historical; IMPL-0041.
+- Update history: 2026-10-27 — final full-suite run passed.
+
+### BUG-0031 — Default sandbox blocked GitHub API access verification
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / 2ec5e1a
+- Severity / Area: S4 / GitHub tooling
+- Status: Fixed
+- Where it showed up: `gh repo view reyyishreyas/sih26262 --json nameWithOwner,viewerPermission`.
+- Expected behaviour: confirm repository identity and authenticated push permission before publishing.
+- Actual behaviour: `error connecting to api.github.com; check your internet connection or https://githubstatus.com`.
+- Exact error output: `error connecting to api.github.com`.
+- Steps to reproduce: run the command in the default sandbox.
+- Environment: macOS workspace with network access restricted.
+- Hypotheses tried: sandbox network denial was suspected; approved escalation returned repository identity and viewer permission.
+- Root cause: the default sandbox could not reach the GitHub API.
+- Solution applied: reran the read-only repository check with approved escalation.
+- Verification: response `{"nameWithOwner":"reyyishreyas/sih26262","viewerPermission":"ADMIN"}`.
+- Side effects / follow-ups / related IMPL: no repository change; IMPL-0041.
+- Update history: —
+
+### BUG-0030 — A Phase 8 patch context did not match the current source
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / uncommitted Phase 8 work
+- Severity / Area: S4 / patch tooling
+- Status: Fixed
+- Where it showed up: a patch intended to wrap the classifier/grounding block in a failure-audit handler.
+- Expected behaviour: apply the exact source hunk.
+- Actual behaviour: patch tool returned `Failed to find expected lines`; it made no partial change for that hunk.
+- Exact error output: `Failed to find expected lines`.
+- Steps to reproduce: apply the stale context around the classifier/grounding block after the extraction-audit patch.
+- Environment: local workspace; `backend/app/api/documents.py` had already changed.
+- Hypotheses tried: source-context mismatch; inspected the current lines and reapplied against the current content.
+- Root cause: the source hunk was stale after an earlier patch moved the extraction/classification lines.
+- Solution applied: refreshed the source context and applied the change; subsequent lint and tests passed.
+- Verification: `make lint` passed; `tests/test_phase8_audit.py::test_extraction_failure_is_recorded_without_storing_the_upload` passed.
+- Side effects / follow-ups / related IMPL: none; IMPL-0041.
+- Update history: —
+
+### BUG-0029 — A targeted pytest node name pointed to the wrong file
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / uncommitted Phase 8 work
+- Severity / Area: S4 / test harness
+- Status: Fixed
+- Where it showed up: an attempted targeted pytest invocation.
+- Expected behaviour: select the regression test covering submitted-case assignment.
+- Actual behaviour: pytest reported `ERROR: not found` for `test_evidence_flow.py::test_documents_uploaded_after_submitting_are_readable_by_the_reviewer`.
+- Exact error output: `ERROR: not found: .../tests/test_evidence_flow.py::test_documents_uploaded_after_submitting_are_readable_by_the_reviewer`.
+- Steps to reproduce: use that node path in the targeted pytest command.
+- Environment: macOS, Python 3.13.9, pytest.
+- Hypotheses tried: searched test files; the named function is in `test_case_assignment.py`.
+- Root cause: used the wrong file name for a test node.
+- Solution applied: corrected selector to `test_case_assignment.py::test_submitting_hands_the_case_to_the_reviewer_queue`.
+- Verification: corrected targeted command → **33 passed, 1 warning**.
+- Side effects / follow-ups / related IMPL: none; IMPL-0041.
+- Update history: —
+
+### BUG-0028 — Ruff import order failed on a new audit test
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / uncommitted Phase 8 work
+- Severity / Area: S4 / lint
+- Status: Fixed
+- Where it showed up: first `make lint` after adding `test_phase8_audit.py`.
+- Expected behaviour: lint should pass.
+- Actual behaviour: Ruff reported `I001 Import block is un-sorted or un-formatted`.
+- Exact error output: `I001 [*] Import block is un-sorted or un-formatted`.
+- Steps to reproduce: run `make lint` before sorting the new file's import block.
+- Environment: macOS, Python 3.13.9, repo Ruff config.
+- Hypotheses tried: none; Ruff supplied a safe import-sort fix.
+- Root cause: imports in the new test file were grouped in the wrong order.
+- Solution applied: `./.venv/bin/ruff check --fix backend/tests/test_phase8_audit.py`.
+- Verification: `make lint` → **All checks passed**.
+- Side effects / follow-ups / related IMPL: none; IMPL-0041.
+- Update history: —
+
+### BUG-0027 — Ruff executable path was relative to the wrong working directory
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / uncommitted Phase 8 work
+- Severity / Area: S4 / tooling
+- Status: Fixed
+- Where it showed up: a Ruff fix command run from the repository root.
+- Expected behaviour: invoke the repo's virtualenv Ruff executable.
+- Actual behaviour: shell returned `zsh: no such file or directory: ../.venv/bin/ruff`.
+- Exact error output: `zsh: no such file or directory: ../.venv/bin/ruff`.
+- Steps to reproduce: run `../.venv/bin/ruff` from the repository root.
+- Environment: macOS, zsh, repository root.
+- Hypotheses tried: path was intended for `backend/`; root-relative executable is `./.venv/bin/ruff`.
+- Root cause: relative path assumed a different current directory.
+- Solution applied: reran `./.venv/bin/ruff check --fix backend/tests/test_phase8_audit.py`.
+- Verification: `make lint` → **All checks passed**.
+- Side effects / follow-ups / related IMPL: none; IMPL-0041.
+- Update history: —
+
+### BUG-0026 — First audit-download lint found an unbound application variable
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / uncommitted Phase 8 work
+- Severity / Area: S4 / audit
+- Status: Fixed
+- Where it showed up: first `make lint` after adding `document.accessed` metadata.
+- Expected behaviour: the content-download handler should pass lint and audit the authorized application id.
+- Actual behaviour: Ruff reported `F821 Undefined name application` at the new event's `application.id` reference.
+- Exact error output: `F821 Undefined name application`.
+- Steps to reproduce: run `make lint` against the initial audit-download edit.
+- Environment: macOS, Python 3.13.9.
+- Hypotheses tried: the handler already called `require_application`, but discarded its return value.
+- Root cause: the new audit event used the validated application object without assigning the result.
+- Solution applied: bind `application = require_application(...)` before loading the document.
+- Verification: `make lint` → **All checks passed**; authorized and out-of-scope document-read tests pass.
+- Side effects / follow-ups / related IMPL: none; IMPL-0041.
+- Update history: —
+
+### BUG-0025 — verification script was inspected at the wrong repository path
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / uncommitted Phase 8 work
+- Severity / Area: S4 / repository inspection
+- Status: Fixed
+- Where it showed up: a read-only `sed` command used `scripts/verify_isolation.py` at repository root.
+- Expected behaviour: read the existing script.
+- Actual behaviour: `sed: can't read scripts/verify_isolation.py: No such file or directory`.
+- Exact error output: `No such file or directory`.
+- Steps to reproduce: `sed -n '1,150p' scripts/verify_isolation.py`.
+- Environment: macOS, repo root `/Users/reyyishreyas/Desktop/sih26262`.
+- Hypotheses tried: the command had the wrong path; `rg --files` found the existing file at `backend/scripts/verify_isolation.py`.
+- Root cause: repository scripts are under `backend/scripts/`, contrary to the path used in that inspection command.
+- Solution applied: corrected the inspection path; no product changes.
+- Verification: `rg --files | rg 'verify_isolation\\.py$'` → `backend/scripts/verify_isolation.py`.
+- Side effects / follow-ups / related IMPL: none; IMPL-0041.
+- Update history: —
+
+### BUG-0024 — fetch needed write access to Git metadata
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / 2ec5e1a
+- Severity / Area: S4 / git tooling
+- Status: Fixed
+- Where it showed up: `git fetch origin`.
+- Expected behaviour: update remote-tracking refs and `FETCH_HEAD`.
+- Actual behaviour: sandbox denied the `.git/FETCH_HEAD` write with `error: cannot open '.git/FETCH_HEAD': Operation not permitted`.
+- Exact error output: `error: cannot open '.git/FETCH_HEAD': Operation not permitted`.
+- Steps to reproduce: run `git fetch origin` in the restricted workspace.
+- Environment: macOS, workspace sandbox with `.git` readable but not writable.
+- Hypotheses tried: none; the error names the denied metadata file.
+- Root cause: fetching requires writing Git metadata outside the writable sandbox paths.
+- Solution applied: reran `git fetch origin` with the approved escalation; fetch completed and updated `origin/feat/next-implementation`.
+- Verification: `git fetch origin` → completed; `git rev-list --left-right --count HEAD...origin/master` → `0 0`.
+- Side effects / follow-ups / related IMPL: no worktree files changed; IMPL-0041.
+- Update history: —
+
+### BUG-0023 — baseline suite exposed incomplete uncommitted Phase 5.4 work
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / 2ec5e1a plus local uncommitted work
+- Severity / Area: S3 / test harness and three-value feature
+- Status: Open
+- Where it showed up: `make lint && make test` before Phase 8 edits.
+- Expected behaviour: the existing checkout passes its baseline suite.
+- Actual behaviour: lint passed; pytest reported **4 failed, 728 passed, 1 warning**. Failures were `test_the_config_is_pinned_to_the_prd_and_to_the_spec_rule` (`KeyError: 'rules'`) and three Phase 5.4 claim API tests (HTTP 404 for the not-yet-registered claim route).
+- Exact error output (trimmed): `KeyError: 'rules'`; `POST .../fields/{field_id}/claim` returned `404 Not Found`.
+- Steps to reproduce: `make lint && make test` with the existing local, uncommitted Phase 5.4 files.
+- Environment: macOS, Python 3.13.9, SQLite test database, fixed clock.
+- Hypotheses tried: no product hypothesis tested; failures are in files already present before Phase 8 work.
+- Root cause: the in-progress Phase 5.4 test expects a top-level `rules` key absent from the actual `md/rules.json` schema, and the expected claim endpoint is not yet wired into the API.
+- Solution applied: none in this Phase 8 task; left Phase 5.4 files untouched as requested.
+- Verification: failed baseline reproduced once; Phase 8 targeted checks will be reported separately. Regression test: the existing failing tests are in untracked `backend/tests/test_three_value.py`.
+- Side effects / follow-ups / related IMPL: full-suite green status remains blocked pending the owner of the in-progress Phase 5.4 change; IMPL-0041.
+- Update history: —
 <!-- add entries below this line -->
 
 ### BUG-0020 — first run of the Phase 5.3 suite: `case_sensitive` flag was inverted, so case differences failed the ground check

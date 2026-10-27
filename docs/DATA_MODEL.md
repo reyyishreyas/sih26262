@@ -116,6 +116,13 @@ The hash covers the previous hash plus a canonical JSON body. Editing or deletin
 event breaks verification at that sequence number. This is tamper-evident, not
 tamper-proof against someone with full database and code access.
 
+Document-content access, extraction outcomes, case assignment, finding-batch
+evaluation, explicit chain verification, and case-audit export have named event
+actions. The case export contains only scoped events and a server-side verification
+result; it cannot independently verify the global chain without revealing other
+cases' events. Rule/configuration editing and appeal operations do not yet exist,
+so those future actions have no event source today.
+
 ## Simulation storage
 
 | Table | Schema | Purpose |

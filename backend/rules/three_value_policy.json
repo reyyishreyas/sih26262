@@ -1,0 +1,28 @@
+{
+  "policy_id": "POLICY-THREE-VALUE",
+  "version": "0.1",
+  "title": "Three-value model: Extraction / Claim / Master",
+  "status": "proposed_unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "source": "PRD FR-41 (line 225) and section 8 line 140 (the three-value model: every field keeps Extraction, Claim and Master values; rules run on the Extraction Value only; an edit is flagged, both values kept, a reason required, an edit can never clear a failed rule); RULE-EDIT-01 (md/rules.json) preserves the extraction and stores the correction separately with actor, time, reason and version. PRD line 159 lists Claim Value and edit reason as per-field data.",
+  "rule_reference": "RULE-EDIT-01",
+  "claim": {
+    "reason_required_on_edit": true,
+    "reason_min_length": 1,
+    "edited_label": "edited after extraction",
+    "edited_label_source": "PRD section 8 line 140 — the exact neutral wording; never 'corrected', 'overridden' or any word that judges the edit.",
+    "confirm_label": "confirmed as extracted",
+    "confirm_label_source": "plain UI copy for a claim that agrees with the extraction (not a PRD phrase)."
+  },
+  "master_source": {
+    "integrated": false,
+    "note": "No master record source is integrated in this prototype, so the Master Record Value stays unknown. md/rules.json defines it as a 'Value from a trusted, authorized master source, if one is actually integrated' — unknown, never guessed, and never filled from the extraction itself."
+  },
+  "outcomes": {
+    "complete_provenance": "continue",
+    "missing_required_reason_or_actor": "REVIEW REQUIRED"
+  },
+  "human_review": "Role permissions determine who may accept an edit as a verified value.",
+  "note": "Outcomes and human_review are md/rules.json's RULE-EDIT-01 vocabulary, copied here and pinned to the spec file by a test so the two cannot drift (same pattern as doc_check_policy.json). These outcomes describe PROVENANCE of an edit — 'continue' means the correction is fully recorded, never that the application passes anything; no rule outcome and no workflow transition reads the Claim Value."
+}

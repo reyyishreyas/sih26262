@@ -106,6 +106,12 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
         "POST",
         "/api/v1/applications/{application_id}/documents/{document_id}/fields/{field_id}/verify",
     ): frozenset({DOCUMENT_VERIFY}),
+    # three-value claim (5.4): the institution confirms/edits its own case,
+    # scrutiny may correct — either existing permission, no role widened.
+    (
+        "POST",
+        "/api/v1/applications/{application_id}/documents/{document_id}/fields/{field_id}/claim",
+    ): frozenset({DOCUMENT_UPLOAD, DOCUMENT_VERIFY}),
     # compliance
     ("POST", "/api/v1/applications/{application_id}/compliance/evaluate"): frozenset(
         {COMPLIANCE_EVALUATE}
@@ -317,6 +323,10 @@ JSON_BODIES: dict[tuple[str, str], dict] = {
         "POST",
         "/api/v1/applications/{application_id}/documents/{document_id}/fields/{field_id}/verify",
     ): {"verification_status": "verified", "note": "Authorisation matrix probe"},
+    (
+        "POST",
+        "/api/v1/applications/{application_id}/documents/{document_id}/fields/{field_id}/claim",
+    ): {"value": "matrix probe value", "reason": "Authorisation matrix probe"},
     ("POST", "/api/v1/admin/assignments"): {
         "user_id": "matrix-missing-user",
         "role_name": SCRUTINY_OFFICER,

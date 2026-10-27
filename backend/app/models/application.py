@@ -158,6 +158,12 @@ class ExtractedField(Base):
     ``REVIEW_REQUIRED`` when not — NULL for OCR/mock values and for rows
     that predate the check. It is provenance like the rest: verification
     never rewrites it and no rule reads it to pass or fail anything.
+    `claim_value` / `claim_reason` / `claimed_by` / `claimed_at` (5.4,
+    FR-41) are the **Claim Value** of the three-value model: the
+    institution's confirmation or edit, stored *beside* the extraction —
+    ``value`` is never overwritten by a claim, an edit always carries a
+    reason, and the Master Record Value has no column at all because no
+    master source is integrated (it stays unknown, never guessed).
     """
 
     __tablename__ = "extracted_fields"
@@ -182,6 +188,12 @@ class ExtractedField(Base):
     engine: Mapped[str | None] = mapped_column(String(64), nullable=True)
     engine_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     grounding: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    # Three-value model (5.4, FR-41): the institution's claim, always
+    # beside — never instead of — the extraction in `value`.
+    claim_value: Mapped[object | None] = mapped_column(JSON, nullable=True)
+    claim_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    claimed_by: Mapped[str | None] = mapped_column(String(36), nullable=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     verification_status: Mapped[str] = mapped_column(String(32), default="unverified")
     verified_by: Mapped[str | None] = mapped_column(
         ForeignKey("users.id"), nullable=True

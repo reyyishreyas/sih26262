@@ -156,8 +156,18 @@ The grammar and semantics are in [RULES.md](RULES.md).
 
 `AuditEvent` rows are chained: each hash covers the previous hash plus a canonical
 JSON body. `AuditChainHead` is locked during append. `GET /api/v1/audit/verify`
-recomputes the chain and reports the first broken sequence number. Deleting or
-editing an event is detectable.
+recomputes the chain without a write; `POST /api/v1/audit/verify` records an
+explicit check and reports the first broken sequence number. Deleting or editing
+an event is detectable. Case-scoped exports are available at
+`GET /api/v1/applications/{id}/audit/export`; the server verifies the complete
+chain before and after recording the export event. The export includes only the
+authorized case's events, so it is not independently verifiable without other
+cases' events.
+
+Successful document-content reads and extraction outcomes are recorded without
+document contents. Compliance batch evaluations and automatic case hand-offs are
+also audited in the same transaction as their associated write. The timeline
+remains a scoped event list, not a historical state replay.
 
 This is tamper-**evident**, not tamper-proof: an attacker with full database and
 code access could rewrite the chain. Anchoring the head outside the database (WORM

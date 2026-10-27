@@ -24,8 +24,8 @@ from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import DOCUMENT_READ, DOCUMENT_UPLOAD, DOCUMENT_VERIFY
 from ..models import Deficiency, Document, ExtractedField
-from ..schemas.api import DocumentOut, VerifyFieldRequest
-from ..services import doc_classifier, fuzzy_grounding, malware_service, ocr_service
+from ..schemas.api import ClaimFieldRequest, DocumentOut, VerifyFieldRequest
+from ..services import doc_classifier, fuzzy_grounding, malware_service, ocr_service, three_value
 from ..services.audit_service import AuditService
 from ..services.authorization_service import (
     EffectiveAccess,
@@ -39,7 +39,7 @@ from ..services.upload_validation import (
     safe_filename,
     validate_upload,
 )
-from .deps import require
+from .deps import require, require_any
 
 router = APIRouter(prefix="/applications/{application_id}/documents", tags=["documents"])
 
@@ -482,3 +482,99 @@ def verify_field(
     )
     db.commit()
     return {"field_id": field.id, "verification_status": field.verification_status}
+
+
+@router.post("/{document_id}/fields/{field_id}/claim")
+def claim_field(
+    application_id: str,
+    document_id: str,
+    field_id: str,
+    payload: ClaimFieldRequest,
+    access: EffectiveAccess = Depends(require_any(DOCUMENT_UPLOAD, DOCUMENT_VERIFY)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Record the Claim Value on a field (FR-41, three-value model).
+
+    The institution confirms or edits its own case's extracted values
+    (``DOCUMENT_UPLOAD``); scrutiny may correct a value too
+    (``DOCUMENT_VERIFY``) — per RULE-EDIT-01's human-review line, *role
+    permissions determine who may accept an edit as a verified value*,
+    so neither role is silently extended: both already hold one of these
+    permissions.
+
+    The extraction value is never overwritten (the claim lands beside it
+    in its own columns), an edit without a reason is refused with 400
+    and **nothing** recorded, and ``baseline_version`` is not bumped:
+    rules read the Extraction Value only, so a claim never changes what
+    the rule engine sees — an edit can never clear a failed rule.
+    """
+    application = require_application(db, access, application_id)
+
+    field = db.get(ExtractedField, field_id)
+    if field is None or field.document_id != document_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "field not found on this document")
+    document = db.get(Document, document_id)
+    if document is None or document.application_id != application_id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found on this case")
+
+    try:
+        result = three_value.record_claim(
+            field,
+            value=payload.value,
+            reason=payload.reason,
+            actor_id=access.user_id,
+            at=get_clock().now(),
+        )
+    except HTTPException as exc:
+        # A refused edit is a rejected action: audit it, then let the 400
+        # stand (nothing was written to the field itself).
+        AuditService(db).append(
+            action="document.field_claim_rejected",
+            entity_type="document",
+            entity_id=document_id,
+            outcome="rejected",
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+            reason=str(exc.detail),
+            after={
+                "field": field.field_name,
+                "claimed_value": payload.value,
+            },
+            request_id=current_request_id(),
+        )
+        db.commit()
+        raise
+
+    values = three_value.values(field)
+    AuditService(db).append(
+        action="document.field_claimed",
+        entity_type="document",
+        entity_id=document_id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        reason=payload.reason,
+        before={"extraction": field.value},
+        after={"claim": field.claim_value, "edited": result["edited"]},
+        request_id=current_request_id(),
+    )
+    db.commit()
+
+    return {
+        "field_id": field.id,
+        "document_id": document_id,
+        "field_name": field.field_name,
+        "extraction_value": values["extraction"],
+        "claim_value": field.claim_value,
+        "claim_reason": field.claim_reason,
+        "claimed_by": field.claimed_by,
+        "claimed_at": field.claimed_at,
+        "edited": result["edited"],
+        "note": result["note"],
+        "master_value": values["master"],
+        "master_note": values["master_note"],
+        "rule_edit_01": three_value.rule_edit01(field),
+        # No baseline bump: rules never read the claim (FR-41: an edit can
+        # never clear a failed rule), so nothing about the case changed.
+        "baseline_version": application.baseline_version,
+    }

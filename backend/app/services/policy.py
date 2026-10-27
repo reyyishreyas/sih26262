@@ -113,6 +113,11 @@ def fuzzy_grounding_policy() -> dict[str, Any]:
     return _load("fuzzy_grounding.json")
 
 
+@lru_cache
+def three_value_policy() -> dict[str, Any]:
+    return _load("three_value_policy.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

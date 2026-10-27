@@ -60,6 +60,17 @@ One warning is emitted: Starlette's notice that `httpx` with
 | Rejected transition records the before-state | `test_audit.py::test_rejected_transition_is_recorded_with_before_state` |
 | Accepted event carries actor and transition | `test_audit.py::test_accepted_event_carries_actor_and_transition` |
 
+### Phase 8 audit completeness
+
+| Claim | Test / command |
+|---|---|
+| Successful sensitive document reads are logged; out-of-scope reads are denied and not logged | `test_phase8_audit.py::test_authorized_document_content_read_writes_a_sensitive_access_event`; `...::test_out_of_scope_document_read_does_not_write_an_access_event` |
+| Extraction start/completion/failure and replacement are recorded without document contents | `test_phase8_audit.py::test_upload_records_extraction_start_completion_and_versioned_document`; `...::test_extraction_failure_is_recorded_without_storing_the_upload` |
+| Finding evaluation and automatic assignment are audited | `test_phase8_audit.py::test_compliance_evaluation_is_recorded_as_a_finding_batch`; `...::test_submission_audits_new_case_assignment` |
+| A case export is scoped, reports the full-chain check and refuses a broken chain | `test_phase8_audit.py::test_case_export_contains_chain_check_and_audits_the_export`; `...::test_case_export_refuses_a_tampered_chain` |
+| Explicit verification is recorded; ordinary GET verification remains read-only | `test_phase8_audit.py::test_explicit_chain_verification_is_audited_and_get_remains_read_only`; `...::test_recorded_verification_reports_tampering_and_records_rejection` |
+| A throwaway untouched chain passes and a modified row fails verification | `python scripts/tamper_demo.py` |
+
 ### RBAC and scope
 
 | Claim | Test |

@@ -383,7 +383,27 @@ def request_transition(
     # same transaction as the move itself. Without this a case is in nobody's
     # queue, and an officer whose scope is "assigned cases" cannot see it at
     # all — the College would submit and the reviewer would see nothing.
-    assign_next_actors(db, application)
+    created_assignments = assign_next_actors(db, application)
+    if created_assignments:
+        audit_service.AuditService(db).append(
+            action="assignment.created",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="accepted",
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+            after={
+                "assignments": [
+                    {
+                        "user_id": row.user_id,
+                        "committee_id": row.committee_id,
+                        "role_name": row.role_name,
+                    }
+                    for row in created_assignments
+                ]
+            },
+            request_id=request_id,
+        )
     # Keep the EVC scheduling records in step with the workflow: when the
     # committee records the visit, the live appointment stops being pending.
     # Inside the same transaction — the case and its booking must agree, or a

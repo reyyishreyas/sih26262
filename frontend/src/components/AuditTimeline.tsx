@@ -1,4 +1,6 @@
+import { useEffect, useState } from "react";
 import type { AuditEvent } from "../types";
+import { api, ApiError } from "../api";
 import { formatDateTime, plainAction, plainRole } from "../labels";
 import { Icon } from "./Icon";
 
@@ -13,28 +15,86 @@ export function AuditTimeline({
   events,
   note,
   chainOk,
+  applicationId,
 }: {
   events: AuditEvent[];
   note: string;
   chainOk: boolean | null;
+  applicationId: string;
 }) {
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [verifying, setVerifying] = useState(false);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [verified, setVerified] = useState(chainOk);
+
+  useEffect(() => setVerified(chainOk), [chainOk]);
+
+  async function exportAudit() {
+    setExporting(true);
+    setExportError(null);
+    try {
+      await api.downloadAudit(applicationId);
+    } catch (cause) {
+      setExportError(
+        cause instanceof ApiError ? cause.message : "Could not export the audit",
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
+
+  async function recordVerification() {
+    setVerifying(true);
+    setVerificationError(null);
+    try {
+      const result = await api.recordAuditVerification();
+      setVerified(result.ok);
+    } catch (cause) {
+      setVerificationError(
+        cause instanceof ApiError ? cause.message : "Could not verify the audit",
+      );
+    } finally {
+      setVerifying(false);
+    }
+  }
+
   return (
     <section aria-labelledby="audit-heading" className="panel">
       <header className="panel-head">
         <div>
           <h2 id="audit-heading">History of this case</h2>
           <p className="muted">
-            Everything that ever happened here is written down and cannot be secretly
-            changed. {note}
+            Recorded actions are linked by a tamper-evident hash chain. A valid chain
+            does not prove that nobody with full database access rewrote it. {note}
           </p>
         </div>
-        {chainOk !== null && (
-          <span className={`pill ${chainOk ? "good" : "bad"}`}>
-            <Icon name={chainOk ? "shieldCheck" : "shieldX"} size={14} />
-            {chainOk ? "Records are intact" : "Records were tampered with"}
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => void recordVerification()}
+          disabled={verifying}
+        >
+          {verifying ? "Checking…" : "Verify and record check"}
+        </button>
+        <button
+          type="button"
+          className="secondary"
+          onClick={() => void exportAudit()}
+          disabled={exporting || verified === false}
+        >
+          {exporting ? "Checking and exporting…" : "Export audit JSON"}
+        </button>
+        {verified !== null && (
+          <span className={`pill ${verified ? "good" : "bad"}`}>
+            <Icon name={verified ? "shieldCheck" : "shieldX"} size={14} />
+            {verified ? "Chain verifies" : "Chain check failed"}
           </span>
         )}
       </header>
+
+      {exportError && <p className="error" role="alert">{exportError}</p>}
+      {verificationError && <p className="error" role="alert">{verificationError}</p>}
 
       {events.length === 0 && <p className="muted">Nothing has happened yet.</p>}
 

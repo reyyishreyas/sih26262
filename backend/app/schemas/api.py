@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -65,6 +65,15 @@ class FieldOut(BaseModel):
     # Grounding (5.3, FR-40): "grounded" / "REVIEW_REQUIRED" for model
     # values, None otherwise — provenance, never a decision.
     grounding: str | None = None
+    # Three-value model (5.4, FR-41): the institution's claim kept beside
+    # the extraction (never overwriting it), plus the master slot — which
+    # is always None here: no master source is integrated, so it stays
+    # unknown rather than guessed.
+    claim_value: Any | None = None
+    claim_reason: str | None = None
+    claimed_by: str | None = None
+    claimed_at: datetime | None = None
+    master_value: Any | None = None
     verification_status: str
 
 
@@ -85,6 +94,18 @@ class DocumentOut(BaseModel):
 class VerifyFieldRequest(BaseModel):
     verification_status: str = Field(pattern="^(verified|rejected|unverified)$")
     note: str = ""
+
+
+class ClaimFieldRequest(BaseModel):
+    """The institution's Claim Value on a field (FR-41).
+
+    `value` may be anything the document or the institution asserts; a
+    `reason` is required whenever it differs from the extracted value —
+    the service refuses the edit (400, nothing recorded) otherwise.
+    """
+
+    value: Any
+    reason: str = ""
 
 
 class TransitionRequest(BaseModel):

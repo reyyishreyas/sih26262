@@ -690,7 +690,12 @@ export function CaseView({
       )}
 
       {step === "history" && canAudit && (
-        <AuditTimeline events={events} note={auditNote} chainOk={chainOk} />
+        <AuditTimeline
+          applicationId={applicationId}
+          events={events}
+          note={auditNote}
+          chainOk={chainOk}
+        />
       )}
     </div>
   );

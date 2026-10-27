@@ -626,8 +626,19 @@ tamper-evidence).
   `case_sensitive` polarity was inverted at the read site; BUG-0021 +
   BUG-0022 test-side fixes).
 - Gates to run before you push: **`make lint && make test && make build`**.
-  CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `7300a5d` (Phase 5.3).
+  CI (`.github/workflows/ci.yml`) runs the same. The last committed feature
+  baseline at `7300a5d` was green (717 passed); Phase 8 work in the current
+  worktree verified the expanded full suite at 742 passed (one upstream
+  Starlette deprecation warning, zero skips).
+- **27 Oct 2026 — Phase 8 audit work:** document content access and extraction
+  lifecycle, finding-batch evaluation, automatic assignment, and explicit
+  verification/export events are covered; a scoped JSON export checks the
+  global chain and records the export. `scripts/tamper_demo.py` uses a
+  throwaway SQLite DB and proves clean/tampered outcomes. The timeline UI
+  describes the hash chain as tamper-evident and has explicit verify/export
+  actions. Phase 8 is **Partial**: audit sources for rule/configuration edits
+  and appeals do not exist until their planned capabilities are built (Phase
+  6/9); see IMPL-0041 and plan 8.1.
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on

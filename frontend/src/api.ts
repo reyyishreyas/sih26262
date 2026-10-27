@@ -204,6 +204,26 @@ export const api = {
     URL.revokeObjectURL(url);
   },
 
+  /** Export this application's audit events after a server-side whole-chain check. */
+  downloadAudit: async (id: string) => {
+    const headers = new Headers();
+    const token = storedToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(`${BASE}/applications/${id}/audit/export`, { headers });
+    if (!response.ok) {
+      throw new ApiError(`Could not export the audit (${response.status})`, response.status);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `${id}-audit.json`;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  },
+
   /** Open a document in a new tab (returns an object URL the caller revokes). */
   openDocument: async (id: string, documentId: string) => {
     const headers = new Headers();
@@ -373,9 +393,20 @@ export const api = {
       `/applications/${id}/audit`,
     ),
   verifyAudit: () =>
-    request<{ ok: boolean; checked: number; first_broken_seq: number | null; reason: string }>(
-      "/audit/verify",
-    ),
+    request<{
+      ok: boolean;
+      checked: number;
+      first_broken_seq: number | null;
+      reason: string;
+    }>("/audit/verify"),
+  recordAuditVerification: () =>
+    request<{
+      ok: boolean;
+      checked: number;
+      first_broken_seq: number | null;
+      reason: string;
+      verification_event_seq: number;
+    }>("/audit/verify", { method: "POST" }),
   dashboard: () => request<OfficerDashboard>("/officer/dashboard"),
   alerts: () =>
     request<{ simulated: boolean; note: string; alerts: AlertRow[] }>("/alerts"),
