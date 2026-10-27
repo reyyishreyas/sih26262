@@ -800,6 +800,50 @@ button.step.done svg { vertical-align: -2px; margin-right: 0.3rem; }
 .tile.bad .tile-label { color: var(--bad); }
 .tile.warn { background: var(--warn-soft); border-color: rgba(163, 90, 0, 0.3); color: var(--warn); }
 .tile.warn .tile-label { color: var(--warn); }
+.dashboard-stat {
+  color: var(--text);
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+  box-shadow: none;
+}
+.dashboard-stat:hover:not(:disabled) {
+  filter: brightness(0.98);
+  box-shadow: 0 3px 10px rgba(23, 36, 47, 0.1);
+}
+.dashboard-stat:focus-visible,
+.dashboard-state:focus-visible { outline: 3px solid var(--accent); outline-offset: 2px; }
+.dashboard-state {
+  cursor: pointer;
+  font: inherit;
+}
+.dashboard-drilldown {
+  margin-top: 1rem;
+  padding: 0.9rem;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: var(--panel-2);
+}
+.dashboard-drilldown h3 { margin: 0; }
+.dashboard-case-list {
+  list-style: none;
+  margin: 0.8rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: 0.55rem;
+}
+.dashboard-case-list li {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.8rem;
+  padding: 0.65rem;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.dashboard-case-list li > div { display: grid; gap: 0.15rem; }
+.dashboard-case-list .muted { font-size: 0.82rem; overflow-wrap: anywhere; }
 
 .finding-list { display: grid; gap: 0.7rem; margin-top: 0.8rem; }
 .finding {

@@ -5,6 +5,7 @@
 | BUG-0067 | 2026-10-28 | S4 | verification command | Focused pytest command used two nonexistent test filenames | Fixed | IMPL-0060 |
 | BUG-0068 | 2026-10-28 | S4 | Phase 6 integration test | Fixed-date test expected no placeholder withdrawal marker after 31 July | Fixed | IMPL-0061 |
 | BUG-0069 | 2026-10-28 | S4 | lint | Integrated test used `zip()` without an explicit strictness argument | Fixed | IMPL-0061 |
+| BUG-0070 | 2026-10-28 | S4 | lint | Phase 7 dashboard permission import order failed Ruff I001 | Fixed | IMPL-0062 |
 | BUG-0058 | 2026-10-28 | S2 | release packaging | Appeal API module omitted from Phase 6.6 commit | Fixed | IMPL-0057 |
 | BUG-0060 | 2026-10-28 | S3 | regression tests | Reopening integration exposed assignment and stage bookkeeping assumptions | Fixed | IMPL-0058 |
 | BUG-0059 | 2026-10-28 | S3 | lint | Ruff rejected generated migration import order | Fixed | IMPL-0058 |
@@ -508,6 +509,21 @@
 ```
 
 ## Entries (newest first)
+
+### BUG-0070 — Ruff rejected an unsorted dashboard permission import
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / working tree.
+- Severity / Area: S4 / lint.
+- Status: **Fixed**.
+- Expected: `make lint` passes for the Phase 7.1 change.
+- Actual: Ruff I001 rejected the new `DASHBOARD_READ` import order in `test_authz_matrix.py`.
+- Reproduction: `make lint && ...` during IMPL-0062.
+- Environment: repository Ruff configuration.
+- Hypotheses tried: none; applied Ruff's import sort fix.
+- Root cause: the new permission constant was inserted below an alphabetically later constant.
+- Solution applied: ran `../.venv/bin/ruff check --fix tests/test_authz_matrix.py`.
+- Verification: `make lint` clean; focused dashboard/authz command → 37 passed, 9 deselected; full `make lint && make test` → 828 passed, 2 upstream warnings; frontend build passed.
+- Regression test: authz matrix checks for dashboard endpoint permissions.
+- Related: IMPL-0062.
 
 ### BUG-0069 — Ruff rejected a zip call without explicit strictness
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / working tree.

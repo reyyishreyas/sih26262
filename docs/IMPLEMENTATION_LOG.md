@@ -21,6 +21,9 @@
 | IMPL-0061 | 2026-10-28 | Implementation | Phase 6 single-case API journey integration check | Verified; full phase exit remains partial | Phase 6 exit; FR-18/20/22/24/26/27/31/32/33 | Codex |
 | BUG-0068 | 2026-10-28 | Bug | Fixed-clock Phase 6 journey test expected the placeholder withdrawal marker to be false | Fixed | IMPL-0061 | Codex |
 | BUG-0069 | 2026-10-28 | Bug | Ruff rejected a zip call without explicit strictness | Fixed | IMPL-0061 | Codex |
+| DEC-0025 | 2026-10-28 | Decision | Institution and Regulation Bureau dashboards get a dedicated scoped dashboard permission | Accepted | Phase 7.1; PRD §12 | Codex |
+| IMPL-0062 | 2026-10-28 | Implementation | Role dashboards and scoped application drilldowns for Phase 7.1 | Tested | Phase 7.1; PRD §12 | Codex |
+| BUG-0070 | 2026-10-28 | Bug | Ruff rejected a dashboard permission import order | Fixed | IMPL-0062 | Codex |
 | DEC-0023 | 2026-10-28 | Decision | Chapter II grant list, Council ratification and EoA publication scoped to verified APH clauses | Accepted for prototype workflow; role delegation remains an app ACL | Phase 6 6.8; FR-31/32 | Project lead scope + Codex source check |
 | IMPL-0059 | 2026-10-28 | Implementation | Phase 6.8: consolidated approved-intake grant list, Council ratification and institution EoA publication | Tested | Phase 6 6.8 (FR-31/32) | Codex |
 | IMPL-0059 Update | 2026-10-28 | Update | Phase 6.8 commit and push recorded | Pushed `ce4fa6a` to `origin/master`; tree clean except six pre-existing untracked user documents/images listed in status | Phase 6 6.8 | Codex |
@@ -140,6 +143,26 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0025 — Dashboard-only permission for Institution and Regulation Bureau
+- Date / owner: 2026-10-28 / Codex.
+- Status: Accepted for the PRD §12 prototype role dashboards.
+- Decision: Add `dashboard.read` to Institution Representative and Regulation Bureau. It permits only the role-scoped dashboard summary and application index on `/officer/dashboard`. It does not grant the existing monitoring/report APIs or general case/document reads. Existing regional/scrutiny monitoring roles continue using `monitoring.read`.
+- Rationale: PRD §12 and prototype scope explicitly require these role dashboards. Reusing `monitoring.read` would also grant unrelated reports and alerts; general case-read would be broader than the count-to-index drilldown requires.
+- Related: IMPL-0062; BUG-0070.
+
+### IMPL-0062 — Phase 7.1 role dashboards and drilldowns
+- Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: AGENT-09, Phase 7.1, PRD §12; Institution, Scrutiny, Regional and Regulation Bureau dashboards.
+- What existed: one Monitoring page was available only to `monitoring.read` roles, with non-interactive counts and no per-metric application drilldown. Institution and Regulation Bureau roles could not load it.
+- What changed: role-scoped dashboard counts now include row lists keyed by metric/state; count semantics for alerts and deadlines are distinct cases, ensuring each tile count equals the number of application rows. Dashboard tiles and states open an inline list; users with existing case/application read can open the case, while dashboard-only roles see the scoped index. Institution and Regulation Bureau gain a dedicated dashboard permission without reports/general case access. Alert list remains hidden unless caller has `monitoring.read`.
+- Files changed: `backend/app/core/permissions.py`, `backend/app/api/officer_dashboard.py`, `backend/app/services/monitoring_service.py`, `backend/tests/test_authz_matrix.py`, `backend/tests/test_rbac.py`, `frontend/src/App.tsx`, `frontend/src/components/DashboardView.tsx`, `frontend/src/styles.css`, `frontend/src/types.ts`, `md/6_IMPLEMENTATION_PLAN.md`, `CONTEXT.md`, `docs/IMPLEMENTATION_LOG.md`, `docs/BUG_LOG.md`.
+- API/schema/config: dashboard response now carries `drilldowns` rows under case/state/metric keys; new permission `dashboard.read`; no database migration, no new external dependency.
+- Permission and audit effects: Institution and Regulation Bureau get dashboard summary/index access only. The endpoint applies the existing effective `scope_filter`; no additional case/document permissions and no state-changing operations. Dashboard remains read-only and does not write audit events.
+- Verification: targeted `make lint` clean; `cd backend && ../.venv/bin/pytest -q tests/test_rbac.py tests/test_api.py::test_officer_monitoring_endpoints tests/test_authz_matrix.py -k 'dashboard or monitoring or matrix'` → **37 passed, 9 deselected, 2 upstream warnings**; `make lint && make test` → Ruff clean, **828 passed, 2 upstream Starlette deprecation warnings in 130.83s**; `cd frontend && npm run build` → TypeScript and Vite passed. No migrations changed. No browser visual smoke was run.
+- Limitations: existing dashboard metrics only; remaining §12 metrics and exports are Phase 7.2/7.3. The dashboard-only Bureau role can inspect the minimal scoped index but cannot open a general case record.
+- Related decisions and bugs: DEC-0025; BUG-0070.
+- Next: Phase 7.2 ageing, throughput, overdue/near-due, EVC and compliance metrics.
 
 ### IMPL-0061 — Phase 6 single-case integrated journey
 - Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.

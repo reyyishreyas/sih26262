@@ -22,6 +22,7 @@ COMPLIANCE_EVALUATE = "compliance.evaluate"
 REHEARSAL_RUN = "rehearsal.run"
 AUDIT_READ = "audit.read"
 MONITORING_READ = "monitoring.read"
+DASHBOARD_READ = "dashboard.read"
 UNDERTAKING_READ = "undertaking.read"
 UNDERTAKING_SUBMIT = "undertaking.submit"
 ADMIN_USERS = "admin.users"
@@ -65,6 +66,7 @@ ALL_PERMISSIONS: dict[str, str] = {
     REHEARSAL_RUN: "Run an isolated Approval Rehearsal",
     AUDIT_READ: "Read the audit timeline",
     MONITORING_READ: "Read pendency/ageing monitoring data",
+    DASHBOARD_READ: "Read the role-scoped dashboard summary and application index",
     UNDERTAKING_READ: "Read undertakings and obligations",
     UNDERTAKING_SUBMIT: "Submit undertaking evidence",
     ADMIN_USERS: "Administer users",
@@ -108,6 +110,7 @@ ADMINISTRATOR = "administrator"
 ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
     INSTITUTION_REPRESENTATIVE: (
         APPLICATION_READ,
+        DASHBOARD_READ,
         APPLICATION_CREATE,
         APPLICATION_SUBMIT,
         REOPENING_REQUEST,
@@ -173,7 +176,13 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         GRANT_READ,
         AUDIT_READ,
     ),
-    REGULATION_BUREAU: (GRANT_BATCH_MANAGE, GRANT_LETTER_UPLOAD, GRANT_READ, AUDIT_READ),
+    REGULATION_BUREAU: (
+        GRANT_BATCH_MANAGE,
+        GRANT_LETTER_UPLOAD,
+        GRANT_READ,
+        DASHBOARD_READ,
+        AUDIT_READ,
+    ),
     SUPERVISORY_OFFICER: (
         MONITORING_READ,
         CASE_READ,

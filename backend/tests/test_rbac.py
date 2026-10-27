@@ -56,6 +56,43 @@ def test_dashboard_totals_reconcile_with_drilldown(client, as_user):
     assert dashboard["cases_in_scope"] == pendency["count"]
 
 
+def test_role_dashboards_expose_reconciling_scoped_application_drilldowns(client, as_user):
+    for email in (
+        "institution@demo.local",
+        "scrutiny@demo.local",
+        "regional@demo.local",
+        "regulation-bureau@demo.local",
+    ):
+        response = client.get("/api/v1/officer/dashboard", headers=as_user(email))
+        assert response.status_code == 200, (email, response.text)
+        dashboard = response.json()
+        drilldowns = dashboard["drilldowns"]
+        in_scope = {row["application_id"] for row in drilldowns["cases_in_scope"]}
+        assert len(in_scope) == dashboard["cases_in_scope"]
+        for metric in (
+            "overdue_obligations",
+            "upcoming_deadlines_7d",
+            "open_alerts",
+            "escalated_alerts",
+            "needs_review_cases",
+            "my_assignments",
+        ):
+            assert len(drilldowns[metric]) == dashboard[metric], (email, metric)
+            assert {row["application_id"] for row in drilldowns[metric]} <= in_scope
+        for state, count in dashboard["cases_by_state"].items():
+            rows = drilldowns["cases_by_state"][state]
+            assert len(rows) == count
+            assert {row["application_id"] for row in rows} <= in_scope
+
+    institution = as_user("institution@demo.local")
+    dashboard = client.get("/api/v1/officer/dashboard", headers=institution).json()
+    assert dashboard["cases_in_scope"] == 3
+    assert client.get("/api/v1/reports", headers=institution).status_code == 403
+
+    bureau = as_user("regulation-bureau@demo.local")
+    assert client.get("/api/v1/officer/dashboard", headers=bureau).status_code == 200
+    assert client.get("/api/v1/reports", headers=bureau).status_code == 403
+
 def test_revoking_a_role_takes_effect_on_the_next_request(client, as_user, db):
     headers = as_user("scrutiny@demo.local")
     assert client.get("/api/v1/applications", headers=headers).status_code == 200

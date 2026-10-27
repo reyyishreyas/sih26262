@@ -105,6 +105,8 @@ export default function App() {
   useRefreshOnFocus(refreshCases);
 
   const canMonitor = user?.permissions.includes("monitoring.read") ?? false;
+  const canDashboard =
+    canMonitor || (user?.permissions.includes("dashboard.read") ?? false);
   const canReadCases = user?.permissions.some((permission) => ["application.read", "case.read"].includes(permission)) ?? false;
   const canShc = user?.permissions.includes("shc.queue.read") ?? false;
   const canExecutive = user?.permissions.includes("executive.queue.read") ?? false;
@@ -190,16 +192,22 @@ export default function App() {
   }, [canCreate, user]);
 
   useEffect(() => {
-    if (!user || view !== "monitoring" || !canMonitor) return;
-    void Promise.all([api.dashboard(), api.alerts()])
-      .then(([summary, alertRows]) => {
+    if (!user || view !== "monitoring" || !canDashboard) return;
+    void api
+      .dashboard()
+      .then(async (summary) => {
         setDashboard(summary);
-        setAlerts(alertRows.alerts);
+        if (canMonitor) {
+          const alertRows = await api.alerts();
+          setAlerts(alertRows.alerts);
+        } else {
+          setAlerts([]);
+        }
       })
       .catch((cause) =>
         setError(cause instanceof ApiError ? cause.message : "Could not load monitoring"),
       );
-  }, [canMonitor, user, view]);
+  }, [canDashboard, canMonitor, user, view]);
 
   // Re-read just the alerts (after acknowledging or closing one) without
   // reloading the whole dashboard.
@@ -281,7 +289,7 @@ export default function App() {
             <Icon name="folder" size={18} />
             {isCollege ? "My application" : "My cases"}
           </button>
-          {canMonitor && (
+          {canDashboard && (
             <button
               type="button"
               className={view === "monitoring" ? "nav active" : "nav"}
@@ -446,16 +454,22 @@ export default function App() {
               <h2 className="hello-title">
                 <Icon name="chart" size={26} /> Monitoring
               </h2>
-              <p className="muted">Everything in your scope, at a glance.</p>
+              <p className="muted">Your role’s current cases and next actions.</p>
             </div>
             {dashboard ? (
-              <DashboardView data={dashboard} />
+              <DashboardView
+                data={dashboard}
+                onOpenCase={canReadCases ? (applicationId) => {
+                  setSelected(applicationId);
+                  setView("cases");
+                } : undefined}
+              />
             ) : (
               <p className="loading">
                 <span className="spinner" /> Loading the numbers…
               </p>
             )}
-            <AlertList alerts={alerts} onChanged={() => void loadAlerts()} />
+            {canMonitor && <AlertList alerts={alerts} onChanged={() => void loadAlerts()} />}
           </>
         )}
 

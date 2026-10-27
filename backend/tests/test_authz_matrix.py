@@ -47,6 +47,7 @@ from app.core.permissions import (
     COUNCIL_DECISION_RECORD,
     COUNCIL_MEMBER,
     COUNCIL_ORDER_UPLOAD,
+    DASHBOARD_READ,
     DOCUMENT_READ,
     DOCUMENT_UPLOAD,
     DOCUMENT_VERIFY,
@@ -236,7 +237,9 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("GET", "/api/v1/audit/verify"): frozenset({AUDIT_READ}),
     ("POST", "/api/v1/audit/verify"): frozenset({AUDIT_READ}),
     # officer dashboard
-    ("GET", "/api/v1/officer/dashboard"): frozenset({MONITORING_READ}),
+    ("GET", "/api/v1/officer/dashboard"): frozenset(
+        {MONITORING_READ, DASHBOARD_READ}
+    ),
     ("GET", "/api/v1/officer/pendency"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/officer/ageing"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/officer/escalations"): frozenset({MONITORING_READ}),

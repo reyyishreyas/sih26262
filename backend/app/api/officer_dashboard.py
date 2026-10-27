@@ -4,17 +4,17 @@ from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from ..core.db import get_db
-from ..core.permissions import MONITORING_READ
+from ..core.permissions import DASHBOARD_READ, MONITORING_READ
 from ..services import monitoring_service
 from ..services.authorization_service import EffectiveAccess
-from .deps import require
+from .deps import require, require_any
 
 router = APIRouter(prefix="/officer", tags=["officer"])
 
 
 @router.get("/dashboard")
 def dashboard(
-    access: EffectiveAccess = Depends(require(MONITORING_READ)),
+    access: EffectiveAccess = Depends(require_any(MONITORING_READ, DASHBOARD_READ)),
     db: Session = Depends(get_db),
 ) -> dict:
     return monitoring_service.dashboard(db, access)

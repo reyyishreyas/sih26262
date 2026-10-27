@@ -193,8 +193,27 @@ export interface OfficerDashboard {
   escalated_alerts: number;
   needs_review_cases: number;
   my_assignments: number;
+  drilldowns: {
+    cases_in_scope: DashboardCaseRow[];
+    cases_by_state: Record<string, DashboardCaseRow[]>;
+    overdue_obligations: DashboardCaseRow[];
+    upcoming_deadlines_7d: DashboardCaseRow[];
+    open_alerts: DashboardCaseRow[];
+    escalated_alerts: DashboardCaseRow[];
+    needs_review_cases: DashboardCaseRow[];
+    my_assignments: DashboardCaseRow[];
+  };
   generated_at: string;
   data_source: string;
+}
+
+export interface DashboardCaseRow {
+  application_id: string;
+  institution: string | null;
+  region: string | null;
+  state: string;
+  age_days: number;
+  deadline_state: string;
 }
 
 export interface AlertRow {

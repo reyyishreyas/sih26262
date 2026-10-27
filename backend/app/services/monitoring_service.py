@@ -104,8 +104,19 @@ def dashboard(db: Session, access: EffectiveAccess) -> dict[str, Any]:
     for application in applications:
         by_state[application.current_state] = by_state.get(application.current_state, 0) + 1
 
-    overdue_obligations = 0
-    upcoming = 0
+    application_rows = {
+        application.id: _pendency_row(db, application, now) for application in applications
+    }
+
+    def rows_for(ids: set[str]) -> list[dict[str, Any]]:
+        return [application_rows[application_id] for application_id in sorted(ids)]
+
+    state_ids: dict[str, set[str]] = {}
+    for application in applications:
+        state_ids.setdefault(application.current_state, set()).add(application.id)
+
+    overdue_obligation_cases: set[str] = set()
+    upcoming_deadline_cases: set[str] = set()
     if app_ids:
         undertakings = db.scalars(
             select(Undertaking).where(
@@ -118,9 +129,9 @@ def dashboard(db: Session, access: EffectiveAccess) -> dict[str, Any]:
             if due is None:
                 continue
             if due < now:
-                overdue_obligations += 1
+                overdue_obligation_cases.add(undertaking.application_id)
             elif due <= now + timedelta(days=7):
-                upcoming += 1
+                upcoming_deadline_cases.add(undertaking.application_id)
 
     alerts = db.scalars(select(Alert)).all()
     scoped_undertaking_ids = set(
@@ -139,31 +150,56 @@ def dashboard(db: Session, access: EffectiveAccess) -> dict[str, Any]:
         ).all()
     ) if app_ids else set()
 
-    open_alerts = [
-        alert
-        for alert in alerts
-        if alert.status != "closed"
-        and (
-            (alert.entity_type == "application" and alert.entity_id in set(app_ids))
-            or (alert.entity_type == "undertaking" and alert.entity_id in scoped_undertaking_ids)
-            or (alert.entity_type == "document" and alert.entity_id in scoped_document_ids)
-            or (alert.entity_type == "evc_visit" and alert.entity_id in scoped_visit_ids)
-        )
-    ]
+    open_alerts: list[tuple[Alert, str]] = []
+    for alert in alerts:
+        if alert.status == "closed":
+            continue
+        application_id = None
+        if alert.entity_type == "application" and alert.entity_id in app_ids:
+            application_id = alert.entity_id
+        elif alert.entity_type == "undertaking" and alert.entity_id in scoped_undertaking_ids:
+            undertaking = db.get(Undertaking, alert.entity_id)
+            application_id = undertaking.application_id if undertaking else None
+        elif alert.entity_type == "document" and alert.entity_id in scoped_document_ids:
+            document = db.get(Document, alert.entity_id)
+            application_id = document.application_id if document else None
+        elif alert.entity_type == "evc_visit" and alert.entity_id in scoped_visit_ids:
+            visit = db.get(EvcVisit, alert.entity_id)
+            application_id = visit.application_id if visit else None
+        if application_id in application_rows:
+            open_alerts.append((alert, application_id))
 
-    assigned = db.scalars(
-        select(CaseAssignment).where(
-            CaseAssignment.user_id == access.user_id,
-            CaseAssignment.revoked_at.is_(None),
-        )
-    ).all()
-
-    needs_review_cases = db.scalar(
-        select(func.count(func.distinct(RuleEvaluation.application_id))).where(
+    needs_review_ids = set(db.scalars(
+        select(func.distinct(RuleEvaluation.application_id)).where(
             RuleEvaluation.application_id.in_(app_ids),
             RuleEvaluation.outcome == "NEEDS_REVIEW",
         )
-    ) if app_ids else 0
+    ).all()) if app_ids else set()
+
+    assigned_ids = set(db.scalars(
+        select(CaseAssignment.application_id).where(
+            CaseAssignment.user_id == access.user_id,
+            CaseAssignment.revoked_at.is_(None),
+            CaseAssignment.application_id.in_(app_ids),
+        )
+    ).all()) if app_ids else set()
+
+    open_alert_ids = {application_id for _alert, application_id in open_alerts}
+    escalated_alert_ids = {
+        application_id
+        for alert, application_id in open_alerts
+        if alert.level == "escalated"
+    }
+    drilldowns = {
+        "cases_in_scope": rows_for(set(app_ids)),
+        "cases_by_state": {state: rows_for(ids) for state, ids in state_ids.items()},
+        "overdue_obligations": rows_for(overdue_obligation_cases),
+        "upcoming_deadlines_7d": rows_for(upcoming_deadline_cases),
+        "open_alerts": rows_for(open_alert_ids),
+        "escalated_alerts": rows_for(escalated_alert_ids),
+        "needs_review_cases": rows_for(needs_review_ids),
+        "my_assignments": rows_for(assigned_ids),
+    }
 
     return {
         "role": access.primary_role,
@@ -177,12 +213,13 @@ def dashboard(db: Session, access: EffectiveAccess) -> dict[str, Any]:
         },
         "cases_in_scope": len(applications),
         "cases_by_state": by_state,
-        "overdue_obligations": overdue_obligations,
-        "upcoming_deadlines_7d": upcoming,
-        "open_alerts": len(open_alerts),
-        "escalated_alerts": len([a for a in open_alerts if a.level == "escalated"]),
-        "needs_review_cases": needs_review_cases,
-        "my_assignments": len(assigned),
+        "overdue_obligations": len(overdue_obligation_cases),
+        "upcoming_deadlines_7d": len(upcoming_deadline_cases),
+        "open_alerts": len(open_alert_ids),
+        "escalated_alerts": len(escalated_alert_ids),
+        "needs_review_cases": len(needs_review_ids),
+        "my_assignments": len(assigned_ids),
+        "drilldowns": drilldowns,
         "generated_at": iso(now),
         "data_source": "live records, no synthetic counts",
     }
