@@ -16,6 +16,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0033 | 2026-10-27 | S4 | test harness / shared checkout | One combined `test_three_value` + `test_authz_matrix` run failed `test_matrix_lists_every_permission_gated_route`; never reproduced in six later runs incl. full suites | Workaround | IMPL-0043 |
 | BUG-0032 | 2026-10-27 | S4 | test harness | Update: the four Phase 5.4 failures first seen in BUG-0023 are gone; final suite is green | Fixed | IMPL-0041 |
 | BUG-0031 | 2026-10-27 | S4 | GitHub tooling | Default sandbox could not reach GitHub API to verify requested repo access; escalated read confirmed ADMIN | Fixed | IMPL-0041 |
 | BUG-0030 | 2026-10-27 | S4 | patch tooling | One Phase 8 patch did not apply because its context did not match current source; no changes from the failed patch | Fixed | IMPL-0041 |
@@ -70,6 +71,23 @@
 ```
 
 ## Entries (newest first)
+
+### BUG-0033 — matrix coverage test failed once in a combined run, never again
+- Date found / found by / branch / commit: 2026-10-27 / MiMo (OpenCode agent) / master / uncommitted Phase 5.4 work (second agent editing the same checkout)
+- Severity / Area: S4 / test harness
+- Status: Workaround
+- Where it showed up: first combined `pytest tests/test_three_value.py tests/test_authz_matrix.py` run while the 15 new three-value tests were already green.
+- Expected behaviour: `test_matrix_lists_every_permission_gated_route` passes (all 36 tests in that run).
+- Actual behaviour: `1 failed, 35 passed` — only `test_authz_matrix.py::test_matrix_lists_every_permission_gated_route` failed; the failure output was not captured (my filter looked for `^E ` lines in a later, passing run).
+- Exact error output: not captured (regression: always capture the failure body before re-running).
+- Steps to reproduce: never reproduced — the same command passed 6 consecutive times afterwards (once alone, 5× combined), plus full-suite greens at 742 and 753.
+- Environment: macOS, repo `/Users/reyyishreyas/Desktop/sih26262`, pytest 9.1.1, no random-order plugin (order deterministic).
+- Hypotheses tried: (1) stale bytecode after `ruff --fix` rewrote `documents.py` in the same command chain — unlikely, Python recompiles on mtime; (2) my two test edits between runs — they touched only `test_three_value.py`, not discovery; (3) **concurrent second agent (Codex) editing the shared checkout during the run** — its files show mtimes inside my run windows (`audit.py` 19:45, `test_phase8_audit.py` 19:52); leading hypothesis, unproven; (4) test-order dependence — ruled out, no randomisation plugin and argument order fixed.
+- Root cause: not established. Most plausible: a concurrent agent's mid-run edit of the shared tree transiently affected route discovery.
+- Solution applied: re-run (workaround); suite stable green since. Recorded honestly as unresolved.
+- Verification: 6× green runs of the same pair of files; `make test` → `742 passed` (pre-merge) and `753 passed` (merged tree `72c7ed6`).
+- Side effects / follow-ups / related decisions (DEC-XXXX) / related IMPL-XXXX: none; linked IMPL-0043. If it recurs under single-agent conditions, reopen with the captured traceback.
+- Update history (date — change in status or approach): —
 
 ### BUG-0032 — Update: temporary Phase 5.4 failures are no longer present
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / shared worktree after concurrent changes

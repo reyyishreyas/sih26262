@@ -628,6 +628,15 @@ tamper-evidence).
   OCR/mock/seeded rows and immutable under verify; BUG-0020 fixed —
   `case_sensitive` polarity was inverted at the read site; BUG-0021 +
   BUG-0022 test-side fixes).
+  `test_three_value.py` (15 — Phase 5.4: FR-41 three-value model — the
+  institution's Claim Value stored beside the extraction (4 nullable
+  columns, migration `70f34e02fce5`), an edit needs a reason (400 with
+  nothing recorded otherwise), master slot honestly `None` (no source
+  integrated), RULE-EDIT-01 answers `continue`/`REVIEW REQUIRED` only
+  about provenance, snapshot equality before/after a claim proves an
+  edit can never clear a failed rule; claim endpoint 200/400/403/404 +
+  audit; BUG-0023/0032 work-in-progress failures root-caused; BUG-0033
+  one-off non-reproducible matrix failure).
   `test_evc_queue.py` (11 — Phase 6.1: FR-18 the EVC queue entry after
   scrutiny when the route needs it; "route needs EVC" read from the
   route's own `schedule_evc` transition definitions (never the
@@ -638,11 +647,11 @@ tamper-evidence).
   config-honesty of queued states).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `425e211` (Phase 6.1; Phase 5 continues at 5.4 — see DEC-0005).
-  CI (`.github/workflows/ci.yml`) runs the same. The last committed feature
-  baseline at `7300a5d` was green (717 passed); Phase 8 work in the current
-  worktree verified the expanded full suite at 742 passed (one upstream
-  Starlette deprecation warning, zero skips).
+  repo is currently green at `72c7ed6` (**753 passed**, one upstream
+  Starlette deprecation warning, zero skips) after the human's merge of
+  Phase 6.1 (`425e211`), Phase 8 (`bb847a4`/`1862b23`) and Phase 5.4
+  (code in `bb847a4`, logs in the docs commit recording this line — see
+  IMPL-0043 and DEC-0005; Phase 5 continues at 5.5).
 - **27 Oct 2026 — Phase 8 audit work:** document content access and extraction
   lifecycle, finding-batch evaluation, automatic assignment, and explicit
   verification/export events are covered; a scoped JSON export checks the
