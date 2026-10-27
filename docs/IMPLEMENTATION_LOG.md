@@ -18,6 +18,9 @@
 | BUG-0065 | 2026-10-28 | Bug | Clause-pending rules could block transitions and disposition gates | Fixed | IMPL-0060 / DEC-0024 |
 | BUG-0066 | 2026-10-28 | Bug | Fresh migration chain installed a trigger before its referenced regulatory-status column | Fixed | IMPL-0060 |
 | BUG-0067 | 2026-10-28 | Bug | Initial focused pytest invocation named two test files that do not exist | Fixed | IMPL-0060 |
+| IMPL-0061 | 2026-10-28 | Implementation | Phase 6 single-case API journey integration check | Verified; full phase exit remains partial | Phase 6 exit; FR-18/20/22/24/26/27/31/32/33 | Codex |
+| BUG-0068 | 2026-10-28 | Bug | Fixed-clock Phase 6 journey test expected the placeholder withdrawal marker to be false | Fixed | IMPL-0061 | Codex |
+| BUG-0069 | 2026-10-28 | Bug | Ruff rejected a zip call without explicit strictness | Fixed | IMPL-0061 | Codex |
 | DEC-0023 | 2026-10-28 | Decision | Chapter II grant list, Council ratification and EoA publication scoped to verified APH clauses | Accepted for prototype workflow; role delegation remains an app ACL | Phase 6 6.8; FR-31/32 | Project lead scope + Codex source check |
 | IMPL-0059 | 2026-10-28 | Implementation | Phase 6.8: consolidated approved-intake grant list, Council ratification and institution EoA publication | Tested | Phase 6 6.8 (FR-31/32) | Codex |
 | IMPL-0059 Update | 2026-10-28 | Update | Phase 6.8 commit and push recorded | Pushed `ce4fa6a` to `origin/master`; tree clean except six pre-existing untracked user documents/images listed in status | Phase 6 6.8 | Codex |
@@ -137,6 +140,19 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0061 — Phase 6 single-case integrated journey
+- Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: Phase 6 exit integration; FR-18, FR-20, FR-22, FR-24, FR-26, FR-27, FR-31, FR-32, FR-33.
+- What existed: dedicated component tests covered EVC, SHC, Executive Committee, appeal, Council and grant publication independently; no test joined the case through the public API.
+- What changed: added `backend/tests/test_phase6_exit_check.py`, which creates a synthetic `evc_sac_shc` application, submits and opens scrutiny, schedules EVC, records an assigned expert report, completes EVC, forwards to SAC, records SHC recommendation, captures a human Executive Committee rejection and Speaking Order, files appeal with evidence and two representatives, records SAC recommendation and Council approval, creates/ratifies/publishes the eligible grant, and reads the institution grant and advisory Security Deposit view. Real grant eligibility is used. The synthetic deposit display is asserted advisory/placeholder; its marker does not change application state.
+- Files changed: `backend/tests/test_phase6_exit_check.py`, this log, `docs/BUG_LOG.md`, `md/6_IMPLEMENTATION_PLAN.md`, and `CONTEXT.md`.
+- API/schema/config: test-only; no product API/schema/config changes, permission changes or migrations. The test fixture assigns the regional demo user the committee memberships needed for the synthetic local case.
+- Permission and audit effects: product permissions and audit behavior reused through the APIs. Committee membership assignment is test fixture setup only.
+- Verification: focused `cd backend && ../.venv/bin/pytest -q tests/test_phase6_exit_check.py` → **1 passed, 1 upstream Starlette deprecation warning**; `make lint && make test` → Ruff clean; **827 passed, 2 upstream Starlette deprecation warnings in 133.14s**. No frontend change. Migrations unchanged.
+- Limitations: Phase 6 exit remains partial. APH II §2.25(e–f) ties deposit obligation to applicable new programme/level cases and an AICTE intimation. The prototype lacks an explicit deposit-intimation event/date and the case data needed to determine the regulatory applicability/exemptions; EoA publication cannot be silently substituted as that notice. Current penalty dates and percentages remain Unverified placeholders. No penalty or withdrawal is triggered.
+- Related: DEC-0024; BUG-0068.
+- Next: address remaining Phase 6 deposit policy/data seam only with verified applicability inputs; meanwhile continue the independent Phase 7 tasks.
 
 ### DEC-0024 — Regulatory status is distinct from rule approval lifecycle
 - Date / owner: 2026-10-28 / Codex.

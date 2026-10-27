@@ -3,6 +3,8 @@
 | BUG-0065 | 2026-10-28 | S1 | regulatory gate safety | Unverified rule versions blocked transitions and required officer dispositions | Fixed | IMPL-0060 / DEC-0024 |
 | BUG-0066 | 2026-10-28 | S3 | migration compatibility | Historical trigger referenced the new column before its migration | Fixed | IMPL-0060 |
 | BUG-0067 | 2026-10-28 | S4 | verification command | Focused pytest command used two nonexistent test filenames | Fixed | IMPL-0060 |
+| BUG-0068 | 2026-10-28 | S4 | Phase 6 integration test | Fixed-date test expected no placeholder withdrawal marker after 31 July | Fixed | IMPL-0061 |
+| BUG-0069 | 2026-10-28 | S4 | lint | Integrated test used `zip()` without an explicit strictness argument | Fixed | IMPL-0061 |
 | BUG-0058 | 2026-10-28 | S2 | release packaging | Appeal API module omitted from Phase 6.6 commit | Fixed | IMPL-0057 |
 | BUG-0060 | 2026-10-28 | S3 | regression tests | Reopening integration exposed assignment and stage bookkeeping assumptions | Fixed | IMPL-0058 |
 | BUG-0059 | 2026-10-28 | S3 | lint | Ruff rejected generated migration import order | Fixed | IMPL-0058 |
@@ -506,6 +508,36 @@
 ```
 
 ## Entries (newest first)
+
+### BUG-0069 — Ruff rejected a zip call without explicit strictness
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / working tree.
+- Severity / Area: S4 / lint.
+- Status: **Fixed**.
+- Expected: `make lint` passes on the new Phase 6 integration test.
+- Actual: Ruff B905 rejected `zip()` without `strict=` in test-only representative fixture construction.
+- Reproduction: `make lint` during IMPL-0061.
+- Environment: repository Ruff configuration, Python 3.13.
+- Hypotheses tried: none; applied the Ruff diagnostic directly.
+- Root cause: zipped two known equal-length literal/fixture sequences without documenting that equal length is required.
+- Solution applied: pass `strict=True`, so future fixture length mismatch fails explicitly.
+- Verification: rerun `make lint && make test` → Ruff clean; 827 passed, 2 upstream Starlette deprecation warnings.
+- Regression test: Phase 6 integrated API journey.
+- Related: IMPL-0061.
+
+### BUG-0068 — Phase 6 integrated test assumed the fixed clock was before the placeholder date
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / working tree.
+- Severity / Area: S4 / test fixture expectation.
+- Status: **Fixed**.
+- Expected: the integrated deposit read should demonstrate the configured marker without changing application state.
+- Actual: the first run expected `withdrawal_flagged` false, but the suite's fixed clock is October 2026 and the placeholder schedule marks dates after 31 July true.
+- Reproduction: `cd backend && ../.venv/bin/pytest -q tests/test_phase6_exit_check.py` before correcting the assertion.
+- Environment: Python 3.13, SQLite, test clock fixed at 2026-10-22 and advanced through synthetic committee hearings.
+- Hypotheses tried: inspected `security_deposit.penalty_for_date` and the configured placeholder dates; confirmed the marker is date-derived and advisory.
+- Root cause: test expectation treated the placeholder date as a nonbinding no-marker policy rather than checking its intended display while asserting no state transition.
+- Solution applied: assert the marker is true for the test date and independently assert the application remains approved; remove grant-eligibility monkeypatch so the real grant eligibility logic is exercised.
+- Verification: `cd backend && ../.venv/bin/pytest -q tests/test_phase6_exit_check.py` → 1 passed, 1 upstream Starlette deprecation warning.
+- Regression test: `test_phase6_single_case_journey_through_grant_and_advisory_deposit`.
+- Related: IMPL-0061.
 
 ### BUG-0065 — Unverified regulatory rules were used as binding workflow gates
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / working tree.
