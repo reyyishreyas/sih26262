@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
-import type { DeficiencyRow, DocumentRow } from "../types";
+import type { ChecklistOut, DeficiencyRow, DocumentRow } from "../types";
 import { useFileCheck } from "../useFileCheck";
 import { useRefreshOnFocus } from "../useRefreshOnFocus";
 import { ACCEPT_ATTRIBUTE, MAX_UPLOAD_BYTES, formatBytes } from "../uploadCheck";
@@ -54,6 +54,9 @@ export function EvidencePanel({
 }) {
   const [documents, setDocuments] = useState<DocumentRow[]>([]);
   const [deficiencies, setDeficiencies] = useState<DeficiencyRow[]>([]);
+  // The Annexure-2 checklist is advisory; a failure to load it must never
+  // hide the documents themselves, so it loads best-effort like deficiencies.
+  const [checklist, setChecklist] = useState<ChecklistOut | null>(null);
   const [loading, setLoading] = useState(true);
   const [docType, setDocType] = useState<string>("lease_agreement");
   // Deficiencies modal / form state for when marking wrong or manual deficiency
@@ -117,12 +120,14 @@ export function EvidencePanel({
   const load = useCallback(async () => {
     try {
       setLoading(true);
-      const [docs, defs] = await Promise.all([
+      const [docs, defs, checklistResult] = await Promise.all([
         api.documents(applicationId),
         api.deficiencies(applicationId).catch(() => []),
+        api.checklist(applicationId).catch(() => null),
       ]);
       setDocuments(docs);
       setDeficiencies(defs);
+      setChecklist(checklistResult);
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not load documents");
     } finally {
@@ -134,6 +139,7 @@ export function EvidencePanel({
 
   useEffect(() => {
     setDocuments([]);
+    setChecklist(null);
     setError(null);
     setMessage(null);
     setWarning(null);
@@ -562,6 +568,102 @@ export function EvidencePanel({
           </article>
         ))}
       </div>
+
+      {/* Annexure-2 checklist (Phase 4.2, FR-13) — advisory, beside the files. */}
+      {checklist && (
+        <div className="panel" style={{ marginTop: "1.5rem" }}>
+          <div className="panel-head">
+            <div>
+              <h3>
+                <Icon name="checkCircle" size={18} /> Annexure-2 checklist
+              </h3>
+              <p className="tiny muted">
+                A guide to what this kind of application usually needs, shown
+                next to what you have uploaded. It is not a decision — a checker
+                still reads every file.
+              </p>
+            </div>
+            {checklist.placeholder && (
+              <span
+                className="pill warn"
+                title="The item lists are transcribed from research, not yet confirmed against the official Annexure-2."
+              >
+                Unverified list
+              </span>
+            )}
+          </div>
+
+          {checklist.status === "needs_review" && checklist.categories.length === 0 && (
+            <p className="muted">
+              {checklist.note ??
+                "No Table 2.3 category is recorded on this case yet, so no checklist can be drawn. A checker records the category first."}
+            </p>
+          )}
+
+          {checklist.categories.map((category) => (
+            <div key={category.category_id} style={{ marginBottom: "0.8rem" }}>
+              <p style={{ display: "flex", gap: "0.5rem", alignItems: "center" }}>
+                <strong>{category.category}</strong>
+                {category.total > 0 && (
+                  <span className="pill small">
+                    {category.uploaded} of {category.total} uploaded
+                  </span>
+                )}
+                <span
+                  className={`pill small ${
+                    category.status === "complete"
+                      ? "active"
+                      : category.status === "incomplete"
+                        ? "warn"
+                        : ""
+                  }`}
+                >
+                  {category.status === "complete"
+                    ? "All listed documents present"
+                    : category.status === "incomplete"
+                      ? "Some documents missing"
+                      : "Needs review"}
+                </span>
+              </p>
+              {category.note && <p className="tiny muted">{category.note}</p>}
+            </div>
+          ))}
+
+          {checklist.items.length > 0 && (
+            <ul style={{ listStyle: "none", padding: 0, margin: 0 }}>
+              {checklist.items.map((item) => (
+                <li
+                  key={`${item.category_id}:${item.item_id}`}
+                  style={{
+                    display: "flex",
+                    gap: "0.5rem",
+                    alignItems: "center",
+                    padding: "0.25rem 0",
+                  }}
+                >
+                  <Icon
+                    name={item.status === "uploaded" ? "checkCircle" : "alertTriangle"}
+                    size={15}
+                  />
+                  <span>{item.title}</span>
+                  <span
+                    className={`pill small ${item.status === "uploaded" ? "active" : "warn"}`}
+                  >
+                    {item.status === "uploaded" ? "Uploaded" : "Not uploaded"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          {checklist.source && (
+            <p className="tiny muted" style={{ marginTop: "0.5rem" }}>
+              {checklist.source}
+            </p>
+          )}
+        </div>
+      )}
+
       {/* Deficiency Notice & Action Tracking Card */}
       <div className="panel" style={{ marginTop: "1.5rem" }}>
         <div className="panel-head">

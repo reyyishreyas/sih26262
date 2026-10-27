@@ -350,6 +350,36 @@ export interface DocumentRow {
   fields: ExtractedField[];
 }
 
+/** One line of a category's Annexure-2 list, joined against what this case
+ * has uploaded. Advisory only — presence is never validity. */
+export interface ChecklistItem {
+  category_id: string;
+  item_id: string;
+  title: string;
+  doc_types: string[];
+  status: "uploaded" | "missing";
+  source: string | null;
+  note: string | null;
+}
+
+export interface ChecklistCategory {
+  category_id: string;
+  category: string;
+  status: "needs_review" | "incomplete" | "complete";
+  note: string | null;
+  uploaded: number;
+  total: number;
+}
+
+export interface ChecklistOut {
+  status: "needs_review" | "incomplete" | "complete";
+  placeholder: boolean;
+  source: string | null;
+  note: string | null;
+  categories: ChecklistCategory[];
+  items: ChecklistItem[];
+}
+
 export interface DeficiencyRow {
   id: string;
   application_id: string;

@@ -74,6 +74,11 @@ def escalation_chain_policy() -> dict[str, Any]:
 
 
 @lru_cache
+def annexure_2_policy() -> dict[str, Any]:
+    return _load("annexure_2.json")
+
+
+@lru_cache
 def appeal_policy() -> dict[str, Any]:
     return _load("appeal_policy.json")
 

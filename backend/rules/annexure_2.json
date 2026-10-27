@@ -1,0 +1,58 @@
+{
+  "version": "2026.1",
+  "status": "unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "recorded_on": "2026-10-27",
+  "source": "md/1_PRD.md FR-13 (line 185: 'Generate checklist from category's Annexure-2 list beside uploaded docs'; Annex-2 column) and §19 Q8 (line 360: 'Which APH sections beyond Chapter II and Annexure-2 lists load into the checklist engine first?' — open for AICTE). Item lists below come from the recorded NOC research (things.md §1, read from the APH 2024-27 PDF with printed page numbers); they are Unverified until a reviewer records the exact Annexure-2 clause in docs/SOURCES.md.",
+  "note": "PLACEHOLDER ANNEXURE-2 CHECKLISTS — advisory presentation only (DEC-0003). The checklist shows which documents a category's Annexure-2 list names and which the case has uploaded; it never blocks, returns or rejects anything, and an uploaded document marks an item present without implying it is genuine, signed or sufficient (that is scrutiny's job). Only the Change of Site list is transcribed so far, because that is the scenario the recorded research covers (PRD §19 Q8 leaves the load order open). Every other category ships an EMPTY list with a pending note: an empty list is rendered as 'needs review — list not transcribed', NEVER as 'nothing required'.",
+  "no_category_note": "No Table 2.3 category is recorded on this case yet, so no checklist can be generated. This is missing data — needs review — not an empty checklist.",
+  "categories": {
+    "t23-13": {
+      "status": "unverified",
+      "note": "Change of Site / Location. The items below are transcribed from the recorded research (things.md §1); each carries its own printed-page source. Presence on this checklist is advisory and gates nothing.",
+      "items": [
+        {
+          "item_id": "noc_format_2",
+          "title": "Format-2 NOC from the affiliating University / Board for the change of site",
+          "doc_types": ["university_noc"],
+          "source": "APH 2024-27 Annexure-2 §2.3, printed p.81 (Format-2 itself printed pp. 202-204), via things.md §1 — Unverified.",
+          "note": "The NOC must reflect the content of the prescribed format; an equivalent-format letter is acceptable (things.md rule 1). No exact-template match is required and no NOC expiry is invented (things.md rule 2)."
+        },
+        {
+          "item_id": "resolution_format_3",
+          "title": "Format-3 resolution of the Trust / Society / Company approving the move",
+          "doc_types": ["format_3_resolution"],
+          "source": "Annexure-2 pairs Format-2 with the Format-3 institutional resolution (things.md §2, step 4 'three sources: NOC <-> application <-> Format-3 Trust resolution') — Unverified; exact clause pending."
+        },
+        {
+          "item_id": "new_site_proof",
+          "title": "Lease deed or ownership record for the NEW site",
+          "doc_types": ["lease_deed", "lease_agreement", "ownership_record"],
+          "source": "Recorded cross-check layer (things.md §4b, layer 3: 'NOC new address <-> application proposed address <-> lease/ownership deed') — clause mapping pending verification.",
+          "note": "Presence on the checklist does not judge the lease; the lease rules (RULE-LEASE-01) evaluate it separately."
+        }
+      ]
+    },
+    "t23-01": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-02": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-03": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-04": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-05": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-06": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-07": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-08": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-09": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-10": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-11": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-12": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-14": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-15": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-16": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-17": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-18": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-19": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-20": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." },
+    "t23-21": { "status": "unverified", "items": [], "pending_note": "Annexure-2 list for this category not yet transcribed — PRD §19 Q8 open. Needs review; an empty list here does NOT mean nothing is required." }
+  }
+}

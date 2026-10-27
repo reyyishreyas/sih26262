@@ -9,7 +9,7 @@ from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import APPLICATION_READ, CASE_READ
 from ..schemas.api import TransitionRequest
-from ..services import appeal, escalation, routing, security_deposit, workflow_service
+from ..services import appeal, checklist, escalation, routing, security_deposit, workflow_service
 from ..services.authorization_service import EffectiveAccess, require_application
 from ..services.policy import reason_codes_policy, workflow_routes
 from .deps import get_access, require_any
@@ -194,3 +194,23 @@ def case_security_deposit(
     """
     application = require_application(db, access, application_id)
     return security_deposit.sd_snapshot(db, application, get_clock().now())
+
+
+@router.get("/applications/{application_id}/checklist")
+def case_checklist(
+    application_id: str,
+    access: EffectiveAccess = Depends(require_any(CASE_READ, APPLICATION_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Annexure-2 document checklist for one case (Phase 4.2, FR-13).
+
+    Shows which documents the case's Table 2.3 categories' Annexure-2 lists
+    name and which are already uploaded, so a reviewer sees the list beside
+    the files. The lists are Unverified placeholders (§19 Q8 leaves the load
+    order open); only the Change of Site list is transcribed so far. Advisory
+    presentation only — it never blocks, returns or rejects anything
+    (DEC-0003), and a case whose categories are not recorded answers
+    "needs review", never an empty all-clear.
+    """
+    application = require_application(db, access, application_id)
+    return checklist.case_checklist(db, application)

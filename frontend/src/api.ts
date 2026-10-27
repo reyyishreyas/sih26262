@@ -4,6 +4,7 @@ import type {
   ApplicationSummary,
   AuditEvent,
   CaseDetail,
+  ChecklistOut,
   ComplianceBatch,
   DeficiencyRow,
   DemoClockMove,
@@ -130,6 +131,8 @@ export const api = {
     }),
   documents: (id: string) =>
     request<DocumentRow[]>(`/applications/${id}/documents`),
+  /** The Annexure-2 checklist for this case's category — advisory, read-only. */
+  checklist: (id: string) => request<ChecklistOut>(`/applications/${id}/checklist`),
   uploadDocument: (id: string, docType: string, file: File) => {
     const form = new FormData();
     form.set("doc_type", docType);
