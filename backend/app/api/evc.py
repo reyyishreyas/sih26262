@@ -14,7 +14,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
-from sqlalchemy import select
+from sqlalchemy import and_, false, or_, select
 from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock, iso, to_utc
@@ -201,10 +201,18 @@ def evc_queue(
     access: EffectiveAccess = Depends(require(MONITORING_READ)),
     db: Session = Depends(get_db),
 ) -> dict:
-    """Cases that are at an EVC stage, with visit scheduling and ageing.
+    """Cases that are at an EVC stage, or due for one, with visit ageing.
+
+    FR-18 (plan 6.1): a case whose route prescribes an expert visit shows up
+    in the queue once it reaches the state the route schedules `schedule_evc`
+    from (i.e. the scrutiny leg is over for that route) — not only after
+    somebody remembers to book. "Route needs EVC" is read from the route's own
+    transition definitions, never inferred from the category, and the whole
+    thing is derived on read: a report, never a gate, never a stored row.
 
     Scoped through the caller's monitoring scope like every other report.
     """
+    from ..models import WorkflowTransitionDefinition
     from ..services.authorization_service import scope_filter
 
     now = get_clock().now()
@@ -213,9 +221,35 @@ def evc_queue(
     scheduled_ids = db.scalars(
         select(EvcVisit.application_id).where(EvcVisit.status == "scheduled")
     ).all()
+    # ...plus cases their own route says are due for an EVC now: the route
+    # defines `schedule_evc` from the case's current state and no visit is
+    # booked yet (FR-18 "queue after scrutiny when the route needs it").
+    evc_pairs = db.execute(
+        select(
+            WorkflowTransitionDefinition.route_key,
+            WorkflowTransitionDefinition.from_state,
+        ).where(WorkflowTransitionDefinition.action == "schedule_evc")
+    ).all()
+    awaiting_clause = (
+        or_(
+            *[
+                and_(
+                    Application.route_key == route_key,
+                    Application.current_state == from_state,
+                )
+                for route_key, from_state in evc_pairs
+            ]
+        )
+        if evc_pairs
+        else false()
+    )
+    awaiting_ids = set(
+        db.scalars(select(Application.id).where(awaiting_clause)).all()
+    )
     query = select(Application).where(
         Application.current_state.in_(("evc_scheduled", "evc_completed"))
         | Application.id.in_(tuple(scheduled_ids) or ("",))
+        | awaiting_clause
     )
     clause = scope_filter(access)
     if clause is not None:
@@ -273,6 +307,8 @@ def evc_queue(
                 "days_in_stage": days_in_stage,
                 "sla_days": sla,
                 "stage_overdue": sla is not None and days_in_stage > sla,
+                "awaiting_scheduling": application.id in awaiting_ids
+                and visit is None,
                 "visit": _serialise(visit, committees.get(visit.committee_id))
                 if visit
                 else None,
@@ -288,6 +324,7 @@ def evc_queue(
         "generated_at": iso(now),
         "count": len(rows),
         "not_scheduled": sum(1 for row in rows if row["visit_state"] == "not_scheduled"),
+        "awaiting_scheduling": sum(1 for row in rows if row["awaiting_scheduling"]),
         "visit_due_soon": sum(1 for row in rows if row["visit_state"] == "visit_due_soon"),
         "visit_overdue": sum(1 for row in rows if row["visit_state"] == "visit_overdue"),
         "rows": rows,
