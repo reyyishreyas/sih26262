@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 561 passing
+make test      # pytest — 573 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **561 passing** (~490 test functions; some parametrised).
+- `make test` → **573 passing** (~490 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -509,7 +509,7 @@ tamper-evidence).
    after a 30-day demo-clock jump).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `47a8409`.
+  repo is currently green at `dfb42f2` (Phase 4.1).
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on
@@ -594,6 +594,7 @@ applications  GET|POST /applications · GET /applications/{id} · GET .../eviden
 documents     GET|POST /applications/{id}/documents · GET .../{doc}/content · POST .../{doc}/fields/{f}/verify
 compliance    POST /applications/{id}/compliance/evaluate
 deficiencies  GET|POST /applications/{id}/deficiencies · PATCH .../{id} · POST .../{id}/close
+coi           POST|GET /applications/{id}/conflicts-of-interest · POST /conflicts-of-interest/{id}/review (declare hides the case from the declarer; advisory only)
 readiness      GET /applications/{id}/blocked-flags · POST /applications/{id}/blocked-flags/{flag_id} · GET /applications/{id}/lease-check
 portal         GET /portal/feed (FR-01 stub: 7 fields + as_of; scope-filtered; read-only)
 workflow      GET /workflow/routes · GET /workflow/table-2-3-scoreboard · POST /applications/{id}/transitions · POST .../revert · GET .../transitions

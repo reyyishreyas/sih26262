@@ -69,7 +69,7 @@ Do not run phases concurrently without agreed interfaces (see `4_AGENTS.md`). Ea
 - [ ] **Exit check:** advance demo clock → alerts fire at configured lead times → escalate L0→L1→L2; reconciliation shows 0 diff.
 
 ## Phase 4 — Scrutiny, deficiency, compliance (FR-06, FR-12–FR-15)
-- [ ] 4.1 Assignment by Region/workload + conflict-of-interest declaration and hiding (FR-12).
+- [x] 4.1 Assignment by Region/workload + conflict-of-interest declaration and hiding (FR-12).
 - [ ] 4.2 Checklist generated from category Annexure-2 list beside documents (FR-13); start with the Change of Site list, others as data.
 - [ ] 4.3 Per-item and overall result with remarks (FR-14).
 - [ ] 4.4 Deficiency report draft (labelled draft) → compliance window → institution upload → Re-Scrutiny (FR-15).
