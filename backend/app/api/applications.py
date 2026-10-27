@@ -161,7 +161,11 @@ def get_compliance(
             request_id=current_request_id(),
         )
         db.commit()
-        return report.as_dict()
+        result = report.as_dict()
+        result["advisory_checks"] = compliance_service.evaluate_evidence_crosschecks(
+            db, application
+        )
+        return result
 
     rows = db.scalars(
         select(RuleEvaluation)
@@ -194,6 +198,9 @@ def get_compliance(
             for row in rows
         ],
         "counts": _counts(rows),
+        "advisory_checks": compliance_service.evaluate_evidence_crosschecks(
+            db, application
+        ),
     }
 
 

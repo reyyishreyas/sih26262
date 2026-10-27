@@ -11,6 +11,7 @@ from sqlalchemy.orm import Session
 
 from ..core.clock import get_clock, iso
 from ..models import Application, RuleEvaluation, RuleVersion
+from . import evidence_crosschecks
 from .evidence_service import build_snapshot
 from .rule_engine import (
     RuleEvaluationResult,
@@ -131,3 +132,10 @@ def evaluate_snapshot(
 ) -> list[RuleEvaluationResult]:
     """Used by the Rehearsal Engine, which must not re-read mutable production state."""
     return evaluate_rules(specs, snapshot)
+
+
+def evaluate_evidence_crosschecks(
+    db: Session, application: Application
+) -> list[dict[str, Any]]:
+    """Return non-persisted E01-E03 diagnostics over Extraction Values only."""
+    return evidence_crosschecks.evaluate(build_snapshot(db, application))

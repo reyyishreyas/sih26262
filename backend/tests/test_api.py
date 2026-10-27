@@ -61,6 +61,16 @@ def test_compliance_get_returns_the_latest_batch(client, as_user):
     batch_id = first.json()["batch_id"]
     second = client.get("/api/v1/applications/app-main-0001/compliance", headers=headers)
     assert second.json()["batch_id"] == batch_id
+    checks = second.json()["advisory_checks"]
+    assert [item["rule_id"] for item in checks] == [
+        "RULE-E01",
+        "RULE-E02",
+        "RULE-E03",
+    ]
+    assert all(
+        item["outcome"] == "REVIEW REQUIRED" and item["advisory_only"]
+        for item in checks
+    )
 
 
 def test_rehearsal_through_the_api(client, as_user):

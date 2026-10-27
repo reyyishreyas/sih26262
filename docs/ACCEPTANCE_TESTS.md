@@ -43,6 +43,15 @@ One warning is emitted: Starlette's notice that `httpx` with
 | A new version can be drafted and approved | `test_rules_service.py::test_new_version_can_be_drafted_and_approved` |
 | A draft does not change assessments | `test_rules_service.py::test_draft_version_does_not_change_assessment` |
 
+### Phase 5 evidence cross-checks
+
+| Claim | Test |
+|---|---|
+| E01-E03 stay unverified/advisory and use labelled placeholder field mappings | `test_evidence_crosschecks.py::test_policy_keeps_placeholder_rules_unverified_and_advisory` |
+| A potential discrepancy remains `REVIEW REQUIRED`, never a formal failure | `test_evidence_crosschecks.py::test_e01_reports_a_discrepancy_but_never_a_formal_failure` |
+| Missing comparison inputs stay review-required | `test_evidence_crosschecks.py::test_missing_values_remain_review_required_instead_of_becoming_a_pass` |
+| A claim edit cannot clear a discrepancy computed from extracted values | `test_evidence_crosschecks.py::test_claim_edits_cannot_change_e01_extraction_diagnostic`; `test_three_value.py::test_an_edit_can_never_clear_a_failed_rule` |
+
 ### Workflow guards and audit
 
 | Claim | Test |

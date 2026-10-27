@@ -38,4 +38,8 @@ def evaluate(
         request_id=current_request_id(),
     )
     db.commit()
-    return report.as_dict()
+    result = report.as_dict()
+    result["advisory_checks"] = compliance_service.evaluate_evidence_crosschecks(
+        db, application
+    )
+    return result

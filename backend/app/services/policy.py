@@ -118,6 +118,11 @@ def three_value_policy() -> dict[str, Any]:
     return _load("three_value_policy.json")
 
 
+@lru_cache
+def evidence_crosschecks_policy() -> dict[str, Any]:
+    return _load("evidence_crosschecks.json")
+
+
 @dataclass(frozen=True)
 class Threshold:
     level: str

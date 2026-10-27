@@ -1,0 +1,41 @@
+{
+  "policy_id": "POLICY-EVIDENCE-CROSSCHECKS",
+  "version": "0.1",
+  "status": "unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "source": "PRD FR-42 and §8 rules E01-E03. Field paths are prototype placeholders because the PRD §19 Q13 says the official EoA and Format-2/3 field schemas are not confirmed. md/rules.json marks RULE-E01, RULE-E02 and RULE-E03 blocked pending official source mapping.",
+  "normalization": "Unicode NFKC, casefold and collapse whitespace; punctuation and token order remain significant.",
+  "outcome": "REVIEW REQUIRED",
+  "human_review": "Required. A mismatch is a discrepancy signal only; it is never a formal deficiency, workflow gate, approval or rejection.",
+  "rules": [
+    {
+      "rule_id": "RULE-E01",
+      "title": "Trust/Society/Company name on NOC compared with EoA",
+      "status": "unverified",
+      "field_pairs": [
+        ["documents.university_noc.trust_name", "documents.eoa_letter.trust_name"]
+      ]
+    },
+    {
+      "rule_id": "RULE-E02",
+      "title": "NOC old address and survey number compared with EoA",
+      "status": "unverified",
+      "field_pairs": [
+        ["documents.university_noc.old_address", "documents.eoa_letter.institution_address"],
+        ["documents.university_noc.survey_number", "documents.eoa_letter.survey_number"]
+      ]
+    },
+    {
+      "rule_id": "RULE-E03",
+      "title": "Institution name, PID and type compared across documents",
+      "status": "unverified",
+      "field_pairs": [
+        ["documents.university_noc.institution_name", "documents.eoa_letter.institution_name"],
+        ["documents.university_noc.pid", "documents.eoa_letter.pid"],
+        ["documents.university_noc.institution_type", "documents.eoa_letter.institution_type"]
+      ]
+    }
+  ],
+  "note": "No field path is treated as an official template or rule interpretation. Missing values and unverified values remain review-required; no result is activated in the approved compliance rule set."
+}

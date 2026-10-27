@@ -29,6 +29,32 @@ export interface ComplianceBatch {
   findings: Finding[];
   blocking_unmet?: Finding[];
   counts: Record<Outcome, number>;
+  /** Unverified E01-E03 diagnostics; never formal compliance outcomes. */
+  advisory_checks?: EvidenceCrosscheck[];
+}
+
+export interface EvidenceCrosscheck {
+  rule_id: string;
+  title: string;
+  rule_status: "unverified";
+  comparison:
+    | "discrepancy_signal"
+    | "matches_on_available_fields"
+    | "insufficient_evidence";
+  outcome: "REVIEW REQUIRED";
+  advisory_only: true;
+  human_review: string;
+  comparisons: {
+    extraction_path: string;
+    comparison_path: string;
+    extraction_value: unknown;
+    comparison_value: unknown;
+    comparison: "match" | "mismatch" | "unavailable";
+    extraction_verified: boolean;
+    comparison_verified: boolean;
+    extraction_source: string | null;
+    comparison_source: string | null;
+  }[];
 }
 
 export interface RehearsalDiffRow {

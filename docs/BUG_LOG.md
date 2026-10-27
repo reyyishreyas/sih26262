@@ -16,6 +16,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0034 | 2026-10-27 | S4 | lint | Phase 5.5 first Ruff check found import ordering and an unused test import | Fixed | IMPL-0044 |
 | BUG-0033 | 2026-10-27 | S4 | test harness / shared checkout | One combined `test_three_value` + `test_authz_matrix` run failed `test_matrix_lists_every_permission_gated_route`; never reproduced in six later runs incl. full suites | Workaround | IMPL-0043 |
 | BUG-0032 | 2026-10-27 | S4 | test harness | Update: the four Phase 5.4 failures first seen in BUG-0023 are gone; final suite is green | Fixed | IMPL-0041 |
 | BUG-0031 | 2026-10-27 | S4 | GitHub tooling | Default sandbox could not reach GitHub API to verify requested repo access; escalated read confirmed ADMIN | Fixed | IMPL-0041 |
@@ -71,6 +72,25 @@
 ```
 
 ## Entries (newest first)
+
+### BUG-0034 — Phase 5.5 first Ruff check found import-only issues
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / working tree for Phase 5.5
+- Severity / Area: S4 / lint
+- Status: Fixed
+- Where it showed up: `cd backend && ../.venv/bin/python -m ruff check app tests migrations scripts`
+- Expected behaviour: Ruff accepts the new Phase 5.5 service and test imports.
+- Actual behaviour: Ruff reported `I001` for import ordering in `app/services/compliance_service.py` and `F401` for an unused `copy.deepcopy` import in `tests/test_evidence_crosschecks.py`.
+- Exact error output (trimmed): `I001 Import block is un-sorted or un-formatted`; `F401 copy.deepcopy imported but unused`.
+- Steps to reproduce: add the Phase 5.5 service import and test file, then run the command above.
+- Environment: macOS, Python 3.13, repository `.venv`.
+- Hypotheses tried: none; Ruff identified both exact source lines.
+- Root cause: import was placed after the local evidence-service import rather than in Ruff's sorted order; test drafting left one unused import.
+- Solution applied: ran Ruff's import fixer and removed the unused symbol; no production behavior changed.
+- Verification at initial entry: targeted Phase 5.5 and three-value tests → 21 passed; Ruff rerun pending at log time.
+- Side effects / follow-ups / related decisions / linked IMPL: none; IMPL-0044.
+- Regression test: no behavior regression was involved; lint itself is the verification gate.
+- Update (2026-10-27): Ruff import fixer applied. `ruff check app tests migrations scripts` → All checks passed; final `make lint && make test` → **758 passed, 1 warning, 0 skipped**. Root cause and fix above; no behavior regression was involved.
+- Update history: 2026-10-27 — entry opened immediately after the failed check; fixed and verified in the update above.
 
 ### BUG-0033 — matrix coverage test failed once in a combined run, never again
 - Date found / found by / branch / commit: 2026-10-27 / MiMo (OpenCode agent) / master / uncommitted Phase 5.4 work (second agent editing the same checkout)

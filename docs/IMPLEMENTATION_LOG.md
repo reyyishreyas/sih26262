@@ -13,6 +13,8 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0044 | 2026-10-27 | Implementation | Phase 5.5: unverified E01–E03 cross-checks on Extraction Values only; labelled field-mapping placeholders; discrepancies never become formal FAIL or gate | Tested | Phase 5 5.5 (AGENT-04; FR-42) | Codex |
+| DEC-0008 | 2026-10-27 | Decision | Keep E01–E03 Unverified and advisory; expose only discrepancy diagnostics with formal outcome REVIEW REQUIRED until source mapping is verified | Accepted | Phase 5 5.5; FR-42; §19 Q13; rules E01–E03 | Codex |
 | IMPL-0043 | 2026-10-27 | Implementation | Phase 5.4: three-value model — `three_value.py` + `rules/three_value_policy.json` (POLICY-THREE-VALUE, proposed_unverified) + `POST .../fields/{field_id}/claim` (institution confirms/edits, `require_any(DOCUMENT_UPLOAD, DOCUMENT_VERIFY)`, reason required on edit else 400 with nothing recorded, extraction never overwritten, no `baseline_version` bump) + 4 nullable `ExtractedField` claim columns, migration `70f34e02fce5`; Master Record Value stays `None` (no source integrated); RULE-EDIT-01 advisory answers `continue`/`REVIEW REQUIRED` | Tested | Phase 5 5.4 (AGENT-04; FR-41) | MiMo (OpenCode agent) |
 | DEC-0007 | 2026-10-27 | Decision | Claim Value stored beside the extraction (4 nullable columns, no master column), claims never bump `baseline_version`, gate via `require_any(DOCUMENT_UPLOAD, DOCUMENT_VERIFY)` without widening any role | Accepted | Phase 5 5.4; FR-41; RULE-EDIT-01 | MiMo (OpenCode agent) |
 | IMPL-0041 | 2026-10-27 | Implementation | Phase 6.1: EVC queue entry after scrutiny when the route needs it — `GET /evc/queue` also selects cases whose own route transition definitions prescribe `schedule_evc` from the current state and that hold no live visit (FR-18); rows gain `awaiting_scheduling`, derived on read, nothing stored or moved | Tested | Phase 6 6.1 (AGENT-09/AGENT-08; FR-18) | MiMo (OpenCode agent) |
@@ -100,6 +102,29 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### DEC-0008 — Keep E01–E03 as unverified extraction diagnostics
+- Date / author: 2026-10-27 / Codex
+- Status: Accepted
+- Context: PRD FR-42 describes E01–E03 comparisons, but `md/rules.json` marks each rule blocked and PRD §19 Q13 says official EoA and Format-2/3 field schemas are unconfirmed.
+- Options considered: (A) activate the comparisons as compliance outcomes using inferred fields; (B) expose extraction-only diagnostic comparisons from clearly labelled placeholder mappings while retaining `REVIEW REQUIRED`; (C) defer all code until an official template is supplied.
+- Decision: (B). No formal pass/fail or deficiency result is emitted; missing data stays review-required. The compliance rule engine continues to load approved immutable rule versions only.
+- Rationale: this implements the planned prototype comparison while honoring the explicit Unverified/blocked status and avoiding an invented regulatory interpretation.
+- Consequences: a comparison may identify matching/mismatching available fields, but it cannot decide, gate or change state. Field paths must be replaced only after the project receives approved source mapping.
+- Approval needed from / approved by / date: none; no official rule, role authority, route, deadline or decision behavior changed.
+- Evidence: `backend/tests/test_evidence_crosschecks.py`, `backend/tests/test_api.py::test_compliance_get_returns_the_latest_batch`; linked IMPL-0044.
+
+### IMPL-0044 — Phase 5.5: E01–E03 compare Extraction Values only (FR-42)
+- Date / agent / branch / commit: 2026-10-27 / Codex / `master` / pending commit
+- Task ID and PRD IDs: Phase 5 5.5 (AGENT-04; FR-42; PRD §8 registry and §19 Q13).
+- What existed: E01–E03 were marked `blocked` in `md/rules.json`; no evaluator existed. `build_snapshot()` reads extraction values and verification/source provenance; Phase 5.4 claims are stored separately and excluded from snapshots.
+- What I did: added `evidence_crosschecks.py` and `rules/evidence_crosschecks.json` with labelled placeholder paths for NOC/EoA comparisons. E01–E03 remain Unverified/advisory; comparison normalizes Unicode, case and whitespace only. Every result remains `REVIEW REQUIRED`; mismatch is a diagnostic signal, not a formal failure. The service reads `Snapshot` extraction data only. Compliance GET and POST responses expose `advisory_checks` under existing application scope and authorization. No result is persisted.
+- Files changed: `backend/app/services/evidence_crosschecks.py`, `backend/app/services/compliance_service.py`, `backend/app/services/policy.py`, `backend/app/api/applications.py`, `backend/app/api/compliance.py`, `backend/rules/evidence_crosschecks.json`, `backend/tests/test_evidence_crosschecks.py`, `backend/tests/test_api.py`, `frontend/src/types.ts`, `md/6_IMPLEMENTATION_PLAN.md`, `docs/TRACEABILITY.md`, `docs/ACCEPTANCE_TESTS.md`, `README.md`, `CONTEXT.md`, this log and `docs/BUG_LOG.md`.
+- Migrations/API/config: no schema or migration change; additive `advisory_checks` response key on existing compliance APIs; placeholder configuration only. No permission matrix change.
+- Permission and audit effects: existing object-scoped application read/evaluate authorization is reused. Checks are computed on read and never change data or workflow. Existing persisted compliance evaluation audit behavior is unchanged.
+- Verification: baseline `make lint && make test` → lint clean, **753 passed, 1 warning, 0 skipped**. Targeted checks `pytest tests/test_evidence_crosschecks.py tests/test_api.py::test_compliance_get_returns_the_latest_batch tests/test_three_value.py -q` → **21 passed, 1 warning**; `ruff check app tests migrations scripts` → clean; `cd frontend && npm run build` → TypeScript + Vite build passed; final `make lint && make test` → lint clean, **758 passed, 1 warning, 0 skipped**; `git diff --check` → clean.
+- Limitations/open questions: official templates and field mappings remain unverified; no matching output can mean compliance, and no discrepancy is a formal deficiency. No migration or Compose/Postgres verification needed because schema was unchanged; Postgres/Compose smoke not run.
+- Next suggested task: Phase 5.6 — SITE-01 phrase/programme checks and SITE-02 jurisdiction placeholder.
 
 ### IMPL-0043 — Phase 5.4: three-value model — Extraction / Claim / Master (FR-41)
 - Date / agent / branch / commit: 2026-10-27 / MiMo (OpenCode agent) / `master` / feature code landed in `bb847a4` (staged by this session, committed by the concurrent Codex session — see Coordination note below); verified tree `72c7ed6`.
