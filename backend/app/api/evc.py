@@ -24,10 +24,18 @@ from ..core.permissions import (
     APPLICATION_READ,
     CASE_READ,
     CASE_TRANSITION,
+    EVC_VISIT_CONFIRM,
     MONITORING_READ,
 )
-from ..models import Application, Committee, EvcVisit, Institution, Region
-from ..services import workflow_service
+from ..models import (
+    Application,
+    CaseAssignment,
+    Committee,
+    EvcVisit,
+    Institution,
+    Region,
+)
+from ..services import evc_service, workflow_service
 from ..services.audit_service import AuditService
 from ..services.authorization_service import (
     EffectiveAccess,
@@ -48,10 +56,15 @@ class VisitScheduleRequest(BaseModel):
     venue: str = Field(default="", max_length=255)
     meeting_url: str | None = Field(default=None, max_length=2048)
     committee_id: str | None = None
+    expert_user_ids: list[str] = Field(default_factory=list, max_length=20)
     notes: str = Field(default="", max_length=1024)
 
 
-def _serialise(visit: EvcVisit, committee_name: str | None) -> dict:
+def _serialise(
+    visit: EvcVisit,
+    committee_name: str | None,
+    assigned_experts: list[dict[str, str]] | None = None,
+) -> dict:
     return {
         "id": visit.id,
         "application_id": visit.application_id,
@@ -61,6 +74,9 @@ def _serialise(visit: EvcVisit, committee_name: str | None) -> dict:
         "visit_mode": visit.visit_mode,
         "venue": visit.venue,
         "meeting_url": visit.meeting_url,
+        "confirmation_status": visit.confirmation_status,
+        "confirmed_at": iso(visit.confirmed_at),
+        "assigned_experts": assigned_experts or [],
         "status": visit.status,
         "notes": visit.notes,
         "created_at": iso(visit.created_at),
@@ -114,7 +130,33 @@ def list_visits(
         for committee in db.scalars(select(Committee)).all()
     }
     return [
-        _serialise(visit, names.get(visit.committee_id)) for visit in rows
+        _serialise(
+            visit,
+            names.get(visit.committee_id),
+            evc_service.experts_for_visit(db, visit.id),
+        )
+        for visit in rows
+    ]
+
+
+@router.get("/applications/{application_id}/evc/committees/{committee_id}/experts")
+def list_committee_experts(
+    application_id: str,
+    committee_id: str,
+    access: EffectiveAccess = Depends(require(CASE_TRANSITION)),
+    db: Session = Depends(get_db),
+) -> list[dict[str, str]]:
+    require_application(db, access, application_id)
+    committee = db.get(Committee, committee_id)
+    if committee is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "committee not found")
+    return [
+        {"id": expert.id, "name": expert.full_name}
+        for expert in evc_service.available_experts(
+            db,
+            committee_id=committee.id,
+            application_id=application_id,
+        )
     ]
 
 
@@ -130,6 +172,12 @@ def schedule_visit(
 ) -> dict:
     application = require_application(db, access, application_id)
     require_permission(access, CASE_TRANSITION)
+
+    if len(set(payload.expert_user_ids)) != len(payload.expert_user_ids):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "expert_user_ids must not contain duplicates",
+        )
 
     venue = payload.venue.strip()
     meeting_url = payload.meeting_url.strip() if payload.meeting_url else None
@@ -153,8 +201,40 @@ def schedule_visit(
             "online visits use a meeting link instead of a physical place",
         )
 
-    if payload.committee_id is not None and db.get(Committee, payload.committee_id) is None:
+    committee = db.get(Committee, payload.committee_id) if payload.committee_id else None
+    if payload.committee_id is not None and committee is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "committee not found")
+    if payload.expert_user_ids and committee is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "select a committee before assigning experts",
+        )
+    eligible_experts = (
+        evc_service.available_experts(
+            db,
+            committee_id=committee.id,
+            application_id=application.id,
+        )
+        if committee
+        else []
+    )
+    eligible_ids = {expert.id for expert in eligible_experts}
+    if not set(payload.expert_user_ids).issubset(eligible_ids):
+        rejected = sorted(set(payload.expert_user_ids) - eligible_ids)
+        AuditService(db).append(
+            action="evc.visit_schedule_rejected",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="rejected",
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+            after={"reason": "expert_not_in_committee_or_conflicted", "expert_count": len(rejected)},
+        )
+        db.commit()
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "one or more selected experts are not active members of this committee or have an open conflict",
+        )
 
     # The route must actually prescribe an EVC stage.
     if "evc" not in application.route_key and "evc" not in _route_states(db, application):
@@ -171,6 +251,13 @@ def schedule_visit(
     ).all()
     for visit in previous:
         visit.status = "rescheduled"
+        for assignment in db.scalars(
+            select(CaseAssignment).where(
+                CaseAssignment.source_evc_visit_id == visit.id,
+                CaseAssignment.revoked_at.is_(None),
+            )
+        ).all():
+            assignment.revoked_at = get_clock().now()
 
     visit = EvcVisit(
         application_id=application.id,
@@ -186,6 +273,13 @@ def schedule_visit(
     )
     db.add(visit)
     db.flush()
+    if committee is not None:
+        evc_service.assign_visit_experts(
+            db,
+            visit=visit,
+            committee=committee,
+            expert_ids=payload.expert_user_ids,
+        )
     names = {
         committee.id: committee.name
         for committee in db.scalars(select(Committee)).all()
@@ -202,6 +296,7 @@ def schedule_visit(
             "scheduled_date": visit.scheduled_date.isoformat(),
             "venue": visit.venue,
             "visit_mode": visit.visit_mode,
+            "assigned_expert_ids": sorted(payload.expert_user_ids),
             "committee": names.get(visit.committee_id) if visit.committee_id else None,
         },
     )
@@ -221,7 +316,11 @@ def schedule_visit(
             + (f" at {visit.venue}" if visit.venue else "")
         ),
     )
-    body = _serialise(visit, names.get(visit.committee_id))
+    body = _serialise(
+        visit,
+        names.get(visit.committee_id),
+        evc_service.experts_for_visit(db, visit.id),
+    )
     body["case_advanced_to"] = decision.to_state if decision and decision.accepted else None
     return body
 
@@ -287,6 +386,59 @@ def evc_region_calendar(
             for visit, application, institution, region, committee in rows
         ],
     }
+
+
+@router.post(
+    "/applications/{application_id}/evc/visits/{visit_id}/confirm"
+)
+def confirm_visit(
+    application_id: str,
+    visit_id: str,
+    access: EffectiveAccess = Depends(require(EVC_VISIT_CONFIRM)),
+    db: Session = Depends(get_db),
+) -> dict:
+    application = require_application(db, access, application_id)
+    require_permission(access, EVC_VISIT_CONFIRM)
+    if "institution_representative" not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "institution representative role required")
+    visit = db.get(EvcVisit, visit_id)
+    if visit is None or visit.application_id != application.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "visit not found")
+    if visit.status != "scheduled":
+        AuditService(db).append(
+            action="evc.visit_confirmation_rejected",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="rejected",
+            actor_id=access.user_id,
+            actor_role="institution_representative",
+            after={"visit_id": visit.id, "reason": "visit_not_scheduled"},
+        )
+        db.commit()
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "only a currently scheduled visit can be confirmed",
+        )
+    if visit.confirmation_status != "confirmed":
+        visit.confirmation_status = "confirmed"
+        visit.confirmed_by = access.user_id
+        visit.confirmed_at = get_clock().now()
+        AuditService(db).append(
+            action="evc.visit_confirmed",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="accepted",
+            actor_id=access.user_id,
+            actor_role="institution_representative",
+            after={"visit_id": visit.id, "scheduled_date": visit.scheduled_date.isoformat()},
+        )
+        db.commit()
+    committee = db.get(Committee, visit.committee_id) if visit.committee_id else None
+    return _serialise(
+        visit,
+        committee.name if committee else None,
+        evc_service.experts_for_visit(db, visit.id),
+    )
 
 
 @router.get("/evc/queue")
@@ -402,10 +554,18 @@ def evc_queue(
                 "stage_overdue": sla is not None and days_in_stage > sla,
                 "awaiting_scheduling": application.id in awaiting_ids
                 and visit is None,
-                "visit": _serialise(visit, committees.get(visit.committee_id))
+                "visit": _serialise(
+                    visit,
+                    committees.get(visit.committee_id),
+                    evc_service.experts_for_visit(db, visit.id),
+                )
                 if visit
                 else None,
-                "latest_visit": _serialise(latest, committees.get(latest.committee_id))
+                "latest_visit": _serialise(
+                    latest,
+                    committees.get(latest.committee_id),
+                    evc_service.experts_for_visit(db, latest.id),
+                )
                 if latest
                 else None,
                 "visit_state": visit_state,

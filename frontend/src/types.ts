@@ -660,6 +660,9 @@ export interface EvcVisit {
   visit_mode: "online" | "physical" | null;
   venue: string;
   meeting_url: string | null;
+  confirmation_status: "pending" | "confirmed";
+  confirmed_at: string | null;
+  assigned_experts: Array<{ id: string; name: string }>;
   status: "scheduled" | "completed" | "rescheduled" | "cancelled";
   notes: string;
   created_at: string;

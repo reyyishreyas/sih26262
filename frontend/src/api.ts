@@ -463,6 +463,15 @@ export const api = {
   evcQueue: () => request<EvcQueue>("/evc/queue"),
   evcCalendar: () => request<EvcRegionCalendar>("/evc/calendar"),
   evcVisits: (id: string) => request<EvcVisit[]>(`/applications/${id}/evc/visits`),
+  evcExperts: (id: string, committeeId: string) =>
+    request<Array<{ id: string; name: string }>>(
+      `/applications/${id}/evc/committees/${committeeId}/experts`,
+    ),
+  confirmEvcVisit: (applicationId: string, visitId: string) =>
+    request<EvcVisit>(
+      `/applications/${applicationId}/evc/visits/${visitId}/confirm`,
+      { method: "POST" },
+    ),
   scheduleEvcVisit: (
     id: string,
     payload: {
@@ -471,6 +480,7 @@ export const api = {
       venue?: string;
       meeting_url?: string | null;
       committee_id?: string | null;
+      expert_user_ids?: string[];
       notes?: string;
     },
   ) =>

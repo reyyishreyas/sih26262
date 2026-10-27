@@ -27,6 +27,7 @@ ADMIN_USERS = "admin.users"
 ADMIN_RULES = "admin.rules"
 ADMIN_ASSIGNMENTS = "admin.assignments"
 ALERT_DELIVER = "alert.deliver"
+EVC_VISIT_CONFIRM = "evc.visit.confirm"
 
 ALL_PERMISSIONS: dict[str, str] = {
     APPLICATION_READ: "Read applications within scope",
@@ -48,6 +49,7 @@ ALL_PERMISSIONS: dict[str, str] = {
     ADMIN_RULES: "Administer rule versions",
     ADMIN_ASSIGNMENTS: "Administer roles and scopes",
     ALERT_DELIVER: "Run scheduled alert delivery",
+    EVC_VISIT_CONFIRM: "Confirm a scheduled EVC visit for an institution",
 }
 
 INSTITUTION_REPRESENTATIVE = "institution_representative"
@@ -69,6 +71,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         AUDIT_READ,
         UNDERTAKING_READ,
         UNDERTAKING_SUBMIT,
+        EVC_VISIT_CONFIRM,
     ),
     SCRUTINY_OFFICER: (
         CASE_READ,
@@ -105,7 +108,11 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         AUDIT_READ,
         UNDERTAKING_READ,
     ),
-    ADMINISTRATOR: tuple(ALL_PERMISSIONS),
+    ADMINISTRATOR: tuple(
+        permission
+        for permission in ALL_PERMISSIONS
+        if permission != EVC_VISIT_CONFIRM
+    ),
 }
 
 SCOPE_GLOBAL = "global"

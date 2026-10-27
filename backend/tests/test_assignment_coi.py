@@ -254,6 +254,35 @@ def test_coi_hides_only_for_the_declarer(db, client):
     assert can_access_application(db, other_access, app) is True
 
 
+def test_open_coi_hides_a_committee_member_from_the_assigned_case(db, client):
+    """Committee membership grants access only while no open COI is declared."""
+    from app.models import Application
+    from app.services.conflict_of_interest import declare
+
+    evc_member = _seeded(db, "evc@demo.local")
+    application_id = "app-main-0001"
+    app = db.get(Application, application_id)
+    assert can_access_application(db, effective_access(db, evc_member), app)
+
+    declare(
+        db,
+        application_id=application_id,
+        declarant_id=evc_member.id,
+        conflict_type="personal_relationship",
+    )
+    db.commit()
+    db.expire_all()
+
+    access = effective_access(db, evc_member)
+    app = db.get(Application, application_id)
+    assert can_access_application(db, access, app) is False
+    response = client.get(
+        f"/api/v1/applications/{application_id}",
+        headers=as_user_factory(client, "evc@demo.local"),
+    )
+    assert response.status_code == 404
+
+
 def test_coi_never_gates_a_case_transition(db, client):
     """A declaration is advisory: the case still moves; it is not refused."""
     from app.models import Application

@@ -13,6 +13,8 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| DEC-0017 | 2026-10-27 | Decision | Committee-scoped EVC members may be assigned as visit experts; institution representative confirms booking | Accepted (human, this session) | Phase 6 6.2; FR-20 | reyyishreyas + Codex |
+| IMPL-0053 | 2026-10-27 | Implementation | Phase 6.2: committee expert assignment, COI exclusion and institution visit confirmation | Tested | Phase 6 6.2 (FR-20) | Codex |
 | DEC-0014 | 2026-10-27 | Decision | Evidence highlighting reuses authenticated document bytes and stored boxes; PDF location guides disclose native-viewer alignment limits | Accepted | Phase 5 5.11; FR-48 | Codex |
 | IMPL-0050 | 2026-10-27 | Implementation | Phase 5.11: split evidence review, image/PDF highlight, neutral edit badge, claim editing, and audited officer disposition controls | Tested | Phase 5 5.11 (AGENT-11; FR-41, FR-47, FR-48) | Codex |
 | DEC-0013 | 2026-10-27 | Decision | Public EoA source is a pointer only; executable fixture master record and NOC/Resolution data remain fictional and synthetic | Accepted | Phase 5 5.10; FR-38/42/44; PRD §16 | Codex |
@@ -113,6 +115,21 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0017 — EVC experts are committee-scoped and institution representatives confirm bookings
+- Decision: active `evc_member` grants scoped to the chosen committee define eligible experts; users with an open COI for the application are excluded. The application-scoped institution representative confirms the booking. This is the least-privilege interpretation accepted when the user instructed completion of Phase 6 after the role clarification request. Experts receive no decision authority; administrators do not receive confirmation permission.
+- Scope: booking confirmation only. Other Phase 6 regulatory route/outcome ambiguity remains unresolved and is not inferred.
+
+### IMPL-0053 — Phase 6.2 committee expert assignment and institution confirmation (FR-20)
+- Task: Phase 6 **6.2**, FR-20.
+- Existing: visit scheduling, reminder policy and Region calendar existed; committee-scoped `evc_member` grants, COI records and case access checks existed. There was no assigned-expert relation or confirmation status.
+- Changes: `evc_service.py` enumerates committee experts, excludes open-COI users, records visit-sourced case assignments and names. Scheduling accepts selected expert IDs and audits/rejects ineligible selections; rescheduling revokes prior visit assignments. New confirmation columns and institution-only permission/endpoint record actor/time and an audit event. Conflicted committee users cannot access their case. UI supports expert selection, shows assignment/confirmation, and allows institution confirmation.
+- Files: EVC API/service, permissions, application/identity models, authorization service, migration `0019_evc_assignment_confirmation.py`, EVC/authz/COI tests, frontend EVC API/types/panel/case view, plan/context/logs.
+- API/schema: expert discovery GET, expert IDs on schedule request, confirmation POST; migration adds source visit FK and confirmation fields. No workflow state or regulatory threshold added.
+- Permission/audit effects: `evc.visit.confirm` is institution representative only. Accepted confirmation, accepted schedule, ineligible assignment and stale confirmation are audited. Expert access is explicit and withdrawn when a visit is rescheduled; own-COI access remains denied.
+- Verification: targeted tests **52 passed**; `make lint` clean; `make test` **787 passed, 1 warning, 0 skipped**; frontend `npm run build` clean; SQLite `alembic upgrade head` + `alembic check` succeeded through 0019 with no new operations. Initial Ruff ordering issue fixed (BUG-0048). A first Alembic invocation used a wrong relative path; corrected invocation passed, no code impact.
+- Limitations: existing visits have pending/unknown values; confirmation acknowledges booking only, not an outcome. Postgres/Compose not run. Tasks 6.3 onward include human approval gates for new states/decision authority; none are guessed here.
+- Next: inspect Phase 6.3 reusable upload/deficiency/audit patterns and resolve any required regulatory approval before adding transitions.
 
 ### DEC-0016 — EVC regional calendar uses caller scope and a bounded view
 The read-only EVC calendar reuses `MONITORING_READ` and the existing application scope predicate. With no dates supplied, it shows the next 30 days from the injectable clock; callers may request explicit ordered ranges up to 93 days. This is a display/query bound, not an AICTE deadline. Calendar reads do not change case state or create audit events.

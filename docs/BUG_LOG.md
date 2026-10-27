@@ -32,6 +32,23 @@
 - Related: IMPL-0051.
 - Update (2026-10-27): the same task-scoped changes were staged, committed as `fd98ee1`, and pushed to `origin/master` using the elevated repository operation. No unrelated files were staged; the four pre-existing image files remain untracked.
 
+### BUG-0048 — Phase 6.2 Ruff found EVC service import ordering
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
+- Severity / Area: S4 / lint.
+- Status: Fixed.
+- Where it showed up: targeted lint after adding the EVC expert-assignment service.
+- Expected: Ruff accepts the touched backend files.
+- Actual: `I001 Import block is un-sorted or un-formatted` in `backend/app/api/evc.py`.
+- Steps to reproduce: `cd backend && ../.venv/bin/ruff check app tests migrations`.
+- Environment: repo virtual environment, Ruff from `backend/ruff.toml`.
+- Hypotheses tried: none; Ruff directly identified import ordering.
+- Root cause: new `evc_service` import was placed separately from sibling service imports.
+- Solution applied: Ruff's import sorter grouped `evc_service` with sibling services.
+- Verification: `make lint` clean; `make test` 787 passed; targeted suite 52 passed.
+- Update: initial failure was logged immediately; correction and verification completed 2026-10-27.
+- Regression test: full `make lint`.
+- Related: Phase 6.2 / IMPL-0053.
+
 ### BUG-0045 — Isolated browser review origin was outside the configured CORS list
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
 - Severity / Area: S4 / temporary local verification setup.
@@ -112,6 +129,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0048 | 2026-10-27 | S4 | lint | Phase 6.2 Ruff found EVC service import ordering | Fixed | IMPL-0053 |
 | BUG-0047 | 2026-10-27 | S4 | repository tooling | Git staging blocked by default filesystem sandbox | Workaround | IMPL-0051 |
 | BUG-0041 | 2026-10-27 | S4 | command | Local settings verification used a backend-relative Python path from repo root | Fixed | IMPL-0048 |
 | BUG-0040 | 2026-10-27 | S4 | lint | New Phase 5.9 migration had unsorted imports on first Ruff run | Fixed | IMPL-0048 |

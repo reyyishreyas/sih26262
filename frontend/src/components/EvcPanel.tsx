@@ -16,10 +16,12 @@ import { formatDate, plainState } from "../labels";
 export function EvcPanel({
   applicationId,
   canSchedule,
+  canConfirm,
   onCaseMoved,
 }: {
   applicationId: string;
   canSchedule: boolean;
+  canConfirm: boolean;
   /** Called when booking also advanced the case, so the parent can reload it. */
   onCaseMoved?: () => void;
 }) {
@@ -30,6 +32,8 @@ export function EvcPanel({
   const [venue, setVenue] = useState("");
   const [meetingUrl, setMeetingUrl] = useState("");
   const [committeeId, setCommitteeId] = useState("");
+  const [experts, setExperts] = useState<Array<{ id: string; name: string }>>([]);
+  const [expertIds, setExpertIds] = useState<string[]>([]);
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -54,6 +58,20 @@ export function EvcPanel({
     // committeeId is intentionally omitted: only seed the picker once.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [applicationId]);
+
+  useEffect(() => {
+    setExperts([]);
+    setExpertIds([]);
+    if (!canSchedule || !committeeId) return;
+    api
+      .evcExperts(applicationId, committeeId)
+      .then(setExperts)
+      .catch((cause) => {
+        setError(
+          cause instanceof ApiError ? cause.message : "Could not load committee experts",
+        );
+      });
+  }, [applicationId, canSchedule, committeeId]);
 
   useEffect(() => {
     setVisits([]);
@@ -81,6 +99,7 @@ export function EvcPanel({
         venue: visitMode === "physical" ? venue.trim() : "",
         meeting_url: visitMode === "online" ? meetingUrl.trim() : null,
         committee_id: committeeId || null,
+        expert_user_ids: expertIds,
         notes: notes.trim(),
       });
       const moved = visit.case_advanced_to;
@@ -102,6 +121,22 @@ export function EvcPanel({
       if (moved) onCaseMoved?.();
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not schedule the visit");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const confirmVisit = async () => {
+    if (!live) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      await api.confirmEvcVisit(applicationId, live.id);
+      setMessage("Visit date confirmed. The confirmation is recorded in the case history.");
+      await load();
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not confirm the visit");
     } finally {
       setBusy(false);
     }
@@ -133,6 +168,12 @@ export function EvcPanel({
             {live.committee_name ? ` · ${live.committee_name}` : ""}
             {live.meeting_url ? ` · ${live.meeting_url}` : ""}
             {live.venue ? ` · ${live.venue}` : ""}
+            {live.assigned_experts.length > 0
+              ? ` · Experts: ${live.assigned_experts.map((expert) => expert.name).join(", ")}`
+              : " · Experts not assigned"}
+            {live.confirmation_status === "confirmed"
+              ? " · Date confirmed by institution"
+              : " · Awaiting institution confirmation"}
             {live.notes ? <span className="tiny muted"> — {live.notes}</span> : null}
           </span>
         </div>
@@ -149,6 +190,12 @@ export function EvcPanel({
 
       {error && <p className="error">{error}</p>}
       {message && <p className="message">{message}</p>}
+
+      {live && canConfirm && live.confirmation_status !== "confirmed" && (
+        <button type="button" onClick={() => void confirmVisit()} disabled={busy}>
+          Confirm this visit date
+        </button>
+      )}
 
       {canSchedule && (
         <form className="form" onSubmit={(event) => void schedule(event)}>
@@ -175,6 +222,29 @@ export function EvcPanel({
                 </option>
               ))}
             </select>
+          </label>
+
+          <label className="field">
+            <span>Assign experts (optional)</span>
+            <select
+              multiple
+              size={Math.min(Math.max(experts.length, 2), 5)}
+              value={expertIds}
+              onChange={(event) =>
+                setExpertIds(
+                  Array.from(event.currentTarget.selectedOptions, (option) => option.value),
+                )
+              }
+            >
+              {experts.map((expert) => (
+                <option key={expert.id} value={expert.id}>
+                  {expert.name}
+                </option>
+              ))}
+            </select>
+            <span className="tiny muted">
+              Only active experts assigned to this committee and without an open conflict appear.
+            </span>
           </label>
 
           <label className="field">

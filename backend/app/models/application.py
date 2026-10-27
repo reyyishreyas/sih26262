@@ -236,6 +236,11 @@ class EvcVisit(Base):
     visit_mode: Mapped[str | None] = mapped_column(String(16), nullable=True)
     venue: Mapped[str] = mapped_column(String(255), default="")
     meeting_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    confirmation_status: Mapped[str] = mapped_column(String(16), default="pending")
+    confirmed_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    confirmed_at: Mapped[datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
     status: Mapped[str] = mapped_column(String(24), default="scheduled", index=True)
     notes: Mapped[str] = mapped_column(String(1024), default="")
     scheduled_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)

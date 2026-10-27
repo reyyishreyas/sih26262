@@ -135,13 +135,20 @@ def scope_filter(access: EffectiveAccess):
     if access.institutions:
         clauses.append(Application.institution_id.in_(access.institutions))
     if access.committees:
-        clauses.append(
-            Application.id.in_(
-                select(CaseAssignment.application_id).where(
-                    CaseAssignment.committee_id.in_(access.committees),
-                    CaseAssignment.revoked_at.is_(None),
-                )
+        committee_cases = Application.id.in_(
+            select(CaseAssignment.application_id).where(
+                CaseAssignment.committee_id.in_(access.committees),
+                CaseAssignment.revoked_at.is_(None),
             )
+        )
+        committee_conflicts = Application.id.in_(
+            select(ConflictOfInterest.application_id).where(
+                ConflictOfInterest.declarant_id == access.user_id,
+                ConflictOfInterest.status == "open",
+            )
+        )
+        clauses.append(
+            committee_cases & ~committee_conflicts
         )
     if access.assigned_cases_only:
         # COI hiding (FR-12): an assigned-scoped officer must not see a case
@@ -224,7 +231,9 @@ def can_access_application(db: Session, access: EffectiveAccess, application: Ap
         )
     ).all()
     if any(a.committee_id in access.committees for a in assignments if a.committee_id):
-        return True
+        from .conflict_of_interest import has_open_coi
+
+        return not has_open_coi(db, access.user_id, application.id)
     if not access.assigned_cases_only:
         return False
     if not any(a.user_id == access.user_id for a in assignments):

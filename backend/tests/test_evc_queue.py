@@ -24,7 +24,17 @@ from datetime import date
 
 from sqlalchemy import select
 
-from app.models import Application, EvcVisit, Institution, Region, WorkflowTransitionDefinition
+from app.models import (
+    Application,
+    AuditEvent,
+    CaseAssignment,
+    ConflictOfInterest,
+    EvcVisit,
+    Institution,
+    Region,
+    User,
+    WorkflowTransitionDefinition,
+)
 
 MAIN = "app-main-0001"          # new_technical, scrutiny — route needs EVC
 SECOND = "app-second-0002"      # new_technical, submitted — before scrutiny
@@ -201,6 +211,140 @@ def test_region_calendar_rejects_reversed_or_oversized_ranges(client, as_user):
     )
     assert reversed_range.status_code == 422
     assert oversized.status_code == 422
+
+
+def test_scheduled_expert_must_be_committee_member_and_gets_case_scope(
+    client, as_user, db
+):
+    committees = client.get(
+        "/api/v1/evc/committees", headers=as_user("scrutiny@demo.local")
+    ).json()
+    committee_id = committees[0]["id"]
+    experts = client.get(
+        f"/api/v1/applications/{MAIN}/evc/committees/{committee_id}/experts",
+        headers=as_user("scrutiny@demo.local"),
+    )
+    assert experts.status_code == 200, experts.text
+    expert = next(item for item in experts.json() if item["name"] == "Demo EVC Member")
+
+    scheduled = client.post(
+        f"/api/v1/applications/{MAIN}/evc/visits",
+        headers=as_user("scrutiny@demo.local"),
+        json={
+            "scheduled_date": "2026-11-20",
+            "visit_mode": "physical",
+            "venue": "Synthetic committee room",
+            "committee_id": committee_id,
+            "expert_user_ids": [expert["id"]],
+        },
+    )
+    assert scheduled.status_code == 201, scheduled.text
+    assert scheduled.json()["assigned_experts"] == [expert]
+    assignment = db.scalars(
+        select(CaseAssignment).where(
+            CaseAssignment.source_evc_visit_id == scheduled.json()["id"],
+            CaseAssignment.user_id == expert["id"],
+            CaseAssignment.revoked_at.is_(None),
+        )
+    ).one()
+    assert assignment.role_name == "evc_member"
+
+    detail = client.get(
+        f"/api/v1/applications/{MAIN}", headers=as_user("evc@demo.local")
+    )
+    assert detail.status_code == 200, detail.text
+
+
+def test_conflicted_committee_member_is_not_selectable_and_rejection_is_audited(
+    client, as_user, db
+):
+    expert_id = db.scalar(select(User.id).where(User.email == "evc@demo.local"))
+    committee_id = db.scalar(
+        select(CaseAssignment.committee_id).where(
+            CaseAssignment.application_id == MAIN,
+            CaseAssignment.user_id == expert_id,
+            CaseAssignment.revoked_at.is_(None),
+        )
+    )
+    db.add(
+        ConflictOfInterest(
+            application_id=MAIN,
+            declarant_id=expert_id,
+            conflict_type="other",
+            description="synthetic test conflict",
+        )
+    )
+    db.commit()
+
+    experts = client.get(
+        f"/api/v1/applications/{MAIN}/evc/committees/{committee_id}/experts",
+        headers=as_user("scrutiny@demo.local"),
+    )
+    assert experts.status_code == 200
+    assert all(expert["id"] != expert_id for expert in experts.json())
+
+    rejected = client.post(
+        f"/api/v1/applications/{MAIN}/evc/visits",
+        headers=as_user("scrutiny@demo.local"),
+        json={
+            "scheduled_date": "2026-11-20",
+            "visit_mode": "physical",
+            "venue": "Synthetic committee room",
+            "committee_id": committee_id,
+            "expert_user_ids": [expert_id],
+        },
+    )
+    assert rejected.status_code == 422
+    audit = db.scalars(
+        select(AuditEvent).where(
+            AuditEvent.action == "evc.visit_schedule_rejected",
+            AuditEvent.entity_id == MAIN,
+        )
+    ).one()
+    assert audit.outcome == "rejected"
+
+
+def test_institution_confirms_its_visit_once_and_confirmation_is_audited(
+    client, as_user, db
+):
+    scheduled = client.post(
+        f"/api/v1/applications/{MAIN}/evc/visits",
+        headers=as_user("scrutiny@demo.local"),
+        json={
+            "scheduled_date": "2026-11-20",
+            "visit_mode": "physical",
+            "venue": "Synthetic committee room",
+        },
+    )
+    assert scheduled.status_code == 201, scheduled.text
+    visit_id = scheduled.json()["id"]
+
+    confirmed = client.post(
+        f"/api/v1/applications/{MAIN}/evc/visits/{visit_id}/confirm",
+        headers=as_user("institution@demo.local"),
+    )
+    assert confirmed.status_code == 200, confirmed.text
+    assert confirmed.json()["confirmation_status"] == "confirmed"
+    assert confirmed.json()["confirmed_at"] is not None
+
+    repeated = client.post(
+        f"/api/v1/applications/{MAIN}/evc/visits/{visit_id}/confirm",
+        headers=as_user("institution@demo.local"),
+    )
+    assert repeated.status_code == 200
+    events = db.scalars(
+        select(AuditEvent).where(
+            AuditEvent.action == "evc.visit_confirmed",
+            AuditEvent.entity_id == MAIN,
+        )
+    ).all()
+    assert len(events) == 1
+
+    refused = client.post(
+        f"/api/v1/applications/{MAIN}/evc/visits/{visit_id}/confirm",
+        headers=as_user("scrutiny@demo.local"),
+    )
+    assert refused.status_code == 403
 
 
 def test_an_evc_only_case_enters_the_queue_and_leaves_it_via_the_gate(

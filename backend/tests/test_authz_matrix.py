@@ -44,6 +44,7 @@ from app.core.permissions import (
     DOCUMENT_UPLOAD,
     DOCUMENT_VERIFY,
     EVC_MEMBER,
+    EVC_VISIT_CONFIRM,
     INSTITUTION_REPRESENTATIVE,
     MONITORING_READ,
     REGIONAL_OFFICER,
@@ -228,9 +229,17 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("GET", "/api/v1/applications/{application_id}/evc/visits"): (
         CASE_OR_MONITORING_OR_READ
     ),
+    (
+        "GET",
+        "/api/v1/applications/{application_id}/evc/committees/{committee_id}/experts",
+    ): frozenset({CASE_TRANSITION}),
     ("POST", "/api/v1/applications/{application_id}/evc/visits"): frozenset(
         {CASE_TRANSITION}
     ),
+    (
+        "POST",
+        "/api/v1/applications/{application_id}/evc/visits/{visit_id}/confirm",
+    ): frozenset({EVC_VISIT_CONFIRM}),
     ("GET", "/api/v1/evc/queue"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/evc/calendar"): frozenset({MONITORING_READ}),
     # reports

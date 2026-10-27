@@ -128,6 +128,9 @@ class CaseAssignment(Base):
     committee_id: Mapped[str | None] = mapped_column(
         ForeignKey("committees.id", ondelete="CASCADE"), nullable=True
     )
+    source_evc_visit_id: Mapped[str | None] = mapped_column(
+        ForeignKey("evc_visits.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     role_name: Mapped[str] = mapped_column(String(64), default="scrutiny_officer")
     assigned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
     revoked_at: Mapped[datetime | None] = mapped_column(
