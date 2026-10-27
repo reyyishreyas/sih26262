@@ -118,6 +118,12 @@ class GroundedLeaseExtractor:
                                         source_span="Gemini LLM grounded citation",
                                         method="gemini_grounded_ai",
                                         confidence=0.98,
+                                        # Provenance (5.2): which model read
+                                        # it, at which version; no geometry —
+                                        # this reader cites quotes, not boxes.
+                                        bbox=None,
+                                        engine="gemini",
+                                        engine_version=model_name,
                                     )
                                 )
                         print(f"[Gemini Copilot] Successfully extracted {len(result.fields)} grounded fields using {model_name}!")
@@ -159,6 +165,9 @@ class GroundedLeaseExtractor:
                         source_span=f"page {p_num}",
                         method="grounded_ai",
                         confidence=0.95,
+                        bbox=None,
+                        engine="grounded_lease",
+                        engine_version=None,
                     )
                 )
 
@@ -182,6 +191,9 @@ class GroundedLeaseExtractor:
                         source_span=f"page {p_num}",
                         method="grounded_ai",
                         confidence=0.95,
+                        bbox=None,
+                        engine="grounded_lease",
+                        engine_version=None,
                     )
                 )
 
@@ -205,6 +217,9 @@ class GroundedLeaseExtractor:
                         source_span=f"page {p_num}",
                         method="grounded_ai",
                         confidence=0.92,
+                        bbox=None,
+                        engine="grounded_lease",
+                        engine_version=None,
                     )
                 )
 
@@ -231,6 +246,9 @@ class GroundedLeaseExtractor:
                         source_span=f"page {p_num}",
                         method="grounded_ai",
                         confidence=0.94,
+                        bbox=None,
+                        engine="grounded_lease",
+                        engine_version=None,
                     )
                 )
 

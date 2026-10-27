@@ -145,6 +145,14 @@ class ExtractedField(Base):
 
     Nothing in this table is authoritative on its own: rules read the
     `verification_status` and degrade to NEEDS_REVIEW when it is not verified.
+
+    `bbox` / `engine` / `engine_version` (5.2) record *where and by what* the
+    value was read: the box is normalised to the page's unit frame
+    (``origin: top_left``, ``level: line``) so the UI can highlight the line
+    without knowing page pixel sizes (FR-48), and the engine pair says which
+    program produced the value — provenance a checker can weigh, never a
+    score that decides anything. All three are NULL when no engine ran
+    (seeded rows) or the reader has no geometry (mock, grounded quotes).
     """
 
     __tablename__ = "extracted_fields"
@@ -165,6 +173,9 @@ class ExtractedField(Base):
     source_span: Mapped[str | None] = mapped_column(String(255), nullable=True)
     method: Mapped[str] = mapped_column(String(64), default="mock_ocr")
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
+    bbox: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    engine: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    engine_version: Mapped[str | None] = mapped_column(String(64), nullable=True)
     verification_status: Mapped[str] = mapped_column(String(32), default="unverified")
     verified_by: Mapped[str | None] = mapped_column(
         ForeignKey("users.id"), nullable=True

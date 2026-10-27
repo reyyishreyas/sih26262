@@ -22,8 +22,9 @@ fields and an honest warning, never a 500 on the upload.
 from __future__ import annotations
 
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
+from functools import lru_cache
 from io import BytesIO
 
 from .base import ExtractedFieldCandidate, ExtractionResult
@@ -68,6 +69,21 @@ _OCR_NOISE = (
 
 
 @dataclass
+class _Line:
+    """One rendered line of a page and its box in normalised page units.
+
+    ``bbox`` uses fractions of the page (0..1), ``origin: top_left`` and
+    ``level: line`` — the shape the API stores and the UI highlights
+    (FR-48). For a text-layer line the *width* is estimated (char count x
+    0.5 em, a Helvetica-ish average): pypdf reports positions, not glyph
+    advances. It is a highlight aid, never a measurement.
+    """
+
+    text: str
+    bbox: dict
+
+
+@dataclass
 class _Page:
     """One page of readable text plus how it was read."""
 
@@ -75,6 +91,226 @@ class _Page:
     text: str
     method: str
     confidence: float
+    # Provenance (5.2): which program read this page and at which version —
+    # NULL only when no program could be identified.
+    engine: str | None = None
+    engine_version: str | None = None
+    lines: list[_Line] = field(default_factory=list)
+
+
+@lru_cache(maxsize=1)
+def _pypdf_version() -> str | None:
+    """The installed pypdf's own version, or None if it cannot be read."""
+    try:
+        import pypdf
+
+        return str(getattr(pypdf, "__version__", None) or None) or None
+    except Exception:  # noqa: BLE001 - provenance must never break a read
+        return None
+
+
+@lru_cache(maxsize=1)
+def _tesseract_version() -> str | None:
+    """The installed Tesseract binary's version, or None.
+
+    Shells out once per process (``lru_cache``); called only after OCR has
+    already succeeded, so the binary exists by then.
+    """
+    try:
+        import pytesseract
+
+        return str(pytesseract.get_tesseract_version()).strip() or None
+    except Exception:  # noqa: BLE001 - provenance must never break a read
+        return None
+
+
+def _alnum(text: str) -> str:
+    """Matching key: case- and punctuation-insensitive.
+
+    Values are stored normalised (``2026-04-12``) while pages read
+    ``12 April 2026``; comparing alnum-only lets a value or its parser
+    label be found on the line it was read from.
+    """
+    return re.sub(r"[^a-z0-9]+", "", str(text).lower())
+
+
+def _unit_box(x: float, y: float, width: float, height: float) -> dict:
+    """Clamps and rounds a box into the page's unit frame (top-left origin).
+
+    Rounding happens *before* the fit clamp, so ``x + width`` and
+    ``y + height`` can never exceed 1 after rounding.
+    """
+    x = round(min(max(x, 0.0), 1.0), 4)
+    y = round(min(max(y, 0.0), 1.0), 4)
+    width = round(min(max(width, 0.0), 1.0 - x), 4)
+    height = round(min(max(height, 0.0), 1.0 - y), 4)
+    return {
+        "x": x,
+        "y": y,
+        "width": width,
+        "height": height,
+        "origin": "top_left",
+        "level": "line",
+    }
+
+
+def _pdf_box(
+    x0: float,
+    baseline: float,
+    x1: float,
+    font_size: float,
+    page_width: float,
+    page_height: float,
+    llx: float,
+    lly: float,
+) -> dict:
+    """A text-layer line box: PDF user space (y up from the bottom) into
+    top-left normalised fractions. The box spans ascender to descender
+    (0.75 em above the baseline, 0.25 em below)."""
+    return _unit_box(
+        x=(x0 - llx) / page_width,
+        y=1.0 - ((baseline + 0.75 * font_size) - lly) / page_height,
+        width=(x1 - x0) / page_width,
+        height=font_size / page_height,
+    )
+
+
+def _image_box(
+    x0: float, y0: float, x1: float, y1: float, width: float, height: float
+) -> dict:
+    """A scanned-line box: pixel coordinates (already top-left origin) into
+    normalised fractions of the image that was actually OCR'd."""
+    return _unit_box(
+        x=x0 / width, y=y0 / height, width=(x1 - x0) / width, height=(y1 - y0) / height
+    )
+
+
+# Average Helvetica advance per character, as a fraction of the font size.
+# pypdf gives positions but not glyph advances, so text-layer line widths
+# are estimated with this (see _Line.docstring) — a highlight aid only.
+_AVG_CHAR_EM = 0.5
+
+
+def _group_pdf_lines(
+    chunks: list[tuple[str, float, float, float]],
+    *,
+    page_width: float,
+    page_height: float,
+    llx: float,
+    lly: float,
+) -> list[_Line]:
+    """Groups visitor chunks that share a baseline into line boxes.
+
+    Two chunks belong to one line when their baselines are within half a
+    font size — PDF producers split a visual line across many text-showing
+    operations, and a highlight must cover the whole line, not a fragment.
+    """
+    if not chunks or page_width <= 0 or page_height <= 0:
+        return []
+    ordered = sorted(chunks, key=lambda chunk: (-chunk[2], chunk[0]))
+    groups: list[list[tuple[str, float, float, float]]] = []
+    for chunk in ordered:
+        _, _, y, font_size = chunk
+        if groups and abs(groups[-1][0][2] - y) <= min(font_size, groups[-1][0][3]) * 0.5:
+            groups[-1].append(chunk)
+        else:
+            groups.append([chunk])
+
+    lines: list[_Line] = []
+    for group in groups:
+        font_size = max(chunk[3] for chunk in group)
+        x0 = min(chunk[1] for chunk in group)
+        x1 = max(chunk[1] + len(chunk[0]) * chunk[3] * _AVG_CHAR_EM for chunk in group)
+        baseline = sum(chunk[2] for chunk in group) / len(group)
+        lines.append(
+            _Line(
+                text=" ".join(chunk[0] for chunk in group),
+                bbox=_pdf_box(
+                    x0,
+                    baseline,
+                    x1,
+                    font_size,
+                    page_width,
+                    page_height,
+                    llx,
+                    lly,
+                ),
+            )
+        )
+    # Top-to-bottom reading order (y is up in PDF space, so descending).
+    lines.sort(key=lambda line: line.bbox["y"])
+    return lines
+
+
+def _group_ocr_lines(
+    data: dict, *, page_width: float, page_height: float
+) -> list[_Line]:
+    """Groups Tesseract word boxes into line boxes by its own line ids.
+
+    ``image_to_data`` labels each word with ``(block, par, line)``; words
+    sharing that id are one visual line, so the union of their pixel
+    rectangles *is* the line box — exact geometry, no estimation.
+    """
+    if page_width <= 0 or page_height <= 0:
+        return []
+    texts = [str(value) for value in data.get("text", [])]
+    line_nums = data.get("line_num", [])
+    block_nums = data.get("block_num", [])
+    par_nums = data.get("par_num", [])
+    groups: dict[tuple[object, object, object], list[int]] = {}
+    for index, key in enumerate(line_nums):
+        if index >= len(texts) or not texts[index].strip():
+            continue
+        group_key = (block_nums[index], par_nums[index], key)
+        groups.setdefault(group_key, []).append(index)
+
+    lines: list[_Line] = []
+    for word_indexes in groups.values():
+        words = [texts[index] for index in word_indexes]
+        lefts = [float(data["left"][index]) for index in word_indexes]
+        tops = [float(data["top"][index]) for index in word_indexes]
+        widths = [float(data["width"][index]) for index in word_indexes]
+        heights = [float(data["height"][index]) for index in word_indexes]
+        lines.append(
+            _Line(
+                text=" ".join(words),
+                bbox=_image_box(
+                    min(lefts),
+                    min(tops),
+                    max(
+                        left + width
+                        for left, width in zip(lefts, widths, strict=False)
+                    ),
+                    max(
+                        top + height
+                        for top, height in zip(tops, heights, strict=False)
+                    ),
+                    page_width,
+                    page_height,
+                ),
+            )
+        )
+    lines.sort(key=lambda line: line.bbox["y"])
+    return lines
+
+
+def _locate(lines: list[_Line], *needles: str) -> dict | None:
+    """The box of the first line containing any needle (alnum match).
+
+    Tries the needles in order, so the stored value is preferred over the
+    parser's label. Answers ``None`` when nothing matches — a box we cannot
+    place is a box we must not invent (the UI then simply shows no
+    highlight).
+    """
+    for needle in needles:
+        key = _alnum(needle)
+        if len(key) < 3:
+            # Too short to place honestly: "id" or "no" would hit any line.
+            continue
+        for line in lines:
+            if key in _alnum(line.text):
+                return line.bbox
+    return None
 
 
 class RealOCRExtractor:
@@ -152,14 +388,46 @@ class RealOCRExtractor:
 
             reader = PdfReader(BytesIO(content))
             for index, pdf_page in enumerate(reader.pages, start=1):
-                text = (pdf_page.extract_text() or "").strip()
+                chunks: list[tuple[str, float, float, float]] = []
+
+                # Positions (5.2, FR-48): pypdf reports every text-showing
+                # operation through this visitor — text plus its origin
+                # (tm[4], tm[5]) and font size. The returned page text is
+                # unchanged; the chunks only add where each piece sits.
+                def _visitor(
+                    text: str,
+                    cm: list[float],
+                    tm: list[float],
+                    font_dict: object,
+                    font_size: float,
+                    _chunks: list[tuple[str, float, float, float]] = chunks,
+                ) -> None:
+                    stripped = text.strip()
+                    if not stripped:
+                        return
+                    scale = (cm[0] ** 2 + cm[1] ** 2) ** 0.5 or 1.0
+                    x = tm[4] * cm[0] + tm[5] * cm[2] + cm[4]
+                    y = tm[4] * cm[1] + tm[5] * cm[3] + cm[5]
+                    _chunks.append((stripped, x, y, font_size * scale))
+
+                text = (pdf_page.extract_text(visitor_text=_visitor) or "").strip()
                 if text:
+                    box = pdf_page.mediabox
                     pages.append(
                         _Page(
                             number=index,
                             text=text,
                             method="pdf_text",
                             confidence=_TEXT_LAYER_CONFIDENCE,
+                            engine="pypdf",
+                            engine_version=_pypdf_version(),
+                            lines=_group_pdf_lines(
+                                chunks,
+                                page_width=float(box.width),
+                                page_height=float(box.height),
+                                llx=float(box.left),
+                                lly=float(box.bottom),
+                            ),
                         )
                     )
         except Exception as exc:  # noqa: BLE001 - corrupt files must not 500
@@ -283,6 +551,14 @@ class RealOCRExtractor:
             text=text,
             method="ocr",
             confidence=round(confidence, 2),
+            engine="tesseract",
+            engine_version=_tesseract_version(),
+            # Exact pixel geometry of each line Tesseract identified —
+            # normalised against the image that was actually OCR'd (after
+            # any upscaling, so the coordinates line up).
+            lines=_group_ocr_lines(
+                data, page_width=float(image.width), page_height=float(image.height)
+            ),
         )
 
 
@@ -398,6 +674,18 @@ def _date_after(label: str, text: str) -> str | None:
     return _to_iso_date(candidate)
 
 
+def _label_needles(method_note: str) -> list[str]:
+    """The parser's own label words from a note like ``label 'lessee'``.
+
+    Used as the *second* locating needle: a normalised value (an ISO date)
+    never appears verbatim on the page, but the label it was read after
+    does — the value sits on the label's line by construction of
+    ``_text_after`` / ``_date_after``.
+    """
+    match = re.findall(r"'([^']+)'", method_note)
+    return match or [method_note]
+
+
 def _add(
     result: ExtractionResult,
     *,
@@ -407,6 +695,10 @@ def _add(
     method_note: str,
     confidence: float,
 ) -> None:
+    # Where: the stored value on a line, else the parser's label line,
+    # else no box at all — an unplaceable box would send the highlight to
+    # the wrong part of the page, which is worse than no highlight.
+    bbox = _locate(page.lines, str(value), *_label_needles(method_note))
     result.fields.append(
         ExtractedFieldCandidate(
             field_name=name,
@@ -415,6 +707,9 @@ def _add(
             source_span=method_note,
             method=page.method,
             confidence=round(min(confidence, page.confidence), 2),
+            bbox=bbox,
+            engine=page.engine,
+            engine_version=page.engine_version,
         )
     )
 

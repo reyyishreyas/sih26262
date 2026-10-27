@@ -56,6 +56,12 @@ class FieldOut(BaseModel):
     source_span: str | None
     method: str
     confidence: float
+    # Provenance (5.2, FR-48): the line box in normalised page units and
+    # which engine read the value — display and trust signals only; none of
+    # them feeds a decision.
+    bbox: dict[str, Any] | None = None
+    engine: str | None = None
+    engine_version: str | None = None
     verification_status: str
 
 

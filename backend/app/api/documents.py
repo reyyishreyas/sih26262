@@ -211,6 +211,11 @@ def upload_document(
                 source_span=candidate.source_span,
                 method=candidate.method,
                 confidence=candidate.confidence,
+                # Provenance (5.2): where on the page and by which engine —
+                # NULL when the reader cannot say, never a guessed box.
+                bbox=candidate.bbox,
+                engine=candidate.engine,
+                engine_version=candidate.engine_version,
                 verification_status="unverified",
             )
             db.add(field_obj)

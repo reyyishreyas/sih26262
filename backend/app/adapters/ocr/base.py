@@ -19,6 +19,12 @@ class ExtractedFieldCandidate:
     source_span: str | None = None
     method: str = "mock_ocr"
     confidence: float = 0.0
+    # Provenance (5.2): where on the page the value was read, and which
+    # program read it. NULL/None whenever the engine cannot say — the mock
+    # never read a page so it has no box, seeded rows ran no engine at all.
+    bbox: dict | None = None
+    engine: str | None = None
+    engine_version: str | None = None
 
 
 @dataclass

@@ -54,6 +54,11 @@ class MockOCRExtractor:
                     source_span=f"page {page}",
                     method="mock_ocr",
                     confidence=confidence,
+                    # Honest provenance: this reader never opened the file,
+                    # so it has no box and no version to report (5.2).
+                    bbox=None,
+                    engine="mock",
+                    engine_version=None,
                 )
             )
         result.warnings.append("mock extraction — values are canned, not read from the file")
