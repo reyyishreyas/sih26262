@@ -16,6 +16,8 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0011 | 2026-10-27 | S4 | migration | `alembic check` red on the new scrutiny tables: model said `unique=True` on the column, migration created a named constraint — two DDL forms for one rule | Fixed | IMPL-0034 |
+| BUG-0010 | 2026-10-27 | S4 | test | New scrutiny-result tests wrote invented user ids (`user-a`, `user-scrutiny`) into the real `recorded_by` FK — 12 × IntegrityError | Fixed | IMPL-0034 |
 | BUG-0009 | 2026-10-27 | S4 | test | New Phase 3 exit-check test failed `make lint` on first run (F401: unused `timedelta` import left from drafting; also a stray mid-file `import pytest` and hard-coded guessed user ids `user-regional`/`user-supervisory` that do not exist — seeded ids are auto-generated) | Fixed | IMPL-0032 |
 | BUG-0008 | 2026-10-27 | S4 | test | New routing test expected `POST /applications` → 200; route returns 201 Created | Fixed | IMPL-0025 |
 | BUG-0007 | 2026-10-26 | S4 | test | Routing test assumed every PRD §6 pattern is used by a Table 2.3 row; no row is plain SCR+EVC | Fixed | IMPL-0008 |
@@ -48,6 +50,49 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0011 — `alembic check` red on the new scrutiny tables: model said `unique=True` on the column, migration created a named constraint
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first `alembic check` after writing `backend/migrations/versions/0015_scrutiny_results.py`
+- Branch / commit: master (work uncommitted at time of fix; baseline f537b40)
+- Severity / Area: **S4** (caught before commit; nothing deployed) / migration
+- Status: **Fixed**
+- Where it showed up: `SIH_DATABASE_URL=sqlite:////tmp/sih_check_43.db alembic check` →
+  ```
+  Detected changed index 'ix_scrutiny_overall_results_application_id' on 'scrutiny_overall_results': unique=False to unique=True
+  FAILED: New upgrade operations detected: [('remove_constraint', ...), ('remove_index', ...), ('add_index', ... unique=True)]
+  ```
+- Expected behaviour: `alembic check` answers "No new upgrade operations detected." after `upgrade head`.
+- Actual behaviour: autogenerate saw a diff between the ORM metadata and the just-created schema — first on the index uniqueness, then (after the first fix attempt) a leftover `UniqueConstraint` the DB did not have.
+- Steps to reproduce: create the two tables with `sa.UniqueConstraint("application_id", name="uq_scrutiny_overall_result_case")` in the migration but model the column as `index=True, unique=True`; run `alembic upgrade head` then `alembic check`.
+- Environment: macOS, Python 3.13, SQLite (`sqlite:////tmp/sih_check_43.db`), alembic from `.venv`.
+- Hypotheses tried: (1) make the migration's index `unique=True` to match `unique=True` on the model column → next check flagged a `UniqueConstraint` removal, because SQLAlchemy emits *both* a unique index and the column-level constraint semantics that autogenerate compares differently from a named table constraint; (2) align both sides on the **named-constraint** form used by every other table in this repo (`__table_args__ = (UniqueConstraint("application_id", name="uq_scrutiny_overall_result_case"),)` + plain `index=True`) and keep the migration's named constraint + plain index → clean.
+- Root cause: the ORM model and the migration expressed the same "one overall row per case" rule in two different DDL forms; autogenerate compares forms, not intent.
+- Solution applied: `backend/app/models/application.py` — `ScrutinyOverallResult.__table_args__` now declares the named `UniqueConstraint` and `application_id` is plain `index=True`; the migration keeps the named constraint and a non-unique index (matches the sibling `ScrutinyItemResult` table's style). No behaviour change: the constraint is identical either way.
+- Verification: `rm -f /tmp/sih_check_43.db && alembic upgrade head && alembic check` → "No new upgrade operations detected."; `pytest tests/test_scrutiny_results.py -q` → 24 passed.
+- Side effects / follow-ups: none. Related IMPL-0034.
+- Update history: 2026-10-27 — found and fixed in the same session.
+
+### BUG-0010 — new scrutiny-result tests wrote placeholder user ids into a real FK (`recorded_by`)
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first `pytest tests/test_scrutiny_results.py` after writing the suite
+- Branch / commit: master (work uncommitted at time of fix; baseline f537b40)
+- Severity / Area: **S4** (test-only; the FK correctly refused the bad data) / test
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_scrutiny_results.py -q` → 12 failed, 33 passed:
+  ```
+  sqlalchemy.exc.IntegrityError: (sqlite3.IntegrityError) FOREIGN KEY constraint failed
+  [SQL: INSERT INTO scrutiny_item_results (..., recorded_by, ...) VALUES (...)]
+  [parameters: (..., 'app-existing-0003', ..., 'user-scrutiny', ...)]
+  ```
+- Expected behaviour: the suite records results under real seeded user ids and passes.
+- Actual behaviour: every service-level test passed `actor_id="user-a"` / `"user-scrutiny"` — invented ids that exist in no `users` row, so the `recorded_by` FK refused them at flush.
+- Steps to reproduce: `record_item_result(db, app, ..., actor_id="user-scrutiny")` on a seeded database, then `db.commit()`.
+- Environment: macOS, Python 3.13, SQLite test database, fixed clock.
+- Hypotheses tried: none needed — the error text pointed straight at the parameter; the same defect had been seen before in BUG-0009 (guessed user ids) and the fix pattern already exists in `test_escalation.py` (`select(User.id).where(User.email == ...)`).
+- Root cause: the draft suite invented actor ids instead of resolving seeded users; `recorded_by` is a genuine foreign key to `users.id`, and rightly so.
+- Solution applied: `backend/tests/test_scrutiny_results.py` gains a `_user_id(db, email)` helper (resolves a seeded user by email); all placeholder ids replaced with `_user_id(db)` / `_user_id(db, "regional@demo.local")`. The model is unchanged — the FK staying strict is the correct behaviour.
+- Verification: `pytest tests/test_scrutiny_results.py -q` → 24 passed; full `make test` → 624 passed.
+- Side effects / follow-ups: none. Regression coverage: every test in the suite that records a result now goes through `_user_id`, and `test_every_recording_is_audited` additionally proves the recorded-by chain end to end. Related IMPL-0034.
+- Update history: 2026-10-27 — found and fixed in the same session.
 
 ### BUG-0009 — new exit-check test failed lint (unused import) and guessed non-existent user ids
 - Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first `make lint` after writing `backend/tests/test_phase3_exit_check.py`

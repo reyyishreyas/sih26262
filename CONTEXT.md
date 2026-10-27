@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 600 passing
+make test      # pytest — 624 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **600 passing** (~500 test functions; some parametrised).
+- `make test` → **624 passing** (~500 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -528,9 +528,29 @@ tamper-evidence).
   validity; rejected documents do not satisfy a line; the blurriest
   category wins; endpoint is `require_any(CASE_READ, APPLICATION_READ)`
   and scope-filtered).
+  `test_scrutiny_results.py` (24 — Phase 4.3: the scrutiny result per
+  checklist line and overall (FR-14). `scrutiny_results.py` records the
+  officer's verdict with remarks; the vocabulary is read from
+  `aa_gate.scrutiny_results` (the PRD's own wording via the FR-10 gate,
+  never invented); a result only attaches to a real line — category
+  recorded on the case AND item in the configured list; an untranscribed
+  list is refused as needs-review, never accepted as empty; overall
+  `nil_deficiency` is refused while any item result is `deficiency`
+  (self-consistency one way only — `deficiency` overall with clean items
+  is allowed because a deficiency may live outside the checklist);
+  re-recording updates the single row (audit keeps both); `results_view`
+  joins checklist+results, keeps+flags orphaned results (a rule edit
+  never erases a judgement), `derived_overall` stays None until every
+  line is decided, and composes the FR-10 `aa_gate` answer;
+  `ScrutinyItemResult`/`ScrutinyOverallResult` + migration
+  `0015_scrutiny_results`; `GET/POST .../scrutiny-results` +
+  `POST .../scrutiny-results/overall` gated `CASE_TRANSITION`, audited,
+  422 on refusal; 3 matrix rows; EvidencePanel result-recording UI
+  (per-line remarks + Nil/Deficiency buttons + overall form, gated
+  `case.transition`; 422 shown as the server's own words)).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `801f9da` (Phase 4.2).
+  repo is currently green at `c0a0dee` (Phase 4.3).
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on
