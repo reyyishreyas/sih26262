@@ -15,6 +15,7 @@
 |---|---|---|---|---|---|---|
 | DEC-0023 | 2026-10-28 | Decision | Chapter II grant list, Council ratification and EoA publication scoped to verified APH clauses | Accepted for prototype workflow; role delegation remains an app ACL | Phase 6 6.8; FR-31/32 | Project lead scope + Codex source check |
 | IMPL-0059 | 2026-10-28 | Implementation | Phase 6.8: consolidated approved-intake grant list, Council ratification and institution EoA publication | Tested | Phase 6 6.8 (FR-31/32) | Codex |
+| IMPL-0059 Update | 2026-10-28 | Update | Phase 6.8 commit and push recorded | Pushed `ce4fa6a` to `origin/master`; tree clean except six pre-existing untracked user documents/images listed in status | Phase 6 6.8 | Codex |
 | BUG-0064 | 2026-10-28 | Bug | Initial Phase 6.8 integration run had test fixture, auth matrix and lint authoring defects | Fixed | Phase 6 6.8; FR-31/32 | Codex |
 | DEC-0021 | 2026-10-27 | Decision | Appeal policy verified for Chapter II routes only; seven-day limit and one appeal enforced | Accepted (official source verified; named reviewer) | Phase 6 6.6; FR-27 | reyyishreyas + Codex |
 | IMPL-0057 | 2026-10-27 | Implementation | Phase 6.6: institution appeal, SAC schedule/recommendation and Council final decision | Tested | Phase 6 6.6 (FR-27) | Codex |
@@ -131,6 +132,11 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0059 Update — commit and push
+- Commit: `ce4fa6a feat(phase6): implement grant consolidation and publication`; pushed successfully to `origin/master`.
+- Post-commit verification: `git rev-parse origin/master` → `ce4fa6a45e1c67f497ff9fafecd072921ef1cd35`; branch `master` tracks `origin/master` with no tracked changes. Six unrelated untracked files in `md/` remain untouched (brochure DOCX and five images).
+- Verification recorded in IMPL-0059 remains: `make lint` passed; `make test` **820 passed, 2 upstream warnings**; frontend build passed; SQLite upgrade/check clean; focused grant/authz tests **36 passed**.
 
 ### DEC-0023 — Chapter II grant compilation, ratification and publication
 - Date / owner: 2026-10-28 / Codex; project lead instructed completion of Phase 6.
