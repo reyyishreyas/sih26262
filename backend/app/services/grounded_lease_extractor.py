@@ -47,6 +47,9 @@ class GroundedLeaseExtractor:
             result.warnings.append("Could not extract readable text layer from lease agreement.")
             return result
 
+        # Classification (FR-38) runs on the raw page words later.
+        result.page_texts = [text for _, text in pages]
+
         full_text = "\n\n".join(f"[Page {p_num}]\n{p_text}" for p_num, p_text in pages)
 
         # Try Gemini if key is present (checks SIH_GEMINI_API_KEY, GEMINI_API_KEY, or settings)

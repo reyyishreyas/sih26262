@@ -25,7 +25,7 @@ from ..core.db import get_db
 from ..core.permissions import DOCUMENT_READ, DOCUMENT_UPLOAD, DOCUMENT_VERIFY
 from ..models import Deficiency, Document, ExtractedField
 from ..schemas.api import DocumentOut, VerifyFieldRequest
-from ..services import malware_service, ocr_service
+from ..services import doc_classifier, malware_service, ocr_service
 from ..services.audit_service import AuditService
 from ..services.authorization_service import (
     EffectiveAccess,
@@ -164,6 +164,18 @@ def upload_document(
     extraction = ocr_service.get_ocr_extractor().extract(
         doc_type=doc_type, content=content, file_name=filename
     )
+    # Phase 5.1 (FR-38): classify the upload against the PRD's five document
+    # classes — advisory only. A disagreement with the uploader's declared
+    # type becomes a warning (the UI already shows extraction warnings);
+    # the recorded doc_type is never changed and the upload never fails for
+    # it. Missing/unreadable text answers "no_text", never a guess.
+    classification = doc_classifier.classify(
+        page_texts=extraction.page_texts,
+        file_name=filename,
+        declared_doc_type=doc_type,
+    )
+    if classification["mismatch_note"]:
+        extraction.warnings.append(classification["mismatch_note"])
 
     stored = False
     try:
@@ -284,6 +296,7 @@ def upload_document(
 
     return {
         "document": DocumentOut.model_validate(document).model_dump(),
+        "classification": classification,
         "extraction": {
             "simulated": extraction.simulated,
             "warnings": extraction.warnings,

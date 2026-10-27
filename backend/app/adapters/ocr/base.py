@@ -27,6 +27,11 @@ class ExtractionResult:
     fields: list[ExtractedFieldCandidate] = field(default_factory=list)
     simulated: bool = True
     warnings: list[str] = field(default_factory=list)
+    # The text the reader actually saw, page by page. Classification
+    # (Phase 5.1, FR-38) needs the words themselves; a reader that does not
+    # read bytes (the mock) leaves this empty and classification honestly
+    # answers "no_text" instead of guessing.
+    page_texts: list[str] = field(default_factory=list)
 
 
 class OCRExtractor(Protocol):

@@ -1,0 +1,63 @@
+{
+  "classifier_id": "RULE-DOC-CLASSIFY",
+  "status": "proposed_unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "source": "PRD FR-38 (line 222, APH cl. 2.3.4 as cited) and the section 8 pipeline step 1 (line 133): \"Ingest PDF / scan / DOCX; classify (EoA letter = master record, Format-2 NOC, Format-3 Resolution, lease, affidavit, other Annexure-2 item)\".",
+  "human_review": "Classification is a suggestion for a checker. It never changes the uploaded document's recorded type and never rejects or blocks an upload.",
+  "note": "Phrase lists are prototype placeholders: the official Format-2 / Format-3 templates are not available yet (PRD section 19 asks whether they are), so a match on ordinary document names is evidence for review, not proof of what the document is.",
+  "matching": {
+    "case_sensitive": false,
+    "word_boundary": true,
+    "text_weight": 3,
+    "file_name_weight": 1
+  },
+  "classes": [
+    {
+      "class_id": "eoa_letter",
+      "label": "EoA letter",
+      "prd_name": "EoA letter",
+      "declared_doc_types": ["eoa_letter"],
+      "declared_doc_types_note": "Placeholder: no upload vocabulary defines an EoA-letter document type yet (FR-32 shows one to the institution; nothing uploads one).",
+      "phrases": ["extension of approval", "eoa letter", "approval letter"]
+    },
+    {
+      "class_id": "format_2_noc",
+      "label": "Format-2 NOC",
+      "prd_name": "Format-2 NOC",
+      "declared_doc_types": ["university_noc"],
+      "declared_doc_types_note": "The Annexure-2 noc_format_2 line takes a university_noc upload (annexure_2.json).",
+      "phrases": ["no objection certificate", "format 2", "format-2", "noc"]
+    },
+    {
+      "class_id": "format_3_resolution",
+      "label": "Format-3 Resolution",
+      "prd_name": "Format-3 Resolution",
+      "declared_doc_types": ["format_3_resolution"],
+      "declared_doc_types_note": "The Annexure-2 resolution_format_3 line takes a format_3_resolution upload (annexure_2.json).",
+      "phrases": ["format 3", "format-3", "resolution of the board", "board resolution", "resolution"]
+    },
+    {
+      "class_id": "lease",
+      "label": "Lease",
+      "prd_name": "lease",
+      "declared_doc_types": ["lease_deed", "lease_agreement"],
+      "declared_doc_types_note": "The Annexure-2 new_site_proof line takes lease_deed or lease_agreement (annexure_2.json).",
+      "phrases": ["lease deed", "lease agreement", "lessor", "lessee", "registered lease"]
+    },
+    {
+      "class_id": "affidavit",
+      "label": "Affidavit",
+      "prd_name": "affidavit",
+      "declared_doc_types": ["affidavit"],
+      "declared_doc_types_note": "The upload vocabulary's generic affidavit slot — the same placeholder mapping as RULE-DOC-01: numbered affidavits cannot be told apart here.",
+      "phrases": ["affidavit", "sworn", "deponent"]
+    }
+  ],
+  "fallback": {
+    "class_id": "unclassified",
+    "label": "Other Annexure-2 item / unclassified",
+    "prd_name": "other Annexure-2 item",
+    "note": "The PRD's catch-all: a document whose text matches no configured class is reported as unclassified with needs_review, never forced into one of the five."
+  }
+}

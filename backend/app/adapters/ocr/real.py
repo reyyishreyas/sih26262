@@ -89,6 +89,8 @@ class RealOCRExtractor:
 
         pages, warnings = self._read_pages(content, result)
         result.warnings.extend(warnings)
+        # Classification (FR-38) runs on these words later — keep them.
+        result.page_texts = [page.text for page in pages]
 
         if not pages:
             return result
