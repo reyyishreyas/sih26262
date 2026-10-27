@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 675 passing
+make test      # pytest — 694 passing
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -362,7 +362,7 @@ tamper-evidence).
 
 ## 7. Tests, gates and CI
 
-- `make test` → **675 passing** (~500 test functions; some parametrised).
+- `make test` → **694 passing** (~500 test functions; some parametrised).
 - Test harness (`backend/tests/conftest.py`): temp SQLite, **fixed clock
   `2026-10-22T09:00:00Z`**, test JWT secret, low PBKDF2 iterations,
   drop-create-seed per test, `as_user()` helper.
@@ -593,9 +593,20 @@ tamper-evidence).
   `start_scrutiny`; audit chronology asserted on `AuditEvent.seq`;
   a row-count snapshot proves the reads store nothing; BUG-0016 +
   BUG-0017 fixed — both test-side, no product code changed).
+  `test_doc_classifier.py` (19 — Phase 5.1: `doc_classifier.py`
+  classifies an upload into the PRD's five ingest classes (EoA letter,
+  Format-2 NOC, Format-3 Resolution, lease, affidavit) plus the "other"
+  fallback, from `doc_classifier.json` phrase lists
+  (proposed_unverified placeholder, class list pinned to the PRD §8
+  sentence by a test) and `ExtractionResult.page_texts`; honest
+  `no_text`/`unclassified`/`ambiguous`, a file name alone never labels,
+  an equal tie refuses to decide, a declaration mismatch is flagged in
+  the upload's warnings on a 201 and the recorded doc_type is never
+  touched; BUG-0018 fixed — the note now composes the filename and
+  mismatch caveats).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `b602d9f` (Phase 4 exit check).
+  repo is currently green at `becfa4e` (Phase 5.1).
 - **27 Oct 2026 (this machine):** the local clone had no `.venv`, so I ran
   `make setup` under **Python 3.14.3** (the repo targets 3.13; 3.14 not
   previously recorded). Backend deps installed and the suite is green on

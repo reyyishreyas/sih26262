@@ -16,6 +16,7 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0018 | 2026-10-27 | S4 | classification note | First run of the 5.1 suite: a classification resting on the file name lost that caveat whenever the declared type also mismatched — the note now composes both caveats | Fixed | IMPL-0038 |
 | BUG-0017 | 2026-10-27 | S4 | test | Exit check's audit-order helper read rows in `entity_id` index order (no `ORDER BY`) — chronology faked, ordering walk failed; now ordered by `AuditEvent.seq` | Fixed | IMPL-0037 |
 | BUG-0016 | 2026-10-27 | S4 | compliance window / test | Exit check read `open` instead of `received` after resubmit: `_resubmitted_at`'s strict `>` vs return+resubmit at the identical fixed-clock instant — test now advances the audited demo clock between the steps (service correct) | Fixed | IMPL-0037 |
 | BUG-0015 | 2026-10-27 | S4 | test | First run of the RULE-DOC-01 suite: expected candidate set omitted `affidavit_2` on a case that uploads no affidavit — the service was right, the expectation incomplete | Fixed | IMPL-0036 |
@@ -56,6 +57,27 @@
 
 ## Entries (newest first)
 <!-- add entries below this line -->
+
+### BUG-0018 — first run of the Phase 5.1 classifier suite: filename-only note was swallowed by the mismatch note
+- Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), first `pytest tests/test_doc_classifier.py` after writing the suite
+- Branch / commit: master (work uncommitted at time of fix; baseline `e0b9dd9`)
+- Severity / Area: **S4** (display copy on an advisory response; fields and review flags all correct) / classification note
+- Status: **Fixed**
+- Where it showed up: `pytest tests/test_doc_classifier.py -q` → 1 failed, 18 passed:
+  ```
+  E       assert 'file name only' in "Uploaded as 'other' but the content reads more
+  like: Affidavit. The recorded type is unchanged — a checker will confirm which it is."
+  ```
+  (in `test_text_beats_the_file_name_but_still_needs_review` — text matched nothing, the *file name* suggested affidavit, declared `other`)
+- Expected behaviour: the note should say the classification rests on the file name only, because that is the weaker half of the evidence a checker needs to see.
+- Actual behaviour: the note carried only the mismatch sentence — my `note = mismatch_note or "Classified from the file name only…"` gave the mismatch precedence and dropped the filename caveat whenever both applied.
+- Environment: macOS, Python 3.13, SQLite.
+- Hypotheses tried: (1) wrong needs_review/agrees values? — no, `agrees_with_declared: false`, `evidence: "file_name"`, `needs_review: true` were all correct; only the composed `note` string was lossy; (2) should the test expect the mismatch note instead? — no: an officer shown "reads more like Affidavit" without knowing the evidence was just the filename would over-trust the prediction.
+- Root cause: the note was written as an either/or when the two caveats are independent and can both be true.
+- Solution applied: `backend/app/services/doc_classifier.py` — for a `classified` result the note now composes every applicable caveat (filename-only sentence, then the mismatch sentence, in that order); the no_text/unclassified/ambiguous branches are unchanged. Fields (`evidence`, `agrees_with_declared`, `needs_review`) were already right and are untouched.
+- Verification: `pytest tests/test_doc_classifier.py -q` → **19 passed** (see IMPL-0038).
+- Side effects / follow-ups: none — display copy only, advisory response. Related IMPL-0038.
+- Update history: 2026-10-27 — found and fixed in the same session.
 
 ### BUG-0017 — second run of the Phase 4 exit check: audit actions came back in index order, faking the chronology
 - Date found / found by: 2026-10-27 / MiMo (OpenCode agent, MiMo-V2.6), second `pytest tests/test_phase4_exit_check.py` (after BUG-0016's fix)
