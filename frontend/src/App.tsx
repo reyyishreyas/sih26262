@@ -9,6 +9,7 @@ import {
 } from "./api";
 import { AlertList } from "./components/AlertList";
 import { CaseView } from "./components/CaseView";
+import { CommitteeQueueView } from "./components/CommitteeQueueView";
 import { DashboardView } from "./components/DashboardView";
 import { DemoClock } from "./components/DemoClock";
 import { Icon } from "./components/Icon";
@@ -27,7 +28,7 @@ import type {
   WorkflowRoute,
 } from "./types";
 
-type View = "cases" | "monitoring" | "reports" | "routing" | "demo";
+type View = "cases" | "monitoring" | "reports" | "routing" | "demo" | "shc" | "executive";
 
 /**
  * The URL is the source of truth for where you are, so a case can be shared as
@@ -37,7 +38,7 @@ type View = "cases" | "monitoring" | "reports" | "routing" | "demo";
  */
 function routeFromHash(): { view: View; selected: string | null } {
   const match = window.location.hash.match(
-    /^#\/(cases|monitoring|reports|routing|demo)(?:\/(.+))?$/,
+    /^#\/(cases|monitoring|reports|routing|demo|shc|executive)(?:\/(.+))?$/,
   );
   if (!match) return { view: "cases", selected: null };
   const view = match[1] as View;
@@ -91,15 +92,19 @@ export default function App() {
   // reviewer acts in another window, the College switches tabs and returns —
   // without this the list keeps whatever it fetched at sign-in.
   const refreshCases = useCallback(async () => {
+    if (!user?.permissions.some((permission) => ["application.read", "case.read"].includes(permission))) return;
     try {
       setApplications(await api.applications());
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not load cases");
     }
-  }, []);
+  }, [user]);
   useRefreshOnFocus(refreshCases);
 
   const canMonitor = user?.permissions.includes("monitoring.read") ?? false;
+  const canReadCases = user?.permissions.some((permission) => ["application.read", "case.read"].includes(permission)) ?? false;
+  const canShc = user?.permissions.includes("shc.queue.read") ?? false;
+  const canExecutive = user?.permissions.includes("executive.queue.read") ?? false;
   const canCreate = user?.permissions.includes("application.create") ?? false;
   const isAdmin = user?.permissions.includes("admin.users") ?? false;
   const isCollege = useMemo(
@@ -127,7 +132,7 @@ export default function App() {
   }, [applications, institutionNames, search]);
 
   useEffect(() => {
-    if (!user) return;
+    if (!user || !canReadCases) return;
     void api
       .applications()
       .then((rows) => {
@@ -137,17 +142,17 @@ export default function App() {
       .catch((cause) =>
         setError(cause instanceof ApiError ? cause.message : "Could not load cases"),
       );
-  }, [user]);
+  }, [canReadCases, user]);
 
   // Institution names make the case list readable. Failure is not fatal —
   // the list simply falls back to showing the raw institution id.
   useEffect(() => {
-    if (!user) return;
+    if (!user || !canReadCases && !canCreate) return;
     void api
       .institutions()
       .then(setInstitutions)
       .catch(() => setInstitutions([]));
-  }, [user]);
+  }, [canCreate, canReadCases, user]);
 
   // Keep the URL in step with where the user is, so the current case can be
   // shared as a link and the back button works. Writing the same hash we
@@ -277,6 +282,8 @@ export default function App() {
               <Icon name="chart" size={18} /> Monitoring
             </button>
           )}
+          {canShc && <button type="button" className={view === "shc" ? "nav active" : "nav"} onClick={() => setView("shc")}><Icon name="fileText" size={18} /> SHC hearings</button>}
+          {canExecutive && <button type="button" className={view === "executive" ? "nav active" : "nav"} onClick={() => setView("executive")}><Icon name="fileText" size={18} /> Executive queue</button>}
           {canMonitor && (
             <button
               type="button"
@@ -481,6 +488,8 @@ export default function App() {
             <DemoClock />
           </>
         )}
+        {view === "shc" && canShc && <><div className="hello"><h2 className="hello-title">SHC hearings</h2></div><CommitteeQueueView mode="shc" /></>}
+        {view === "executive" && canExecutive && <><div className="hello"><h2 className="hello-title">Executive Committee</h2></div><CommitteeQueueView mode="executive" /></>}
       </main>
     </div>
   );

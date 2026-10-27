@@ -1,5 +1,41 @@
 # docs/BUG_LOG.md
 
+### BUG-0053 — Ruff rejected unsorted imports in Phase 6.4 changes
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
+- Severity / Area: S4 / lint.
+- Status: Fixed.
+- Where it showed up: first required `make lint` after adding Phase 6.4 API and tests.
+- Expected: Ruff accepts modified Python files.
+- Actual: `I001` import sorting errors in `backend/app/api/evc.py`, `backend/tests/test_authz_matrix.py`, and `backend/tests/test_phase6_shc.py`, plus one unused import.
+- Steps to reproduce: run `make lint` with the initial Phase 6.4 diff.
+- Environment: repository virtual environment; Ruff configured by `backend/ruff.toml`.
+- Hypotheses tried: Ruff output identified only mechanical import-order and unused-import issues.
+- Root cause: hand-added imports did not follow the repository's Ruff ordering.
+- Solution applied: ran Ruff's `--fix` on the backend source/test/migration/script tree.
+- Verification: `make lint` → all checks passed; full backend suite → **794 passed, 1 upstream warning, 0 skipped**.
+- Regression test: full Ruff invocation and backend suite.
+- Related: Phase 6.4 / FR-24.
+
+### BUG-0052 — SHC queue joined but did not select hearing records
+- Update (2026-10-27): Fixed. Added `ShcHearing` to the query selection; focused Phase 6.3/6.4/authz suite **27 passed, 1 upstream warning**; `make lint` clean; full backend suite **794 passed, 1 upstream warning, 0 skipped**. Migration upgrade/check and frontend build also passed.
+
+### BUG-0052 — SHC queue joined but did not select hearing records
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
+- Severity / Area: S3 / Phase 6 SHC API.
+- Status: Open pending regression verification.
+- Where it showed up: `make test` after Phase 6.4 queue/scheduling changes.
+- Expected: SHC queue returns report and hearing data for each eligible row.
+- Actual: both SHC queue tests returned HTTP 500; traceback was `ValueError: not enough values to unpack (expected 5, got 4)` at `backend/app/api/evc.py` while unpacking results.
+- Steps to reproduce: `make test`; the Phase 6.3 SHC referral test or Phase 6.4 hearing lifecycle test calls `GET /api/v1/shc/queue`.
+- Environment: local repo virtual environment, SQLite pytest database, Python 3.13.
+- Hypotheses tried: confirmed the query included an outer join to `ShcHearing` but its `select(...)` listed only four models, while response mapping unpacked five.
+- Root cause: joined hearing rows were not part of the SQLAlchemy result tuple.
+- Solution applied: add `ShcHearing` to the queue query's selected entities.
+- Verification: pending targeted and full backend suites.
+- Regression test: `backend/tests/test_phase6_shc.py` and existing `backend/tests/test_phase6_evc_report.py` SHC handoff assertion.
+- Related: Phase 6.4 / FR-24.
+
+
 ### BUG-0046 — Seeded placeholder PDF has fewer pages than its synthetic field references
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
 - Severity / Area: S4 / demo fixture and evidence preview.

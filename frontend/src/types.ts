@@ -344,6 +344,34 @@ export interface SessionUser {
   scope: Record<string, unknown>;
 }
 
+export interface ShcQueueRow {
+  application_id: string;
+  institution: string;
+  report_id: string;
+  summary: string;
+  visit_id: string;
+  reported_at: string;
+  hearing: null | {
+    id: string;
+    scheduled_date: string;
+    visit_mode: "online" | "physical";
+    venue: string;
+    meeting_url: string | null;
+    status: string;
+  };
+}
+
+export interface ExecutiveQueueRow {
+  hearing_id: string;
+  report_id: string;
+  application_id: string;
+  institution: string;
+  scheduled_date: string;
+  compliance_record: string;
+  recommendation: string;
+  document_available: boolean;
+}
+
 export interface Institution {
   id: string;
   aicte_id: string;

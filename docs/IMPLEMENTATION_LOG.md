@@ -13,6 +13,8 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| DEC-0019 | 2026-10-27 | Decision | SHC recommendations are human-authored handoffs only; Executive Committee decision remains a separate workflow step | Accepted (user instruction + PRD safety constraints) | Phase 6 6.4; FR-24/26 | reyyishreyas + Codex |
+| IMPL-0055 | 2026-10-27 | Implementation | Phase 6.4: SHC hearings, compliance record, recommendation, and Executive Committee handoff queue | Tested | Phase 6 6.4 (FR-24) | Codex |
 | DEC-0018 | 2026-10-27 | Decision | Human EVC reports drive a deficiency queue; fraud flags create pending Competent Authority referrals only | Accepted (human instruction + PRD) | Phase 6 6.3; FR-22 | reyyishreyas + Codex |
 | IMPL-0054 | 2026-10-27 | Implementation | Phase 6.3: EVC report upload, deficiency-driven SHC queue and non-penal fraud referral | Tested | Phase 6 6.3 (FR-22) | Codex |
 | DEC-0017 | 2026-10-27 | Decision | Committee-scoped EVC members may be assigned as visit experts; institution representative confirms booking | Accepted (human, this session) | Phase 6 6.2; FR-20 | reyyishreyas + Codex |
@@ -117,6 +119,25 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0019 — SHC recommendations are handoffs, not decisions
+- Decision: SHC records a scheduled hearing, a human-authored compliance record and a human-authored recommendation. A completed recommendation appears in a region-scoped Executive Committee read queue. The recommendation does not change application state, approve/reject an application, start an appeal clock, or trigger a penalty; those powers stay in their ordered later phase tasks.
+- Authority: user explicitly authorized completion of Phase 6/7 by following the `md/` requirements; the PRD and safety-critical instructions separate recommendations from human decision authority.
+- Scope: Phase 6.4 only; Executive Committee decision and Speaking Order remain Phase 6.5.
+
+### IMPL-0055 — Phase 6.4 SHC hearing and recommendation (FR-24)
+- Task: Phase 6 **6.4**, FR-24.
+- Existing: the completed-EVC deficiency queue and region scope existed; no SHC schedule, hearing record, compliance notes, recommendation or Executive Committee handoff was persisted.
+- Changes: added a unique-per-EVC-report hearing record, physical/online schedule and reschedule support, future-date and secure HTTPS link checks, human compliance text and recommendation gated until the hearing date. Completed recommendations are visible in a region-scoped Executive Committee queue, with a scoped audited download of the linked EVC report. Added SHC and Executive Committee queue panels in the React UI. No case state transition or automated decision is invoked.
+- Files: `backend/app/api/evc.py`, permission matrix and role seeding via canonical matrix, `backend/app/models/application.py`, model exports, migration `0021_shc_hearings.py`, Phase 6 SHC/authz tests, frontend App/API/types/committee view, role model, implementation/bug logs, plan and context.
+- API/schema/config: `POST /shc/queue/{report_id}/hearing`, `POST /shc/queue/{report_id}/recommendation`, enriched `GET /shc/queue`, `GET /executive-committee/queue`, scoped executive report download; `shc_hearings` table.
+- Permission and audit effects: SHC gets only its queue, schedule and recommendation permissions; Executive Committee gets only its regional queue; neither gains general case/document reads. Accepted schedule/reschedule and recommendation actions are audited; rejected business actions are audited. Scoped report downloads reuse the audited document route.
+- Verification: `make lint` → clean; `make test` → **794 passed, 1 upstream Starlette/httpx deprecation warning, 0 skipped**; `cd frontend && npm run build` → TypeScript and Vite build clean; `SIH_DATABASE_URL=sqlite:////tmp/sih-phase6-4.db ../.venv/bin/alembic upgrade head` + `alembic check` → upgrade through 0021 and no new upgrade operations. Focused SHC/EVC/authz suite → **27 passed, 1 warning**.
+- Status per requirement: FR-24 schedule, compliance record, recommendation and handoff **Tested**. Executive decision, Speaking Order and appeal clock remain Phase 6.5.
+- Limitations / assumptions / manual steps: meeting date guard uses the configured application clock; URL check enforces HTTPS, a hostname and no embedded credentials but cannot validate availability. Free-text recommendation does not encode an official outcome. Postgres/Compose and production notifications were not run.
+- Related bugs: BUG-0052 (queue selection fixed), BUG-0053 (Ruff imports fixed).
+- Open questions for a human: none introduced; official outcome authority is intentionally left to Phase 6.5 and any applicable regulatory approval gate.
+- Next suggested task: Phase 6.5 Executive Committee human decision and Speaking Order upload (FR-26).
 
 ### DEC-0018 — EVC report flags feed human review queues only
 - Decision: the assigned EVC member authors and uploads the report. A human-recorded deficiency appears in the SHC queue only after the visit is completed. A human fraud flag creates a pending referral visible to the region-scoped Competent Authority. These records do not make a regulatory finding, move the application state, or create a penalty/sanction.

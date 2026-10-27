@@ -31,6 +31,9 @@ ALERT_DELIVER = "alert.deliver"
 EVC_VISIT_CONFIRM = "evc.visit.confirm"
 FRAUD_REFERRAL_READ = "fraud.referral.read"
 SHC_QUEUE_READ = "shc.queue.read"
+SHC_HEARING_SCHEDULE = "shc.hearing.schedule"
+SHC_RECOMMENDATION_WRITE = "shc.recommendation.write"
+EXECUTIVE_QUEUE_READ = "executive.queue.read"
 
 ALL_PERMISSIONS: dict[str, str] = {
     APPLICATION_READ: "Read applications within scope",
@@ -56,6 +59,9 @@ ALL_PERMISSIONS: dict[str, str] = {
     EVC_VISIT_CONFIRM: "Confirm a scheduled EVC visit for an institution",
     FRAUD_REFERRAL_READ: "Review fraud referrals within authority scope",
     SHC_QUEUE_READ: "Read SHC cases referred after an EVC deficiency report",
+    SHC_HEARING_SCHEDULE: "Schedule SHC hearings for referred reports",
+    SHC_RECOMMENDATION_WRITE: "Record SHC compliance notes and recommendations",
+    EXECUTIVE_QUEUE_READ: "Read completed SHC recommendations awaiting decision",
 }
 
 INSTITUTION_REPRESENTATIVE = "institution_representative"
@@ -64,6 +70,7 @@ REGIONAL_OFFICER = "regional_officer"
 EVC_MEMBER = "evc_member"
 COMPETENT_AUTHORITY = "competent_authority"
 SHC_MEMBER = "shc_member"
+EXECUTIVE_COMMITTEE_MEMBER = "executive_committee_member"
 SUPERVISORY_OFFICER = "supervisory_officer"
 ADMINISTRATOR = "administrator"
 
@@ -111,7 +118,13 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         UNDERTAKING_READ,
     ),
     COMPETENT_AUTHORITY: (FRAUD_REFERRAL_READ, AUDIT_READ),
-    SHC_MEMBER: (SHC_QUEUE_READ, AUDIT_READ),
+    SHC_MEMBER: (
+        SHC_QUEUE_READ,
+        SHC_HEARING_SCHEDULE,
+        SHC_RECOMMENDATION_WRITE,
+        AUDIT_READ,
+    ),
+    EXECUTIVE_COMMITTEE_MEMBER: (EXECUTIVE_QUEUE_READ, AUDIT_READ),
     SUPERVISORY_OFFICER: (
         MONITORING_READ,
         CASE_READ,
@@ -139,6 +152,7 @@ ROLE_DEFAULT_SCOPE: dict[str, str] = {
     EVC_MEMBER: SCOPE_COMMITTEE,
     COMPETENT_AUTHORITY: SCOPE_REGION,
     SHC_MEMBER: SCOPE_REGION,
+    EXECUTIVE_COMMITTEE_MEMBER: SCOPE_REGION,
     SUPERVISORY_OFFICER: SCOPE_REGION,
     ADMINISTRATOR: SCOPE_GLOBAL,
 }

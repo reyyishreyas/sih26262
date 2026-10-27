@@ -48,6 +48,8 @@ from app.core.permissions import (
     EVC_MEMBER,
     EVC_REPORT_UPLOAD,
     EVC_VISIT_CONFIRM,
+    EXECUTIVE_COMMITTEE_MEMBER,
+    EXECUTIVE_QUEUE_READ,
     FRAUD_REFERRAL_READ,
     INSTITUTION_REPRESENTATIVE,
     MONITORING_READ,
@@ -57,8 +59,10 @@ from app.core.permissions import (
     ROLE_PERMISSIONS,
     SCOPE_GLOBAL,
     SCRUTINY_OFFICER,
+    SHC_HEARING_SCHEDULE,
     SHC_MEMBER,
     SHC_QUEUE_READ,
+    SHC_RECOMMENDATION_WRITE,
     SUPERVISORY_OFFICER,
     UNDERTAKING_READ,
     UNDERTAKING_SUBMIT,
@@ -265,6 +269,13 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ): frozenset({FRAUD_REFERRAL_READ}),
     ("GET", "/api/v1/shc/queue"): frozenset({SHC_QUEUE_READ}),
     ("GET", "/api/v1/shc/queue/{report_id}/document"): frozenset({SHC_QUEUE_READ}),
+    ("POST", "/api/v1/shc/queue/{report_id}/hearing"): frozenset({SHC_HEARING_SCHEDULE}),
+    ("POST", "/api/v1/shc/queue/{report_id}/recommendation"): frozenset({SHC_RECOMMENDATION_WRITE}),
+    ("GET", "/api/v1/executive-committee/queue"): frozenset({EXECUTIVE_QUEUE_READ}),
+    (
+        "GET",
+        "/api/v1/executive-committee/queue/{hearing_id}/document",
+    ): frozenset({EXECUTIVE_QUEUE_READ}),
     ("GET", "/api/v1/evc/queue"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/evc/calendar"): frozenset({MONITORING_READ}),
     # reports
@@ -365,6 +376,15 @@ JSON_BODIES: dict[tuple[str, str], dict] = {
         "scheduled_date": "2026-11-05",
         "visit_mode": "physical",
         "venue": "Matrix probe",
+    },
+    ("POST", "/api/v1/shc/queue/{report_id}/hearing"): {
+        "scheduled_date": "2026-11-05",
+        "visit_mode": "physical",
+        "venue": "Matrix probe",
+    },
+    ("POST", "/api/v1/shc/queue/{report_id}/recommendation"): {
+        "compliance_record": "Matrix probe",
+        "recommendation": "Matrix probe",
     },
     (
         "POST",
@@ -531,9 +551,18 @@ def test_matrix_lists_every_permission_gated_route():
 
 
 def test_specialized_review_roles_do_not_gain_general_case_or_document_access():
-    assert set(ROLE_PERMISSIONS[SHC_MEMBER]) == {SHC_QUEUE_READ, AUDIT_READ}
+    assert set(ROLE_PERMISSIONS[SHC_MEMBER]) == {
+        SHC_QUEUE_READ,
+        SHC_HEARING_SCHEDULE,
+        SHC_RECOMMENDATION_WRITE,
+        AUDIT_READ,
+    }
     assert set(ROLE_PERMISSIONS[COMPETENT_AUTHORITY]) == {
         FRAUD_REFERRAL_READ,
+        AUDIT_READ,
+    }
+    assert set(ROLE_PERMISSIONS[EXECUTIVE_COMMITTEE_MEMBER]) == {
+        EXECUTIVE_QUEUE_READ,
         AUDIT_READ,
     }
 

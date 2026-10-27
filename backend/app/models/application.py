@@ -294,6 +294,31 @@ class FraudReferral(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
 
 
+class ShcHearing(Base):
+    """Scheduled SHC hearing and its human-authored compliance recommendation."""
+
+    __tablename__ = "shc_hearings"
+    __table_args__ = (
+        UniqueConstraint("report_id", name="uq_shc_hearing_report"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=new_id)
+    report_id: Mapped[str] = mapped_column(
+        ForeignKey("evc_reports.id", ondelete="RESTRICT"), index=True
+    )
+    scheduled_date: Mapped[date] = mapped_column(Date)
+    visit_mode: Mapped[str] = mapped_column(String(16))
+    venue: Mapped[str] = mapped_column(String(255), default="")
+    meeting_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    status: Mapped[str] = mapped_column(String(24), default="scheduled", index=True)
+    scheduled_by: Mapped[str] = mapped_column(ForeignKey("users.id"))
+    compliance_record: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recommendation: Mapped[str | None] = mapped_column(Text, nullable=True)
+    recorded_by: Mapped[str | None] = mapped_column(ForeignKey("users.id"), nullable=True)
+    recorded_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+
+
 class Deficiency(Base):
     """A structured deficiency item recorded against an application or specific evidence.
 

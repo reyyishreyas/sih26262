@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from datetime import date, timedelta
 from typing import Literal
+from urllib.parse import urlsplit
 
 from fastapi import APIRouter, Depends, File, HTTPException, Response, UploadFile, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -30,10 +31,14 @@ from ..core.permissions import (
     DOCUMENT_READ,
     EVC_REPORT_UPLOAD,
     EVC_VISIT_CONFIRM,
+    EXECUTIVE_COMMITTEE_MEMBER,
+    EXECUTIVE_QUEUE_READ,
     FRAUD_REFERRAL_READ,
     MONITORING_READ,
+    SHC_HEARING_SCHEDULE,
     SHC_MEMBER,
     SHC_QUEUE_READ,
+    SHC_RECOMMENDATION_WRITE,
 )
 from ..models import (
     Application,
@@ -45,6 +50,7 @@ from ..models import (
     FraudReferral,
     Institution,
     Region,
+    ShcHearing,
 )
 from ..services import evc_service, workflow_service
 from ..services.audit_service import AuditService
@@ -82,6 +88,22 @@ class EvcReportRequest(BaseModel):
     fraud_referral_reason: str | None = Field(default=None, max_length=2000)
 
 
+class ShcScheduleRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    scheduled_date: date
+    visit_mode: Literal["online", "physical"]
+    venue: str = Field(default="", max_length=255)
+    meeting_url: str | None = Field(default=None, max_length=2048)
+
+
+class ShcRecommendationRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    compliance_record: str = Field(min_length=1, max_length=10000)
+    recommendation: str = Field(min_length=1, max_length=10000)
+
+
 def _reject_evc_action(
     db: Session,
     *,
@@ -91,9 +113,10 @@ def _reject_evc_action(
     reason_code: str,
     message: str,
     status_code: int,
+    action: str = "evc.report_submission_rejected",
 ) -> None:
     AuditService(db).append(
-        action="evc.report_submission_rejected",
+        action=action,
         entity_type="application",
         entity_id=application.id,
         outcome="rejected",
@@ -399,13 +422,15 @@ def shc_queue(
     if SHC_MEMBER not in access.roles and "administrator" not in access.roles:
         raise HTTPException(status.HTTP_403_FORBIDDEN, "SHC member role required")
     query = (
-        select(EvcReport, Application, Institution, EvcVisit)
+        select(EvcReport, Application, Institution, EvcVisit, ShcHearing)
         .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
         .join(Application, Application.id == EvcVisit.application_id)
         .join(Institution, Institution.id == Application.institution_id)
+        .outerjoin(ShcHearing, ShcHearing.report_id == EvcReport.id)
         .where(
             EvcReport.deficiency_present.is_(True),
             EvcVisit.status == "completed",
+            or_(ShcHearing.id.is_(None), ShcHearing.recommendation.is_(None)),
         )
     )
     clause = scope_filter(access)
@@ -423,10 +448,272 @@ def shc_queue(
                 "summary": report.summary,
                 "visit_id": visit.id,
                 "reported_at": iso(report.created_at),
+                "hearing": {
+                    "id": hearing.id,
+                    "scheduled_date": hearing.scheduled_date.isoformat(),
+                    "visit_mode": hearing.visit_mode,
+                    "venue": hearing.venue,
+                    "meeting_url": hearing.meeting_url,
+                    "status": hearing.status,
+                } if hearing else None,
             }
-            for report, application, institution, visit in rows
+            for report, application, institution, visit, hearing in rows
         ],
     }
+
+
+@router.post("/shc/queue/{report_id}/hearing", status_code=201)
+def schedule_shc_hearing(
+    report_id: str,
+    payload: ShcScheduleRequest,
+    access: EffectiveAccess = Depends(require(SHC_HEARING_SCHEDULE)),
+    db: Session = Depends(get_db),
+) -> dict:
+    if SHC_MEMBER not in access.roles and "administrator" not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "SHC member role required")
+    query = (
+        select(EvcReport, Application)
+        .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
+        .join(Application, Application.id == EvcVisit.application_id)
+        .where(
+            EvcReport.id == report_id,
+            EvcReport.deficiency_present.is_(True),
+            EvcVisit.status == "completed",
+        )
+    )
+    clause = scope_filter(access)
+    if clause is not None:
+        query = query.where(clause)
+    row = db.execute(query).first()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "SHC referral not found")
+    report, application = row
+    if payload.scheduled_date < get_clock().now().date():
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=report_id,
+            reason_code="hearing_date_in_past", message="hearing date cannot be in the past",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, action="shc.hearing_rejected",
+        )
+    if payload.visit_mode == "physical" and not payload.venue.strip():
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=report_id,
+            reason_code="hearing_venue_required", message="venue is required for a physical hearing",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, action="shc.hearing_rejected",
+        )
+    try:
+        meeting_url = urlsplit(payload.meeting_url or "")
+        secure_meeting_url = (
+            meeting_url.scheme == "https"
+            and bool(meeting_url.hostname)
+            and meeting_url.username is None
+            and meeting_url.password is None
+        )
+    except ValueError:
+        secure_meeting_url = False
+    if payload.visit_mode == "online" and not secure_meeting_url:
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=report_id,
+            reason_code="secure_hearing_link_required", message="an HTTPS link is required for an online hearing",
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT, action="shc.hearing_rejected",
+        )
+    hearing = db.scalar(select(ShcHearing).where(ShcHearing.report_id == report.id))
+    before = None
+    if hearing is not None:
+        if hearing.status == "completed":
+            _reject_evc_action(
+                db, application=application, access=access, visit_id=report_id,
+                reason_code="hearing_already_completed", message="completed hearing cannot be rescheduled",
+                status_code=status.HTTP_409_CONFLICT, action="shc.hearing_rejected",
+            )
+        before = {
+            "scheduled_date": hearing.scheduled_date.isoformat(),
+            "visit_mode": hearing.visit_mode,
+            "venue": hearing.venue,
+        }
+        hearing.scheduled_date = payload.scheduled_date
+        hearing.visit_mode = payload.visit_mode
+        hearing.venue = payload.venue.strip()
+        hearing.meeting_url = payload.meeting_url
+    else:
+        hearing = ShcHearing(
+            report_id=report.id,
+            scheduled_date=payload.scheduled_date,
+            visit_mode=payload.visit_mode,
+            venue=payload.venue.strip(),
+            meeting_url=payload.meeting_url,
+            status="scheduled",
+            scheduled_by=access.user_id,
+            created_at=get_clock().now(),
+        )
+        db.add(hearing)
+    application.baseline_version += 1
+    db.flush()
+    AuditService(db).append(
+        action="shc.hearing_rescheduled" if before else "shc.hearing_scheduled",
+        entity_type="application",
+        entity_id=application.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        before=before,
+        after={
+            "hearing_id": hearing.id,
+            "report_id": report.id,
+            "scheduled_date": hearing.scheduled_date.isoformat(),
+            "visit_mode": hearing.visit_mode,
+            "venue": hearing.venue,
+        },
+        request_id=current_request_id(),
+    )
+    db.commit()
+    return {
+        "id": hearing.id,
+        "report_id": report.id,
+        "scheduled_date": hearing.scheduled_date.isoformat(),
+        "visit_mode": hearing.visit_mode,
+        "venue": hearing.venue,
+        "meeting_url": hearing.meeting_url,
+        "status": hearing.status,
+    }
+
+
+@router.post("/shc/queue/{report_id}/recommendation")
+def record_shc_recommendation(
+    report_id: str,
+    payload: ShcRecommendationRequest,
+    access: EffectiveAccess = Depends(require(SHC_RECOMMENDATION_WRITE)),
+    db: Session = Depends(get_db),
+) -> dict:
+    if SHC_MEMBER not in access.roles and "administrator" not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "SHC member role required")
+    query = (
+        select(ShcHearing, Application)
+        .join(EvcReport, EvcReport.id == ShcHearing.report_id)
+        .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
+        .join(Application, Application.id == EvcVisit.application_id)
+        .where(
+            EvcReport.id == report_id,
+            EvcReport.deficiency_present.is_(True),
+            EvcVisit.status == "completed",
+        )
+    )
+    clause = scope_filter(access)
+    if clause is not None:
+        query = query.where(clause)
+    row = db.execute(query).first()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "SHC hearing not found")
+    hearing, application = row
+    if hearing.status != "scheduled" or hearing.recommendation is not None:
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=report_id,
+            reason_code="hearing_not_open", message="hearing is not open for recommendation",
+            status_code=status.HTTP_409_CONFLICT, action="shc.recommendation_rejected",
+        )
+    if hearing.scheduled_date > get_clock().now().date():
+        _reject_evc_action(
+            db, application=application, access=access, visit_id=report_id,
+            reason_code="hearing_not_yet_due", message="recommendation can be recorded on or after the hearing date",
+            status_code=status.HTTP_409_CONFLICT, action="shc.recommendation_rejected",
+        )
+    hearing.compliance_record = payload.compliance_record.strip()
+    hearing.recommendation = payload.recommendation.strip()
+    hearing.status = "completed"
+    hearing.recorded_by = access.user_id
+    hearing.recorded_at = get_clock().now()
+    application.baseline_version += 1
+    AuditService(db).append(
+        action="shc.recommendation_recorded",
+        entity_type="application",
+        entity_id=application.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        after={
+            "hearing_id": hearing.id,
+            "report_id": report_id,
+            "status": hearing.status,
+            "compliance_record_present": True,
+            "recommendation_present": True,
+        },
+        request_id=current_request_id(),
+    )
+    db.commit()
+    return {
+        "id": hearing.id,
+        "report_id": report_id,
+        "status": hearing.status,
+        "recorded_at": iso(hearing.recorded_at),
+    }
+
+
+@router.get("/executive-committee/queue")
+def executive_committee_queue(
+    access: EffectiveAccess = Depends(require(EXECUTIVE_QUEUE_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    if EXECUTIVE_COMMITTEE_MEMBER not in access.roles and "administrator" not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Executive Committee member role required")
+    query = (
+        select(ShcHearing, EvcReport, Application, Institution)
+        .join(EvcReport, EvcReport.id == ShcHearing.report_id)
+        .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
+        .join(Application, Application.id == EvcVisit.application_id)
+        .join(Institution, Institution.id == Application.institution_id)
+        .where(ShcHearing.status == "completed", ShcHearing.recommendation.is_not(None))
+    )
+    clause = scope_filter(access)
+    if clause is not None:
+        query = query.where(clause)
+    rows = db.execute(query.order_by(ShcHearing.recorded_at, ShcHearing.id)).all()
+    return {
+        "count": len(rows),
+        "rows": [
+            {
+                "hearing_id": hearing.id,
+                "report_id": report.id,
+                "application_id": application.id,
+                "institution": institution.name,
+                "scheduled_date": hearing.scheduled_date.isoformat(),
+                "compliance_record": hearing.compliance_record,
+                "recommendation": hearing.recommendation,
+                "document_available": True,
+            }
+            for hearing, report, application, institution in rows
+        ],
+    }
+
+
+@router.get("/executive-committee/queue/{hearing_id}/document")
+def download_executive_case_report(
+    hearing_id: str,
+    access: EffectiveAccess = Depends(require(EXECUTIVE_QUEUE_READ)),
+    db: Session = Depends(get_db),
+) -> Response:
+    if EXECUTIVE_COMMITTEE_MEMBER not in access.roles and "administrator" not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Executive Committee member role required")
+    query = (
+        select(ShcHearing, EvcReport, Application)
+        .join(EvcReport, EvcReport.id == ShcHearing.report_id)
+        .join(EvcVisit, EvcVisit.id == EvcReport.visit_id)
+        .join(Application, Application.id == EvcVisit.application_id)
+        .where(ShcHearing.id == hearing_id, ShcHearing.status == "completed")
+    )
+    clause = scope_filter(access)
+    if clause is not None:
+        query = query.where(clause)
+    row = db.execute(query).first()
+    if row is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Executive Committee item not found")
+    _hearing, report, application = row
+    from .documents import download_document
+
+    return download_document(
+        application_id=application.id,
+        document_id=report.document_id,
+        access=access,
+        db=db,
+    )
 
 
 @router.get("/shc/queue/{report_id}/document")

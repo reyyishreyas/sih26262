@@ -13,6 +13,7 @@ from .application import (
     Region,
     ScrutinyItemResult,
     ScrutinyOverallResult,
+    ShcHearing,
 )
 from .audit import AuditChainHead, AuditEvent
 from .base import Base, canonical_json, new_id, sha256_hex, utcnow
@@ -72,6 +73,7 @@ __all__ = [
     "RuleVersion",
     "ScrutinyItemResult",
     "ScrutinyOverallResult",
+    "ShcHearing",
     "SimInputSnapshot",
     "SimMetric",
     "SimRuleResult",

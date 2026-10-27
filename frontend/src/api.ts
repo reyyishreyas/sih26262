@@ -25,6 +25,8 @@ import type {
   RouteScoreboard,
   ScrutinyResultsView,
   SessionUser,
+  ShcQueueRow,
+  ExecutiveQueueRow,
   Undertaking,
   UploadResult,
   WorkflowRoute,
@@ -516,6 +518,55 @@ export const api = {
       method: "POST",
       body: JSON.stringify(payload),
     }),
+
+  shcQueue: () =>
+    request<{ count: number; rows: ShcQueueRow[] }>("/shc/queue"),
+  scheduleShcHearing: (
+    reportId: string,
+    payload: {
+      scheduled_date: string;
+      visit_mode: "online" | "physical";
+      venue?: string;
+      meeting_url?: string | null;
+    },
+  ) =>
+    request<NonNullable<ShcQueueRow["hearing"]>>(
+      `/shc/queue/${reportId}/hearing`,
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
+  recordShcRecommendation: (
+    reportId: string,
+    payload: { compliance_record: string; recommendation: string },
+  ) =>
+    request<{ id: string; report_id: string; status: string; recorded_at: string }>(
+      `/shc/queue/${reportId}/recommendation`,
+      { method: "POST", body: JSON.stringify(payload) },
+    ),
+  executiveQueue: () =>
+    request<{ count: number; rows: ExecutiveQueueRow[] }>(
+      "/executive-committee/queue",
+    ),
+  downloadCommitteeReport: async (hearingId: string) => {
+    const headers = new Headers();
+    const token = storedToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(
+      `${BASE}/executive-committee/queue/${hearingId}/document`,
+      { headers },
+    );
+    if (!response.ok) {
+      throw new ApiError(`Could not fetch the report (${response.status})`, response.status);
+    }
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = "committee-report.pdf";
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+    URL.revokeObjectURL(url);
+  },
 
   // --- Demo clock (admin only; refuses in production on the server) ---
   demoClockStatus: () => request<DemoClockStatus>("/admin/demo-clock"),

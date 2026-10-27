@@ -2,7 +2,7 @@
 
 Everything an AI (or a new teammate) needs to work on this repository without
 re-discovering it. Last verified against a running stack and a green test
-suite on **26 Oct 2026**.
+suite on **27 Oct 2026**.
 
 Deep dives live in `docs/` (index at the bottom). This file is the map and the
 honest status; `things.md` is the working backlog for the next feature.
@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 725 passing
+make test      # pytest — 794 passing (2026-10-27 verification)
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -808,5 +808,6 @@ Phase 6.2 reminder update: EVC visits now have 7/2/1-day advance alert levels in
 Phase 6.2 update: visit scheduling also records online/physical mode and Monitoring now shows a scope-filtered upcoming Region calendar. Existing visits retain unknown mode; expert assignment and confirmation still need an authority decision (IMPL-0052 / DEC-0016).
 Phase 6.2 complete: active committee-scoped EVC members can be assigned (open-COI members excluded); institution representatives confirm visit bookings; API/UI/audit/migration verified (IMPL-0053 / DEC-0017). Phase 6.3 is next; fraud referral and subsequent committee/decision routes remain subject to human authority and regulatory-source approval.
 Phase 6.3 complete: assigned EVC experts upload human reports; completed visits with reported deficiencies appear in the regional SHC queue; fraud flags create pending Competent Authority referrals without penalty or automated findings (IMPL-0054 / DEC-0018). Next: Phase 6.4 SHC scheduling and recommendation.
+Phase 6.4 complete: SHC can schedule hearings, record human compliance notes and recommendations; completed recommendations appear in a region-scoped Executive Committee queue with scoped EVC report download. No decision or case transition is inferred (IMPL-0055 / DEC-0019). Verification: `make lint`, `make test` (794 passed, 1 upstream warning, 0 skipped), frontend build and SQLite migration upgrade/check through 0021. Next: Phase 6.5 human Executive Committee decision and Speaking Order (FR-26).
 
 **48-hour cut line: items 1–9 + 11.**
