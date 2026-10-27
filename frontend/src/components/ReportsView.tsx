@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { api, ApiError } from "../api";
-import type { FullReport } from "../types";
+import type { EvcRegionCalendar, FullReport } from "../types";
 import {
   formatDate,
   humanize,
@@ -32,14 +32,17 @@ const DOC_STATE_LABELS: Record<string, string> = {
  */
 export function ReportsView() {
   const [report, setReport] = useState<FullReport | null>(null);
+  const [calendar, setCalendar] = useState<EvcRegionCalendar | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
-    api
-      .reports()
-      .then((data) => {
-        if (!cancelled) setReport(data);
+    Promise.all([api.reports(), api.evcCalendar()])
+      .then(([data, calendarData]) => {
+        if (!cancelled) {
+          setReport(data);
+          setCalendar(calendarData);
+        }
       })
       .catch((cause) => {
         if (!cancelled) {
@@ -52,7 +55,7 @@ export function ReportsView() {
   }, []);
 
   if (error) return <p className="error">{error}</p>;
-  if (!report) {
+  if (!report || !calendar) {
     return (
       <p className="loading">
         <span className="spinner" /> Loading the reports…
@@ -338,6 +341,42 @@ export function ReportsView() {
             <p className="muted">No committee visits needed in your scope.</p>
           )}
         </ul>
+      </section>
+
+      <section className="panel">
+        <h3 className="heading-row">
+          <Icon name="calendar" size={18} /> Region visit calendar
+        </h3>
+        <p className="muted">
+          Scheduled committee visits from {calendar.start_date} to {calendar.end_date},
+          within your monitoring scope.
+        </p>
+        {calendar.events.length === 0 ? (
+          <p className="muted">No visits are scheduled in this period.</p>
+        ) : (
+          <ul className="report-list">
+            {calendar.events.map((event) => (
+              <li key={event.visit_id}>
+                <span className="report-item-main">
+                  <strong>{event.scheduled_date} · {event.institution}</strong>
+                  <span className="tiny muted">
+                    {event.region_code} · {event.committee_name ?? "Committee not assigned"}
+                    {event.visit_mode === "online"
+                      ? " · Online"
+                      : event.visit_mode === "physical"
+                        ? ` · Physical${event.venue ? ` · ${event.venue}` : ""}`
+                        : " · mode not recorded"}
+                  </span>
+                </span>
+                {event.meeting_url ? (
+                  <a href={event.meeting_url} target="_blank" rel="noreferrer">
+                    Meeting link
+                  </a>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+        )}
       </section>
 
       {/* ---------------- Workload ---------------- */}

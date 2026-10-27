@@ -657,7 +657,9 @@ export interface EvcVisit {
   committee_id: string | null;
   committee_name: string | null;
   scheduled_date: string;
+  visit_mode: "online" | "physical" | null;
   venue: string;
+  meeting_url: string | null;
   status: "scheduled" | "completed" | "rescheduled" | "cancelled";
   notes: string;
   created_at: string;
@@ -667,6 +669,25 @@ export interface EvcVisit {
    * is the stage it landed on; `null` when the case stayed where it was.
    */
   case_advanced_to?: string | null;
+}
+
+export interface EvcCalendarEvent {
+  visit_id: string;
+  application_id: string;
+  institution: string;
+  region_code: string;
+  scheduled_date: string;
+  visit_mode: "online" | "physical" | null;
+  venue: string;
+  meeting_url: string | null;
+  committee_name: string | null;
+}
+
+export interface EvcRegionCalendar {
+  start_date: string;
+  end_date: string;
+  count: number;
+  events: EvcCalendarEvent[];
 }
 
 export interface EvcCommittee {

@@ -232,6 +232,7 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
         {CASE_TRANSITION}
     ),
     ("GET", "/api/v1/evc/queue"): frozenset({MONITORING_READ}),
+    ("GET", "/api/v1/evc/calendar"): frozenset({MONITORING_READ}),
     # reports
     ("GET", "/api/v1/reports"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/reports/pendency"): frozenset({MONITORING_READ}),
@@ -328,6 +329,7 @@ JSON_BODIES: dict[tuple[str, str], dict] = {
     },
     ("POST", "/api/v1/applications/{application_id}/evc/visits"): {
         "scheduled_date": "2026-11-05",
+        "visit_mode": "physical",
         "venue": "Matrix probe",
     },
     (

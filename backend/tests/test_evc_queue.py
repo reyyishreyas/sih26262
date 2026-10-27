@@ -24,7 +24,7 @@ from datetime import date
 
 from sqlalchemy import select
 
-from app.models import Application, EvcVisit, WorkflowTransitionDefinition
+from app.models import Application, EvcVisit, Institution, Region, WorkflowTransitionDefinition
 
 MAIN = "app-main-0001"          # new_technical, scrutiny — route needs EVC
 SECOND = "app-second-0002"      # new_technical, submitted — before scrutiny
@@ -97,6 +97,7 @@ def test_booking_keeps_the_appointment_in_the_queue_even_when_the_gate_holds(
         f"/api/v1/applications/{MAIN}/evc/visits",
         json={
             "scheduled_date": visit_date.isoformat(),
+            "visit_mode": "physical",
             "venue": "Campus, synthetic address",
             "notes": "6.1 queue test",
         },
@@ -117,6 +118,89 @@ def test_booking_keeps_the_appointment_in_the_queue_even_when_the_gate_holds(
     ).all()
     assert len(visits) == 1
     assert visits[0].status == "scheduled"
+
+
+def test_online_visit_requires_secure_meeting_link_and_returns_mode(client, as_user):
+    response = client.post(
+        f"/api/v1/applications/{MAIN}/evc/visits",
+        json={
+            "scheduled_date": "2026-11-12",
+            "visit_mode": "online",
+            "meeting_url": "https://meet.example.test/committee-room",
+        },
+        headers=as_user("scrutiny@demo.local"),
+    )
+    assert response.status_code == 201, response.text
+    assert response.json()["visit_mode"] == "online"
+    assert response.json()["meeting_url"] == "https://meet.example.test/committee-room"
+
+
+def test_online_visit_rejects_missing_or_insecure_link(client, as_user):
+    response = client.post(
+        f"/api/v1/applications/{MAIN}/evc/visits",
+        json={"scheduled_date": "2026-11-12", "visit_mode": "online"},
+        headers=as_user("scrutiny@demo.local"),
+    )
+    assert response.status_code == 422
+
+    response = client.post(
+        f"/api/v1/applications/{MAIN}/evc/visits",
+        json={
+            "scheduled_date": "2026-11-12",
+            "visit_mode": "online",
+            "meeting_url": "http://meet.example.test/room",
+        },
+        headers=as_user("scrutiny@demo.local"),
+    )
+    assert response.status_code == 422
+
+
+def test_region_calendar_is_date_bounded_and_region_scoped(client, as_user, db):
+    institution = db.get(Institution, db.get(Application, MAIN).institution_id)
+    region = db.get(Region, institution.region_id)
+    assert institution is not None and region is not None
+
+    db.add(
+        EvcVisit(
+            application_id=MAIN,
+            scheduled_date=date(2026, 11, 5),
+            visit_mode="physical",
+            venue="Synthetic campus",
+            status="scheduled",
+        )
+    )
+    db.commit()
+
+    response = client.get(
+        "/api/v1/evc/calendar?start_date=2026-11-01&end_date=2026-11-30",
+        headers=as_user("regional@demo.local"),
+    )
+    assert response.status_code == 200, response.text
+    assert response.json()["count"] == 1
+    event = response.json()["events"][0]
+    assert event["application_id"] == MAIN
+    assert event["region_code"] == region.code
+
+    outside = client.get(
+        "/api/v1/evc/calendar?start_date=2026-12-01&end_date=2026-12-31",
+        headers=as_user("regional@demo.local"),
+    )
+    assert outside.status_code == 200
+    assert outside.json()["count"] == 0
+
+
+def test_region_calendar_rejects_reversed_or_oversized_ranges(client, as_user):
+    headers = as_user("regional@demo.local")
+    reversed_range = client.get(
+        "/api/v1/evc/calendar?start_date=2026-11-30&end_date=2026-11-01",
+        headers=headers,
+    )
+    oversized = client.get(
+        "/api/v1/evc/calendar?start_date=2026-01-01&end_date=2026-04-10",
+        headers=headers,
+    )
+    assert reversed_range.status_code == 422
+    assert oversized.status_code == 422
 
 
 def test_an_evc_only_case_enters_the_queue_and_leaves_it_via_the_gate(
@@ -154,7 +238,11 @@ def test_an_evc_only_case_enters_the_queue_and_leaves_it_via_the_gate(
     booked = client.post(
         f"/api/v1/applications/{application_id}/evc/visits",
         headers=as_user("regional@demo.local"),
-        json={"scheduled_date": "2026-11-05", "venue": "Campus"},
+        json={
+            "scheduled_date": "2026-11-05",
+            "visit_mode": "physical",
+            "venue": "Campus",
+        },
     )
     assert booked.status_code == 201
     assert booked.json()["case_advanced_to"] == "evc_scheduled"

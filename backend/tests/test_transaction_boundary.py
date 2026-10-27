@@ -76,7 +76,11 @@ def _evc_case_in_committee_stage(db, client, as_user) -> str:
     booked = client.post(
         f"/api/v1/applications/{application_id}/evc/visits",
         headers=officer,
-        json={"scheduled_date": "2026-11-05", "venue": "Campus"},
+        json={
+            "scheduled_date": "2026-11-05",
+            "visit_mode": "physical",
+            "venue": "Campus",
+        },
     )
     assert booked.status_code == 201
     assert booked.json()["case_advanced_to"] == "evc_scheduled"

@@ -14,6 +14,7 @@ import type {
   DocCheckStaged,
   DocumentRow,
   EvcCommittee,
+  EvcRegionCalendar,
   EvcQueue,
   EvcVisit,
   FullReport,
@@ -460,12 +461,15 @@ export const api = {
   // --- Expert Visit Committee scheduling ---
   evcCommittees: () => request<EvcCommittee[]>("/evc/committees"),
   evcQueue: () => request<EvcQueue>("/evc/queue"),
+  evcCalendar: () => request<EvcRegionCalendar>("/evc/calendar"),
   evcVisits: (id: string) => request<EvcVisit[]>(`/applications/${id}/evc/visits`),
   scheduleEvcVisit: (
     id: string,
     payload: {
       scheduled_date: string;
+      visit_mode: "online" | "physical";
       venue?: string;
+      meeting_url?: string | null;
       committee_id?: string | null;
       notes?: string;
     },

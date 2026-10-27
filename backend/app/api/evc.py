@@ -10,7 +10,8 @@ second click; otherwise the statutory gate stays exactly where it is.
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, timedelta
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from pydantic import BaseModel, ConfigDict, Field
@@ -43,7 +44,9 @@ class VisitScheduleRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     scheduled_date: date
+    visit_mode: Literal["online", "physical"]
     venue: str = Field(default="", max_length=255)
+    meeting_url: str | None = Field(default=None, max_length=2048)
     committee_id: str | None = None
     notes: str = Field(default="", max_length=1024)
 
@@ -55,7 +58,9 @@ def _serialise(visit: EvcVisit, committee_name: str | None) -> dict:
         "committee_id": visit.committee_id,
         "committee_name": committee_name,
         "scheduled_date": visit.scheduled_date.isoformat(),
+        "visit_mode": visit.visit_mode,
         "venue": visit.venue,
+        "meeting_url": visit.meeting_url,
         "status": visit.status,
         "notes": visit.notes,
         "created_at": iso(visit.created_at),
@@ -126,6 +131,28 @@ def schedule_visit(
     application = require_application(db, access, application_id)
     require_permission(access, CASE_TRANSITION)
 
+    venue = payload.venue.strip()
+    meeting_url = payload.meeting_url.strip() if payload.meeting_url else None
+    if payload.visit_mode == "physical" and not venue:
+        raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, "physical visits need a place")
+    if payload.visit_mode == "online" and (
+        meeting_url is None or not meeting_url.startswith("https://")
+    ):
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "online visits need an HTTPS meeting link",
+        )
+    if payload.visit_mode == "physical" and meeting_url:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "physical visits cannot include an online meeting link",
+        )
+    if payload.visit_mode == "online" and venue:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "online visits use a meeting link instead of a physical place",
+        )
+
     if payload.committee_id is not None and db.get(Committee, payload.committee_id) is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "committee not found")
 
@@ -149,7 +176,9 @@ def schedule_visit(
         application_id=application.id,
         committee_id=payload.committee_id,
         scheduled_date=payload.scheduled_date,
-        venue=payload.venue.strip(),
+        visit_mode=payload.visit_mode,
+        venue=venue,
+        meeting_url=meeting_url,
         status="scheduled",
         notes=payload.notes.strip(),
         scheduled_by=access.user_id,
@@ -172,6 +201,7 @@ def schedule_visit(
             "visit_id": visit.id,
             "scheduled_date": visit.scheduled_date.isoformat(),
             "venue": visit.venue,
+            "visit_mode": visit.visit_mode,
             "committee": names.get(visit.committee_id) if visit.committee_id else None,
         },
     )
@@ -194,6 +224,69 @@ def schedule_visit(
     body = _serialise(visit, names.get(visit.committee_id))
     body["case_advanced_to"] = decision.to_state if decision and decision.accepted else None
     return body
+
+
+@router.get("/evc/calendar")
+def evc_region_calendar(
+    start_date: date | None = None,
+    end_date: date | None = None,
+    access: EffectiveAccess = Depends(require(MONITORING_READ)),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Read scheduled visits inside the caller's application/region scope."""
+    from ..services.authorization_service import scope_filter
+
+    if start_date is None and end_date is None:
+        start_date = get_clock().now().date()
+        end_date = start_date + timedelta(days=30)
+    elif start_date is None or end_date is None:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "provide both start_date and end_date, or neither",
+        )
+    if end_date < start_date or (end_date - start_date).days > 92:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "calendar range must be ordered and no longer than 93 days",
+        )
+
+    query = (
+        select(EvcVisit, Application, Institution, Region, Committee)
+        .join(Application, Application.id == EvcVisit.application_id)
+        .join(Institution, Institution.id == Application.institution_id)
+        .join(Region, Region.id == Institution.region_id)
+        .outerjoin(Committee, Committee.id == EvcVisit.committee_id)
+        .where(
+            EvcVisit.status == "scheduled",
+            EvcVisit.scheduled_date.between(start_date, end_date),
+        )
+    )
+    clause = scope_filter(access)
+    if clause is not None:
+        query = query.where(clause)
+
+    rows = db.execute(
+        query.order_by(EvcVisit.scheduled_date, Institution.name, EvcVisit.id)
+    ).all()
+    return {
+        "start_date": start_date.isoformat(),
+        "end_date": end_date.isoformat(),
+        "count": len(rows),
+        "events": [
+            {
+                "visit_id": visit.id,
+                "application_id": application.id,
+                "institution": institution.name,
+                "region_code": region.code,
+                "scheduled_date": visit.scheduled_date.isoformat(),
+                "visit_mode": visit.visit_mode,
+                "venue": visit.venue,
+                "meeting_url": visit.meeting_url,
+                "committee_name": committee.name if committee else None,
+            }
+            for visit, application, institution, region, committee in rows
+        ],
+    }
 
 
 @router.get("/evc/queue")

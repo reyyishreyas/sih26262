@@ -52,6 +52,7 @@ Only persisted operational `FAIL` and `NEEDS_REVIEW` findings from the latest ev
 | DEC-0003 | Regulatory values default to Unverified/advisory | Accepted |
 | DEC-0004 | Planning documents live in `md/`, not `docs/prd/` | Accepted (user layout) |
 | DEC-0015 | EVC 7/2/1 reminders are operational placeholders; retain overdue/escalation | Accepted, Unverified |
+| DEC-0016 | EVC calendar reuses monitoring scope and shows a bounded 30-day default | Accepted |
 
 ## Open governance questions (from PRD §19a, unresolved — human owners needed)
 - Who approves regulatory interpretations, role/route/deadline changes, and rule-config updates (four-eyes approval is planned in Phase 9.4 but no approver is named).

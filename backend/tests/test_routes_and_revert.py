@@ -66,7 +66,11 @@ def test_booking_a_visit_moves_the_case_when_the_route_allows_it(db, client, as_
     booked = client.post(
         f"/api/v1/applications/{application_id}/evc/visits",
         headers=officer,
-        json={"scheduled_date": "2026-11-05", "venue": "Institute campus"},
+        json={
+            "scheduled_date": "2026-11-05",
+            "visit_mode": "physical",
+            "venue": "Institute campus",
+        },
     )
     assert booked.status_code == 201
     assert booked.json()["case_advanced_to"] == "evc_scheduled"
@@ -93,7 +97,11 @@ def test_booking_does_not_force_a_move_when_the_guards_are_unmet(db, client, as_
     booked = client.post(
         "/api/v1/applications/app-second-0002/evc/visits",
         headers=headers,
-        json={"scheduled_date": "2026-11-05", "venue": "Campus"},
+        json={
+            "scheduled_date": "2026-11-05",
+            "visit_mode": "physical",
+            "venue": "Campus",
+        },
     )
     assert booked.status_code == 201
     assert booked.json()["case_advanced_to"] is None
@@ -256,7 +264,11 @@ def _evc_only_case_in_committee_stage(
     booked = client.post(
         f"/api/v1/applications/{application_id}/evc/visits",
         headers=officer_headers,
-        json={"scheduled_date": "2026-11-05", "venue": "Campus"},
+        json={
+            "scheduled_date": "2026-11-05",
+            "visit_mode": "physical",
+            "venue": "Campus",
+        },
     )
     assert booked.json()["case_advanced_to"] == "evc_scheduled"
     return application_id
@@ -336,7 +348,11 @@ def test_sweep_and_revert_coexist(db, client, as_user):
     client.post(
         "/api/v1/applications/app-main-0001/evc/visits",
         headers=headers,
-        json={"scheduled_date": "2026-11-05", "venue": "Campus"},
+        json={
+            "scheduled_date": "2026-11-05",
+            "visit_mode": "physical",
+            "venue": "Campus",
+        },
     )
     client.post(
         "/api/v1/applications/app-main-0001/revert",

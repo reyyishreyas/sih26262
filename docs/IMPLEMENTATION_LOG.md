@@ -114,6 +114,24 @@
 
 ## Entries (newest first)
 
+### DEC-0016 — EVC regional calendar uses caller scope and a bounded view
+The read-only EVC calendar reuses `MONITORING_READ` and the existing application scope predicate. With no dates supplied, it shows the next 30 days from the injectable clock; callers may request explicit ordered ranges up to 93 days. This is a display/query bound, not an AICTE deadline. Calendar reads do not change case state or create audit events.
+
+### IMPL-0052 — Phase 6.2 EVC mode and regional calendar (partial) (FR-20)
+- Task / PRD IDs: Phase 6.2, FR-20.
+- What existed: visit records captured date, place, committee, notes and status; read access was case-scoped. No online/physical mode or region-wide calendar endpoint/UI existed.
+- Work: store nullable `visit_mode` and `meeting_url` fields for backwards compatibility; require new bookings to specify online or physical, require HTTPS link for online and place for physical; add scoped `GET /evc/calendar` and include it on Monitoring. Update EVC schedule form and output types. Audit records mode, not meeting URL.
+- Files changed: `backend/app/models/application.py`, `backend/migrations/versions/0018_evc_visit_mode.py`, `backend/app/api/evc.py`, `backend/tests/test_evc_queue.py`, `backend/tests/test_authz_matrix.py`, `backend/tests/test_routes_and_revert.py`, `backend/tests/test_transaction_boundary.py`, `frontend/src/api.ts`, `frontend/src/types.ts`, `frontend/src/components/EvcPanel.tsx`, `frontend/src/components/ReportsView.tsx`, `docs/DECISIONS.md`, `docs/IMPLEMENTATION_LOG.md`, `docs/BUG_LOG.md`, `md/6_IMPLEMENTATION_PLAN.md`, `CONTEXT.md`.
+- Existing code reused: EvcVisit, case scheduling endpoint and audit, `MONITORING_READ`, `scope_filter`, Monitoring reports, and existing committee catalogue.
+- API/schema/config: additive migration adds nullable mode/link columns; `POST .../evc/visits` now requires mode for new bookings; added `GET /evc/calendar` (next 30 days by default; explicit range capped at 93 days). No dependencies.
+- Permission and audit effects: no new permission or authority. Calendar uses existing region/application scope and returns scheduled visits only. Schedule audit includes mode but excludes the meeting URL. Calendar reads are read-only.
+- Verification: `make lint` clean; `make test` → **783 passed, 1 upstream warning, 0 skipped**; targeted EVC/authz/workflow/transaction suite → **54 passed, 1 warning**; `npm run build` clean; SQLite Alembic upgrade and `alembic check` successful; `git diff --check` clean.
+- Status per requirement touched: online/physical mode and regional calendar implemented/tested. Phase 6.2 remains Partial; no checkbox tick.
+- Limitations / assumptions / manual steps: old visits keep `visit_mode=null`; online calendar links are shown to users already allowed to monitor the case's region. Individual expert assignment and visit confirmation remain blocked on human authority clarification.
+- Related bugs: BUG-0047 (sandbox staging workaround, resolved with elevated repository operation).
+- Open questions for a human: approve existing committee-scoped EVC memberships as the expert list and institution representative as visit confirmer, or specify authorized roles. Request remains pending under `AGENTS.md`.
+- Next suggested task: finish remaining Phase 6.2 after authority clarification, then continue in plan order.
+
 ### DEC-0015 — EVC reminder lead times remain operational placeholders
 Use the Phase 6.2 plan's 7/2/1-day EVC visit reminders as advance alert thresholds in `deadline_policy.json`. Label them Unverified and advisory; preserve existing post-visit overdue and escalation alerts. These values do not represent confirmed AICTE deadlines.
 

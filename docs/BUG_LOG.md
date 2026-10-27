@@ -30,6 +30,7 @@
 - Solution applied: retry the same task-scoped staging/commit/push with the approved elevated command pathway if allowed; otherwise leave the verified working-tree changes unstaged and report the restriction.
 - Verification: pending.
 - Related: IMPL-0051.
+- Update (2026-10-27): the same task-scoped changes were staged, committed as `fd98ee1`, and pushed to `origin/master` using the elevated repository operation. No unrelated files were staged; the four pre-existing image files remain untracked.
 
 ### BUG-0045 — Isolated browser review origin was outside the configured CORS list
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.

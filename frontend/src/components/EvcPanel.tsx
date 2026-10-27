@@ -26,7 +26,9 @@ export function EvcPanel({
   const [visits, setVisits] = useState<EvcVisit[]>([]);
   const [committees, setCommittees] = useState<EvcCommittee[]>([]);
   const [date, setDate] = useState("");
+  const [visitMode, setVisitMode] = useState<"online" | "physical">("physical");
   const [venue, setVenue] = useState("");
+  const [meetingUrl, setMeetingUrl] = useState("");
   const [committeeId, setCommitteeId] = useState("");
   const [notes, setNotes] = useState("");
   const [busy, setBusy] = useState(false);
@@ -75,7 +77,9 @@ export function EvcPanel({
     try {
       const visit = await api.scheduleEvcVisit(applicationId, {
         scheduled_date: date,
-        venue: venue.trim(),
+        visit_mode: visitMode,
+        venue: visitMode === "physical" ? venue.trim() : "",
+        meeting_url: visitMode === "online" ? meetingUrl.trim() : null,
         committee_id: committeeId || null,
         notes: notes.trim(),
       });
@@ -125,7 +129,9 @@ export function EvcPanel({
           </span>
           <span className="guide-text">
             <strong>Visit planned for {formatDate(live.scheduled_date)}</strong>
+            {live.visit_mode ? ` · ${live.visit_mode}` : " · mode not recorded"}
             {live.committee_name ? ` · ${live.committee_name}` : ""}
+            {live.meeting_url ? ` · ${live.meeting_url}` : ""}
             {live.venue ? ` · ${live.venue}` : ""}
             {live.notes ? <span className="tiny muted"> — {live.notes}</span> : null}
           </span>
@@ -172,15 +178,44 @@ export function EvcPanel({
           </label>
 
           <label className="field">
-            <span>Place</span>
-            <input
-              type="text"
-              value={venue}
-              placeholder="e.g. Institute campus, Main Block"
-              onChange={(event) => setVenue(event.target.value)}
-              maxLength={255}
-            />
+            <span>Visit mode</span>
+            <select
+              value={visitMode}
+              onChange={(event) =>
+                setVisitMode(event.target.value as "online" | "physical")
+              }
+            >
+              <option value="physical">Physical</option>
+              <option value="online">Online</option>
+            </select>
           </label>
+
+          {visitMode === "physical" ? (
+            <label className="field">
+              <span>Place</span>
+              <input
+                type="text"
+                value={venue}
+                placeholder="e.g. Institute campus, Main Block"
+                onChange={(event) => setVenue(event.target.value)}
+                maxLength={255}
+                required
+              />
+            </label>
+          ) : (
+            <label className="field">
+              <span>Secure meeting link</span>
+              <input
+                type="url"
+                value={meetingUrl}
+                placeholder="https://…"
+                onChange={(event) => setMeetingUrl(event.target.value)}
+                maxLength={2048}
+                pattern="https://.+"
+                required
+              />
+            </label>
+          )}
 
           <label className="field">
             <span>Note for the committee (optional)</span>
