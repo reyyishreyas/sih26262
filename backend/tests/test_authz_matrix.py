@@ -34,6 +34,7 @@ from app.core.permissions import (
     ADMIN_ASSIGNMENTS,
     ADMIN_USERS,
     ADMINISTRATOR,
+    APPEAL_SUBMIT,
     APPLICATION_CREATE,
     APPLICATION_READ,
     AUDIT_READ,
@@ -42,6 +43,10 @@ from app.core.permissions import (
     CASE_TRANSITION,
     COMPETENT_AUTHORITY,
     COMPLIANCE_EVALUATE,
+    COUNCIL_APPEAL_READ,
+    COUNCIL_DECISION_RECORD,
+    COUNCIL_MEMBER,
+    COUNCIL_ORDER_UPLOAD,
     DOCUMENT_READ,
     DOCUMENT_UPLOAD,
     DOCUMENT_VERIFY,
@@ -59,6 +64,9 @@ from app.core.permissions import (
     REHEARSAL_RUN,
     ROLE_DEFAULT_SCOPE,
     ROLE_PERMISSIONS,
+    SAC_APPEAL_MANAGE,
+    SAC_APPEAL_READ,
+    SAC_MEMBER,
     SCOPE_GLOBAL,
     SCRUTINY_OFFICER,
     SHC_HEARING_SCHEDULE,
@@ -81,6 +89,8 @@ OUT_OF_SCOPE = "app-second-0002"
 # email -> the application role that email signs in with
 ROLES: dict[str, str] = {
     "institution@demo.local": INSTITUTION_REPRESENTATIVE,
+    "sac@demo.local": SAC_MEMBER,
+    "council@demo.local": COUNCIL_MEMBER,
     "scrutiny@demo.local": SCRUTINY_OFFICER,
     "regional@demo.local": REGIONAL_OFFICER,
     "evc@demo.local": EVC_MEMBER,
@@ -276,6 +286,16 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("GET", "/api/v1/executive-committee/queue"): frozenset({EXECUTIVE_QUEUE_READ}),
     ("POST", "/api/v1/executive-committee/applications/{application_id}/decision"): frozenset({EXECUTIVE_DECISION_RECORD}),
     ("POST", "/api/v1/applications/{application_id}/documents/executive-speaking-orders"): frozenset({EXECUTIVE_ORDER_UPLOAD}),
+    ("POST", "/api/v1/applications/{application_id}/documents/council-decision-orders"): frozenset({COUNCIL_ORDER_UPLOAD}),
+    ("POST", "/api/v1/applications/{application_id}/appeals"): frozenset({APPEAL_SUBMIT}),
+    ("GET", "/api/v1/applications/{application_id}/appeal"): frozenset({APPEAL_SUBMIT, SAC_APPEAL_READ, SAC_APPEAL_MANAGE, COUNCIL_APPEAL_READ, COUNCIL_DECISION_RECORD}),
+    ("POST", "/api/v1/appeals/{appeal_id}/representatives"): frozenset({APPEAL_SUBMIT}),
+    ("GET", "/api/v1/sac/appeals"): frozenset({SAC_APPEAL_READ}),
+    ("POST", "/api/v1/sac/appeals/{appeal_id}/schedule"): frozenset({SAC_APPEAL_MANAGE}),
+    ("POST", "/api/v1/sac/appeals/{appeal_id}/hearing-record"): frozenset({SAC_APPEAL_MANAGE}),
+    ("GET", "/api/v1/council/appeals"): frozenset({COUNCIL_APPEAL_READ}),
+    ("POST", "/api/v1/council/appeals/{appeal_id}/decision"): frozenset({COUNCIL_DECISION_RECORD}),
+    ("GET", "/api/v1/appeals/{appeal_id}/evidence/{document_id}"): frozenset({APPEAL_SUBMIT, SAC_APPEAL_READ, SAC_APPEAL_MANAGE, COUNCIL_APPEAL_READ, COUNCIL_DECISION_RECORD}),
     (
         "GET",
         "/api/v1/executive-committee/queue/{queue_item_id}/document",
@@ -394,6 +414,25 @@ JSON_BODIES: dict[tuple[str, str], dict] = {
         "outcome": "rejected",
         "speaking_order_document_id": "matrix-missing-document",
         "reason": "Authorisation matrix probe",
+    },
+    ("POST", "/api/v1/applications/{application_id}/appeals"): {
+        "grounds": "Authorization matrix appeal request.",
+        "supporting_document_ids": ["matrix-missing-document"],
+    },
+    ("POST", "/api/v1/appeals/{appeal_id}/representatives"): {
+        "representatives": [
+            {"name": "Matrix Applicant One", "institutional_role": "Director", "id_document_id": "matrix-id-one", "authorization_attested": True},
+            {"name": "Matrix Applicant Two", "institutional_role": "Trustee", "id_document_id": "matrix-id-two", "authorization_attested": True},
+        ]
+    },
+    ("POST", "/api/v1/sac/appeals/{appeal_id}/schedule"): {
+        "hearing_at": "2026-11-05T10:00:00+05:30", "venue": "Matrix probe"
+    },
+    ("POST", "/api/v1/sac/appeals/{appeal_id}/hearing-record"): {
+        "recommendation": "Matrix probe recommendation."
+    },
+    ("POST", "/api/v1/council/appeals/{appeal_id}/decision"): {
+        "outcome": "approved", "decision": "Matrix probe final decision.", "decision_document_id": "matrix-missing-document"
     },
     (
         "POST",
@@ -523,6 +562,11 @@ def _request(client, method: str, path: str, application_id: str, headers, db):
         "/api/v1/applications/{application_id}/documents/executive-speaking-orders",
     ):
         kwargs["files"] = {"file": ("speaking-order.pdf", affidavit_pdf(), "application/pdf")}
+    if (method, path) == (
+        "POST",
+        "/api/v1/applications/{application_id}/documents/council-decision-orders",
+    ):
+        kwargs["files"] = {"file": ("council-decision.pdf", affidavit_pdf(), "application/pdf")}
     if (method, path) == (
         "POST",
         "/api/v1/applications/{application_id}/evc/visits/{visit_id}/report/document",

@@ -20,6 +20,8 @@ Two questions are asked separately for every request:
 | EVC member | Committee | Record committee decisions on committee-assigned cases |
 | SHC member | Region | Schedule hearings, record human compliance notes/recommendations, and read deficiency referrals |
 | Executive Committee member | Region | Read decision-ready queue entries, upload Speaking Orders and record human decisions through configured workflow routes; this app role does not itself certify external legal authority |
+| SAC member | Region | Read appealed cases in scope, record a hearing schedule and human recommendation to Council |
+| Council member | Global or assigned Council scope | Read SAC-recommended appeals and record the Council's final human decision and uploaded order |
 | Competent Authority | Region | Read fraud referrals; the referral is not a fraud finding or penalty |
 | Supervisory officer | Region | Read-only monitoring: pendency, ageing, escalations, alerts |
 | Administrator | Global | Users, role assignments, rule versions, assignments, deadline sweep |
@@ -59,6 +61,17 @@ assignments.
 | `admin.rules` | | | | | | | | | ✓ |
 | `admin.assignments` | | | | | | | | | ✓ |
 | `alert.deliver` | | | | | | | | | ✓ |
+
+Phase 6.6 permissions are intentionally separated from the general matrix above:
+
+| Permission | Institution representative | SAC member | Council member | Administrator |
+|---|:-:|:-:|:-:|:-:|
+| `appeal.submit` | ✓ | | | |
+| `sac.appeal.read` | | ✓ | | |
+| `sac.appeal.manage` | | ✓ | | |
+| `council.appeal.read` | | | ✓ | |
+| `council.decision.record` | | | ✓ | |
+| `council.order.upload` | | | ✓ | |
 
 The matrix lives in `backend/app/core/permissions.py`; the database mirrors it for
 assignments, and `effective_access` reads permissions from the database, so a

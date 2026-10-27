@@ -28,7 +28,7 @@ from pathlib import Path
 from sqlalchemy import select
 
 from app.core.clock import FixedClock, get_clock, set_clock
-from app.models import Alert, Application, AuditEvent, WorkflowTransition
+from app.models import Alert, Appeal, Application, AuditEvent, Document, WorkflowTransition
 from app.services import appeal, deadline_service, workflow_service
 from app.services.policy import RULES_DIR, appeal_policy
 
@@ -67,17 +67,39 @@ def _scrutiny_reject(db, application_id: str, when: datetime) -> Application:
         assert decision.accepted, decision.reasons
     finally:
         set_clock(prior)
-    return db.get(Application, application_id)
+    application = db.get(Application, application_id)
+    transition = db.scalars(
+        select(WorkflowTransition).where(
+            WorkflowTransition.application_id == application_id,
+            WorkflowTransition.action == "reject",
+        ).order_by(WorkflowTransition.created_at.desc())
+    ).first()
+    assert transition is not None
+    document = Document(
+        institution_id=application.institution_id,
+        application_id=application.id,
+        doc_type="speaking_order",
+        file_name="test-speaking-order.pdf",
+        content_type="application/pdf",
+        file_sha256="a" * 64,
+        storage_ref="seed://appeal-clock/test-order.pdf",
+        uploaded_at=when,
+    )
+    db.add(document)
+    db.flush()
+    transition.speaking_order_document_id = document.id
+    db.commit()
+    return application
 
 
 # ------------------------------------------------------------- the config
 
 
-def test_the_policy_loads_unverified_placeholder_and_advisory():
+def test_the_policy_loads_verified_chapter_two_appeal_rules():
     config = _config()
-    assert config["status"] == "unverified"
-    assert config["placeholder"] is True
-    assert config["advisory_only"] is True
+    assert config["status"] == "verified"
+    assert config["placeholder"] is False
+    assert config["advisory_only"] is False
 
 
 def test_it_cites_fr_27_and_the_unverified_caveat():
@@ -85,7 +107,7 @@ def test_it_cites_fr_27_and_the_unverified_caveat():
     assert "FR-27" in source
     # §19 / REG-APPEAL-001 record the 7-day figure as unverified — it must
     # never read as a verified regulatory rule.
-    assert "REG-APPEAL-001" in source or "unverified" in source.lower()
+    assert "SRC-APH-APPEAL-2024-27" in source
 
 
 def test_the_window_is_7_days_and_one_appeal_only():
@@ -98,11 +120,10 @@ def test_the_trigger_states_are_the_two_decisions():
     assert set(_config()["trigger"]["states"]) == {"approved", "rejected"}
 
 
-def test_the_receiving_authority_is_a_labelled_placeholder():
+def test_the_receiving_authority_is_the_standing_appellate_committee():
     authority = _config()["receiving_authority"]
-    assert authority["placeholder"] is True
-    assert authority["id"]  # names the role, never a person
-    assert "SAC" in authority["label"] or "Advisory" in authority["label"]
+    assert authority["placeholder"] is False
+    assert "SAC" in authority["label"]
 
 
 def test_the_reminders_are_day_3_and_day_6():
@@ -137,20 +158,18 @@ def test_a_case_in_the_queue_has_no_window(db):
 def test_a_decided_case_has_a_seven_day_window(db):
     application = _scrutiny_reject(db, EXISTING, NOW)
     assert application.current_state == "rejected"
-    window = appeal.window_for(application, NOW)
+    window = appeal.window_for(application, NOW, decision_at=NOW)
     assert window is not None
     assert window.decision_state == "rejected"
-    assert window.opens_at == deadline_service.end_of_day(NOW.date())
-    # 7-day window, day 1 = the decision day, closes end of day 6 days later.
-    close_date = NOW.date() + timedelta(days=6)
-    assert window.closes_at == deadline_service.end_of_day(close_date)
+    assert window.opens_at == NOW
+    assert window.closes_at == NOW + timedelta(days=7)
     assert window.status == "open"
 
 
 def test_the_window_is_lapsed_after_the_close(db):
     application = _scrutiny_reject(db, EXISTING, NOW)
-    after_close = NOW + timedelta(days=7)
-    window = appeal.window_for(application, after_close)
+    after_close = NOW + timedelta(days=7, seconds=1)
+    window = appeal.window_for(application, after_close, decision_at=NOW)
     assert window is not None
     assert window.status == "lapsed"
     assert window.may_file is False
@@ -161,56 +180,59 @@ def test_the_snapshot_flags_may_file_only_while_open(db):
     open_snapshot = appeal.appeal_snapshot(db, application, NOW)
     assert open_snapshot["may_file"] is True
     assert open_snapshot["appeals_filed"] == 0
-    assert open_snapshot["placeholder"] is True
-    assert open_snapshot["advisory_only"] is True
-    lapsed = appeal.appeal_snapshot(db, application, NOW + timedelta(days=7))
+    assert open_snapshot["placeholder"] is False
+    assert open_snapshot["advisory_only"] is False
+    lapsed = appeal.appeal_snapshot(db, application, NOW + timedelta(days=7, seconds=1))
     assert lapsed["may_file"] is False
     assert lapsed["status"] == "lapsed"
 
 
 def test_an_undecided_case_reports_not_decided(db):
-    application = db.get(Application, SECOND)
+    application = db.get(Application, EXISTING)
     snapshot = appeal.appeal_snapshot(db, application, NOW)
     assert snapshot["status"] == "not_decided"
+    assert snapshot["may_file"] is False
+
+
+def test_chapter_one_new_technical_route_stays_outside_verified_appeal_scope(db):
+    application = db.get(Application, MAIN)
+    application.current_state = "rejected"
+    application.status = "rejected"
+    snapshot = appeal.appeal_snapshot(db, application, NOW)
+    assert snapshot["status"] == "outside_verified_scope"
     assert snapshot["may_file"] is False
 
 
 # -------------------------------------------------- the one-appeal limit
 
 
-def test_filing_an_appeal_records_a_transition(db):
-    """Phase 6.6 will define `file_appeal`; until then this pins the counting contract."""
+def _record_test_appeal(db, application):
+    transition = db.scalars(
+        select(WorkflowTransition)
+        .where(WorkflowTransition.application_id == application.id, WorkflowTransition.action == "reject")
+        .order_by(WorkflowTransition.created_at.desc())
+    ).first()
+    db.add(Appeal(
+        application_id=application.id,
+        decision_transition_id=transition.id,
+        appellant_id=application.assigned_officer_id,
+        grounds="The institution disputes the recorded decision.",
+        submitted_at=NOW,
+        appeal_deadline=NOW + timedelta(days=7),
+    ))
+    db.commit()
+
+
+def test_filing_an_appeal_records_one_appeal_row(db):
     application = _scrutiny_reject(db, EXISTING, NOW)
     assert appeal.appeals_filed(db, EXISTING) == 0
-    db.add(
-        WorkflowTransition(
-            application_id=EXISTING,
-            action=appeal.appeal_action(),
-            from_state="rejected",
-            to_state="appeal_filed",
-            actor_id=application.assigned_officer_id,
-            reason="institution files its one appeal",
-            created_at=NOW,
-        )
-    )
-    db.commit()
+    _record_test_appeal(db, application)
     assert appeal.appeals_filed(db, EXISTING) == 1
 
 
 def test_the_may_file_flag_flips_off_once_the_limit_is_reached(db):
     application = _scrutiny_reject(db, EXISTING, NOW)
-    db.add(
-        WorkflowTransition(
-            application_id=EXISTING,
-            action=appeal.appeal_action(),
-            from_state="rejected",
-            to_state="appeal_filed",
-            actor_id=application.assigned_officer_id,
-            reason="the one allowed appeal",
-            created_at=NOW,
-        )
-    )
-    db.commit()
+    _record_test_appeal(db, application)
     snapshot = appeal.appeal_snapshot(db, application, NOW)
     assert snapshot["appeals_filed"] == 1
     assert snapshot["max_appeals"] == 1
@@ -238,7 +260,7 @@ def test_the_sweep_raises_the_day_3_and_day_6_reminders(db):
             )
         ).first()
         assert day3 is not None
-        assert day3.payload["placeholder"] is True
+        assert day3.payload["placeholder"] is False
         assert day3.payload["window_days"] == 7
 
         # Day 6 of 7 (2026-10-28 09:00) clears the day-6 threshold.
@@ -312,8 +334,8 @@ def test_the_appeal_window_endpoint_is_served_to_signed_in_users(client, as_user
     )
     assert body.status_code == 200
     payload = body.json()
-    assert payload["placeholder"] is True
-    assert payload["advisory_only"] is True
+    assert payload["placeholder"] is False
+    assert payload["advisory_only"] is False
     assert payload["status"] == "not_decided"  # seeded case is still in scrutiny
 
 

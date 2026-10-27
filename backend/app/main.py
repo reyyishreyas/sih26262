@@ -19,6 +19,7 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from .api import (
     admin_access,
     alerts,
+    appeals,
     applications,
     audit,
     auth,
@@ -189,6 +190,7 @@ def create_app() -> FastAPI:
         admin_access,
         demo_clock,
         evc,
+        appeals,
         portal,
         reports,
     ):

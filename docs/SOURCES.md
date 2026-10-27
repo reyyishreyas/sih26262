@@ -12,13 +12,19 @@ authority level, notes.
 > retrieval date and the exact clause/table/page for every regulatory rule
 > before any rule built on it may leave `Unverified`/advisory status.
 > **Do not guess or invent URLs, clause numbers or quotations.**
+>
+> **Amendment (2026-10-27):** The preceding statement describes the original
+> seed pass only. `SRC-APH-APPEAL-2024-27` below was fetched and the Chapter II
+> appeal clauses were verified for Phase 6.6; all other APH clauses and source
+> rows retain their prior unverified status.
 
 ## Register
 
 | source_id | Title | Issuer | Version / effective date | URL or repo path | Accessed | Clause/table/page | Authority | Status |
 |---|---|---|---|---|---|---|---|---|
 | SRC-PS-26262 | Official AICTE Problem Statement 26262 (SIH 2026) | AICTE / SIH | unknown | **null — not recorded anywhere in the repo** | — | — | official_problem_statement | **needs_exact_source_capture** (human) |
-| SRC-APH-2024-27 | AICTE Approval Process Handbook 2024–27 | AICTE | 2024–27 edition | `https://cdnbbsr.s3waas.gov.in/s35938b4d054136e5d59ada6ec9c295d7a/uploads/2025/03/2025031399.pdf` (as recorded in things.md) | recorded 2026-10-25 (notes); **not verified this run** | Chapter II; Table 2.1 (fees); Table 2.3 (routing); Annexure-1, -2, -16; Formats 2 & 3 (printed pp. 81–84, 202–204 per notes) | official_regulatory_source | **needs_version_and_clause_verification** (human) |
+| SRC-APH-2024-27 | AICTE Approval Process Handbook 2024–27 | AICTE | 2024–27 edition | `https://cdnbbsr.s3waas.gov.in/s35938b4d054136e5d59ada6ec9c295d7a/uploads/2025/03/2025031399.pdf` (as recorded in things.md) | recorded 2026-10-25 (notes); **appeal clauses independently verified 2026-10-27** | Chapter II §§2.23.3, 2.24(a-f), printed pp. 29–30 (PDF pp. 44–45); other clauses remain unverified | official_regulatory_source | **Verified for Chapter II appeal flow only**; remainder needs clause verification |
+| SRC-APH-APPEAL-2024-27 | AICTE Approval Process Handbook 2024–27, appeal-flow verification record | AICTE | 2024–27 edition | `https://cdnbbsr.s3waas.gov.in/s35938b4d054136e5d59ada6ec9c295d7a/uploads/2025/03/2025031399.pdf` | 2026-10-27; checked by named human reviewer reyyishreyas and independently fetched by Codex | Chapter II §2.23.3 (PDF p.44): SHC recommendation, EC decision and Speaking Order; §2.24(a-f) (PDF pp.44–45): institution/applicant may appeal once to Council within 7 days of decision upload; SAC considers and publishes schedule; supporting documents and two authorized representatives with self-attested photo ID; Council decision final and uploaded | official_regulatory_source | **Verified for Phase 6.6 appeal scope and requirements**; does not verify app role appointments or any other APH rule |
 | SRC-APH-ADD-2026-27 | Final Addendum / Corrigendum 2026–27 to the APH | AICTE | 2026–27 addendum | `https://aicte.gov.in/downloads/aph/Final%20Addendum%202026-27.pdf` (things.md) · landing page `https://www.aicte.gov.in/node/3309` | recorded 2026-10-25 (notes); **not verified this run** | addendum pages (unpaginated in notes) | official_regulatory_source | **needs_verification** (human) — must be read *with* the APH: rules must be versioned per academic year |
 | SRC-AICTE-FAQ | AICTE FAQs (updated) | AICTE | unknown | `https://aicte.gov.in/sites/default/files/FAQ%20Updated.pdf` (things.md) | recorded 2026-10-25 (notes); not verified | — | official guidance (interpretive) | needs_verification (human) |
 | SRC-PRD-26262 | Project requirements document for PS 26262 | project | PRD companion set, 26 Oct 2026 | `md/1_PRD.md` (+ PRD PDFs in `md/`) | 2026-10-26 | whole document | approved_project_requirement | recorded |

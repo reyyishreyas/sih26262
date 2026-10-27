@@ -180,8 +180,8 @@ def case_appeal_window(
 ) -> dict:
     """Advisory appeal-window view for one case (Phase 3.5, FR-27).
 
-    Serves the configured advisory appeal clock on a decision, anchored to a
-    linked Speaking Order upload when available, plus the day-3 / day-6 reminder cadence
+    Serves the verified appeal clock from the accepted Executive Committee
+    decision record with its linked Speaking Order, plus the day-3 / day-6 reminder cadence
     from §11 line 288, all as a clearly-labelled placeholder (§19 leaves the
     figure unverified — REG-APPEAL-001 says do not activate it as binding).
     Read-only — it moves no case and writes nothing, and there is no

@@ -23,6 +23,8 @@ from ..core.config import get_settings
 from ..core.context import current_request_id
 from ..core.db import get_db
 from ..core.permissions import (
+    COUNCIL_MEMBER,
+    COUNCIL_ORDER_UPLOAD,
     DOCUMENT_READ,
     DOCUMENT_UPLOAD,
     DOCUMENT_VERIFY,
@@ -84,6 +86,10 @@ def upload_document(
         EXECUTIVE_COMMITTEE_MEMBER not in access.roles or not executive_order_upload
     ):
         raise HTTPException(status.HTTP_403_FORBIDDEN, "Speaking Orders require Executive Committee upload authority")
+    if doc_type == "council_decision_order" and (
+        COUNCIL_MEMBER not in access.roles or COUNCIL_ORDER_UPLOAD not in access.permissions
+    ):
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Council decision orders require Council upload authority")
     settings = get_settings()
 
     try:
@@ -456,6 +462,25 @@ def upload_executive_speaking_order(
         doc_type="speaking_order",
         file=file,
         reason="Executive Committee Speaking Order",
+        access=access,
+        db=db,
+    )
+
+
+@router.post("/council-decision-orders", status_code=status.HTTP_201_CREATED)
+def upload_council_decision_order(
+    application_id: str,
+    file: UploadFile = File(...),
+    access: EffectiveAccess = Depends(require(COUNCIL_ORDER_UPLOAD)),
+    db: Session = Depends(get_db),
+) -> dict:
+    if COUNCIL_MEMBER not in access.roles:
+        raise HTTPException(status.HTTP_403_FORBIDDEN, "Council member role required")
+    return upload_document(
+        application_id=application_id,
+        doc_type="council_decision_order",
+        file=file,
+        reason="Council final decision",
         access=access,
         db=db,
     )

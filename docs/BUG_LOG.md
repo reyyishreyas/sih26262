@@ -1,5 +1,22 @@
 # docs/BUG_LOG.md
 
+| BUG-0057 | 2026-10-27 | S4 | verification command | Initial Alembic command ran outside configured backend directory | Fixed | IMPL-0057 |
+
+### BUG-0057 — Initial Alembic command ran outside configured backend directory
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending.
+- Severity / Area: S4 / verification command.
+- Status: **Fixed**.
+- Expected: fresh SQLite database upgrades through head and Alembic checks model sync.
+- Actual: initial root invocation returned `FAILED: No 'script_location' key found in configuration.`
+- Reproduction: run Alembic from repository root without explicitly selecting `backend/alembic.ini`.
+- Environment: repo root shell, Python 3.13, SQLite.
+- Hypotheses tried: config discovery was relative to the current working directory.
+- Root cause: Alembic configuration is scoped to `backend/`; root invocation did not discover it.
+- Solution: reran from `backend/` using `../.venv/bin/alembic`.
+- Verification: fresh database upgraded through `7b41d34be5ee`; `alembic check` → `No new upgrade operations detected`.
+- Regression test: none needed; command/configuration error only.
+- Related: IMPL-0057 / Phase 6.6.
+
 ### BUG-0056 Update — Fixed with SQLite batch migration
 - Status: **Fixed**. The initial `op.add_column(... ForeignKey ...)` could not apply against SQLite's existing workflow table because that backend does not support this constraint alteration directly.
 - Solution: migration `0022_speaking_order_transition.py` now uses `op.batch_alter_table` to recreate the table and add the nullable FK and index portably.

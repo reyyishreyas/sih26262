@@ -375,6 +375,46 @@ export interface ExecutiveQueueRow {
   document_available: boolean;
 }
 
+export interface AppealRecord {
+  id: string;
+  application_id: string;
+  institution: string;
+  status: "submitted" | "scheduled" | "heard" | "decided";
+  submitted_at: string;
+  appeal_deadline: string;
+  hearing_at: string | null;
+  hearing_venue: string | null;
+  hearing_url: string | null;
+  grounds?: string;
+  evidence?: string[];
+  representatives?: {
+    position: number;
+    name: string;
+    institutional_role: string;
+    id_document_id: string;
+    authorization_attested: boolean;
+  }[];
+  sac_recommendation: string | null;
+  council_outcome: "approved" | "not_approved" | null;
+  council_decision: string | null;
+}
+
+export interface AppealWindow {
+  application_id: string;
+  status: "open" | "lapsed" | "not_decided" | "decision_order_missing" | "outside_verified_scope";
+  decision_state: string;
+  decision_at: string | null;
+  opens_at: string | null;
+  closes_at: string | null;
+  window_days: number;
+  appeals_filed: number;
+  max_appeals: number;
+  may_file: boolean;
+  placeholder: false;
+  advisory_only: false;
+  source: string;
+}
+
 export interface Institution {
   id: string;
   aicte_id: string;

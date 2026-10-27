@@ -12,6 +12,8 @@
 
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
+| DEC-0021 | 2026-10-27 | Decision | Appeal policy verified for Chapter II routes only; seven-day limit and one appeal enforced | Accepted (official source verified; named reviewer) | Phase 6 6.6; FR-27 | reyyishreyas + Codex |
+| IMPL-0057 | 2026-10-27 | Implementation | Phase 6.6: institution appeal, SAC schedule/recommendation and Council final decision | Tested | Phase 6 6.6 (FR-27) | Codex |
 |---|---|---|---|---|---|---|
 | DEC-0020 | 2026-10-27 | Decision | Executive decision permission is an application access control; official APH authority remains Unverified | Accepted (user clarification; no external legal claim) | Phase 6 6.5; FR-26 | reyyishreyas + Codex |
 | IMPL-0056 | 2026-10-27 | Implementation | Phase 6.5: human Executive Committee decision, Speaking Order link and advisory appeal trigger | Tested | Phase 6 6.5 (FR-26; FR-27 clock trigger) | Codex |
@@ -121,6 +123,26 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0021 — Apply the verified AICTE appeal rule only to covered Chapter II routes
+- Date / owner: 2026-10-27 / reyyishreyas + Codex.
+- Status: Accepted; the user confirmed the official policy is verified. Source: AICTE Approval Process Handbook 2024–27, Chapter II §§2.23.3–2.24(a-f), official PDF recorded in `docs/SOURCES.md` and `md/rules2.json`.
+- Verified rule: one appeal to Council within seven days of publication of an Executive Committee decision; SAC considers the appeal and schedules/publishes its hearing; two authorized institution representatives with self-attested photo ID and supporting documents; SAC recommends; Council makes the final decision and publishes it.
+- Scope: enforce only for route keys `existing_technical`, `evc_only`, and `evc_sac_shc` as configured. `new_technical` Chapter I remains out of scope until its own source mapping is verified. The clock uses the accepted, Speaking-Order-linked decision transition timestamp.
+- No APH policy was inferred for the excluded routes. No AI/system decision authority is introduced.
+
+### IMPL-0057 — Phase 6.6 appeal flow and Council final decision (FR-27)
+- Date / agent / branch / commit: 2026-10-27 / Codex / master / pending.
+- Goal: deliver the verified appeal stages for covered Chapter II routes while keeping SAC recommendation distinct from Council decision.
+- What existed: Phase 6.5 records human Executive Committee decisions and links the Speaking Order; an advisory appeal clock existed but filing, SAC, Council and persisted supporting evidence did not.
+- What changed: added appeal, supporting evidence and representative records plus migration `7b41d34be5ee`; one-time, seven-day filing checks anchored to the linked decision transition; SAC scheduling/recommendation; Council final decision/order; scoped evidence access; dedicated institution/SAC/Council permissions and seeded personas; institution and committee UI.
+- Files: appeal API/model/service, workflow/document/permission/seed/main changes, migration, route and appeal policy JSON, appeal/clock/authz tests, frontend API/types/workspaces, `docs/ROLE_MODEL.md`, `docs/SOURCES.md`, `md/rules2.json`, this log, `md/6_IMPLEMENTATION_PLAN.md`, and `CONTEXT.md`.
+- API/schema/config: new appeal endpoints for submit, read, SAC scheduling/recommendation, Council decision and evidence; appeal tables; Council decision-order upload; policy config records seven-day/one-appeal rule and exact route scope.
+- Permission and audit effects: dedicated action permissions for institution submit, SAC manage/read, Council decide/order-upload; filing, rejection, schedule, recommendation, final decision and evidence read are audited. SAC is region-scoped; Council is global only for appeal work. Neither receives general case/document access.
+- Verification: `make lint` → all checks passed; `make test` → **809 passed, 1 upstream Starlette/httpx deprecation warning**; `cd frontend && npm run build` → TypeScript and Vite build passed; fresh SQLite upgrade through `7b41d34be5ee`; `alembic check` → `No new upgrade operations detected`; `git diff --check` run before commit.
+- Limitations: only listed Chapter II routes are implemented. Chapter I appeal semantics, Compose and live institutional workflows were not verified. Seven elapsed 24-hour periods are measured from the accepted decision transition timestamp, the application's publication record.
+- Related bug: BUG-0057 (verification command/config path typo; resolved by rerunning with backend Alembic config).
+- Next: Phase 6.7.
 
 ### DEC-0020 — Executive decision permission is an app ACL, not regulatory verification
 - Decision: the user clarified that the requested permissions are application permissions. The app's `executive_committee_member` role may upload a Speaking Order and submit a human-selected outcome only through the route's existing `approve`/`reject` transition definition. This does not mark the official AICTE authority matrix or APH clauses verified; `REG-AUTH-001` remains blocked/unverified. Admin users and Executive Committee members receive no general case/document read permission from this implementation.

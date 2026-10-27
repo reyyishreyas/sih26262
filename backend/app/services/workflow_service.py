@@ -177,6 +177,7 @@ def request_transition(
     request_id: str | None = None,
     expected_baseline_version: int | None = None,
     speaking_order_document_id: str | None = None,
+    commit_changes: bool = True,
 ) -> TransitionDecision:
     application = db.get(Application, application_id)
     if application is None:
@@ -538,7 +539,8 @@ def request_transition(
     stages.sync_stage_instances(
         db, application, actor_id=access.user_id, from_state=from_state
     )
-    db.commit()
+    if commit_changes:
+        db.commit()
 
     return TransitionDecision(
         accepted=True,

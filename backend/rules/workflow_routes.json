@@ -533,6 +533,58 @@
           "required_documents": [],
           "requires_reason": true,
           "description": "Reject with a recorded reason"
+        },
+        {
+          "action": "council_confirm_approval",
+          "from_state": "approved",
+          "to_state": "approved",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_not_approve",
+          "from_state": "approved",
+          "to_state": "rejected",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_grant_approval",
+          "from_state": "rejected",
+          "to_state": "approved",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_confirm_rejection",
+          "from_state": "rejected",
+          "to_state": "rejected",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
         }
       ]
     },
@@ -599,6 +651,58 @@
           "required_documents": [],
           "requires_reason": true,
           "description": "Reject with a recorded reason"
+        },
+        {
+          "action": "council_confirm_approval",
+          "from_state": "approved",
+          "to_state": "approved",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_not_approve",
+          "from_state": "approved",
+          "to_state": "rejected",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_grant_approval",
+          "from_state": "rejected",
+          "to_state": "approved",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_confirm_rejection",
+          "from_state": "rejected",
+          "to_state": "rejected",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
         }
       ]
     },
@@ -707,6 +811,58 @@
           "required_documents": [],
           "requires_reason": true,
           "description": "Reject after the visit, with a recorded reason"
+        },
+        {
+          "action": "council_confirm_approval",
+          "from_state": "approved",
+          "to_state": "approved",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_not_approve",
+          "from_state": "approved",
+          "to_state": "rejected",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_grant_approval",
+          "from_state": "rejected",
+          "to_state": "approved",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_confirm_rejection",
+          "from_state": "rejected",
+          "to_state": "rejected",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
         }
       ]
     },
@@ -845,6 +1001,58 @@
           "required_documents": [],
           "requires_reason": true,
           "description": "SAC/SHC rejection with a recorded reason"
+        },
+        {
+          "action": "council_confirm_approval",
+          "from_state": "approved",
+          "to_state": "approved",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_not_approve",
+          "from_state": "approved",
+          "to_state": "rejected",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_grant_approval",
+          "from_state": "rejected",
+          "to_state": "approved",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+        },
+        {
+          "action": "council_confirm_rejection",
+          "from_state": "rejected",
+          "to_state": "rejected",
+          "required_permission": "council.decision.record",
+          "allowed_roles": [
+            "council_member"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
         }
       ]
     }

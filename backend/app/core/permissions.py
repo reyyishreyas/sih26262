@@ -36,6 +36,12 @@ SHC_RECOMMENDATION_WRITE = "shc.recommendation.write"
 EXECUTIVE_QUEUE_READ = "executive.queue.read"
 EXECUTIVE_ORDER_UPLOAD = "executive.order.upload"
 EXECUTIVE_DECISION_RECORD = "executive.decision.record"
+APPEAL_SUBMIT = "appeal.submit"
+SAC_APPEAL_READ = "sac.appeal.read"
+SAC_APPEAL_MANAGE = "sac.appeal.manage"
+COUNCIL_APPEAL_READ = "council.appeal.read"
+COUNCIL_DECISION_RECORD = "council.decision.record"
+COUNCIL_ORDER_UPLOAD = "council.order.upload"
 
 ALL_PERMISSIONS: dict[str, str] = {
     APPLICATION_READ: "Read applications within scope",
@@ -66,6 +72,12 @@ ALL_PERMISSIONS: dict[str, str] = {
     EXECUTIVE_QUEUE_READ: "Read completed SHC recommendations awaiting decision",
     EXECUTIVE_ORDER_UPLOAD: "Upload a Speaking Order document",
     EXECUTIVE_DECISION_RECORD: "Record an Executive Committee decision",
+    APPEAL_SUBMIT: "Submit an institution appeal against an Executive Committee decision",
+    SAC_APPEAL_READ: "Read appeal records within SAC assignment scope",
+    SAC_APPEAL_MANAGE: "Schedule appeal hearings and record SAC recommendations",
+    COUNCIL_APPEAL_READ: "Read appeals and SAC recommendations within Council scope",
+    COUNCIL_DECISION_RECORD: "Record the final Council decision on an appeal",
+    COUNCIL_ORDER_UPLOAD: "Upload the portal copy of a Council final decision",
 }
 
 INSTITUTION_REPRESENTATIVE = "institution_representative"
@@ -75,6 +87,8 @@ EVC_MEMBER = "evc_member"
 COMPETENT_AUTHORITY = "competent_authority"
 SHC_MEMBER = "shc_member"
 EXECUTIVE_COMMITTEE_MEMBER = "executive_committee_member"
+SAC_MEMBER = "sac_member"
+COUNCIL_MEMBER = "council_member"
 SUPERVISORY_OFFICER = "supervisory_officer"
 ADMINISTRATOR = "administrator"
 
@@ -91,6 +105,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         UNDERTAKING_READ,
         UNDERTAKING_SUBMIT,
         EVC_VISIT_CONFIRM,
+        APPEAL_SUBMIT,
     ),
     SCRUTINY_OFFICER: (
         CASE_READ,
@@ -134,6 +149,8 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         EXECUTIVE_DECISION_RECORD,
         AUDIT_READ,
     ),
+    SAC_MEMBER: (SAC_APPEAL_READ, SAC_APPEAL_MANAGE, AUDIT_READ),
+    COUNCIL_MEMBER: (COUNCIL_APPEAL_READ, COUNCIL_DECISION_RECORD, COUNCIL_ORDER_UPLOAD, AUDIT_READ),
     SUPERVISORY_OFFICER: (
         MONITORING_READ,
         CASE_READ,
@@ -149,6 +166,12 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
             EVC_VISIT_CONFIRM,
             EXECUTIVE_ORDER_UPLOAD,
             EXECUTIVE_DECISION_RECORD,
+            APPEAL_SUBMIT,
+            SAC_APPEAL_READ,
+            SAC_APPEAL_MANAGE,
+            COUNCIL_APPEAL_READ,
+            COUNCIL_DECISION_RECORD,
+            COUNCIL_ORDER_UPLOAD,
         )
     ),
 }
@@ -167,6 +190,8 @@ ROLE_DEFAULT_SCOPE: dict[str, str] = {
     COMPETENT_AUTHORITY: SCOPE_REGION,
     SHC_MEMBER: SCOPE_REGION,
     EXECUTIVE_COMMITTEE_MEMBER: SCOPE_REGION,
+    SAC_MEMBER: SCOPE_REGION,
+    COUNCIL_MEMBER: SCOPE_GLOBAL,
     SUPERVISORY_OFFICER: SCOPE_REGION,
     ADMINISTRATOR: SCOPE_GLOBAL,
 }

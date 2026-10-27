@@ -17,6 +17,7 @@ import {
   stateTone,
 } from "../labels";
 import { AuditTimeline } from "./AuditTimeline";
+import { AppealPanel } from "./AppealPanel";
 import { EvidencePanel } from "./EvidencePanel";
 import { EvcPanel } from "./EvcPanel";
 import { FindingsTable } from "./FindingsTable";
@@ -49,7 +50,8 @@ type StepKey =
   | "decision"
   | "tasks"
   | "trywhat"
-  | "history";
+  | "history"
+  | "appeal";
 
 interface Step {
   key: StepKey;
@@ -86,6 +88,7 @@ export function CaseView({
   const canScheduleVisit = user.permissions.includes("case.transition");
   const canConfirmVisit = user.permissions.includes("evc.visit.confirm");
   const canSubmitEvcReport = user.permissions.includes("evc.report.upload");
+  const canFileAppeal = user.permissions.includes("appeal.submit");
 
   // Role, not permission flags, decides which workspace this is. A College rep
   // holds application.submit but never case.transition — gating on the latter
@@ -231,6 +234,9 @@ export function CaseView({
       }
       list.push({ key: "documents", label: "Send documents" });
       if (evcStage) list.push({ key: "evc", label: "Committee visit" });
+      if (canFileAppeal && ["approved", "rejected"].includes(detail?.application.current_state ?? "")) {
+        list.push({ key: "appeal", label: "Appeal" });
+      }
       list.push({ key: "tasks", label: "My promises" });
       if (canAudit) list.push({ key: "history", label: "History" });
       return list;
@@ -246,7 +252,7 @@ export function CaseView({
     if (canRehearse) list.push({ key: "trywhat", label: "Try “what if”" });
     if (canAudit) list.push({ key: "history", label: "History" });
     return list;
-  }, [isCollege, canRehearse, canAudit, detail, hasVisits]);
+  }, [isCollege, canRehearse, canAudit, canFileAppeal, detail, hasVisits]);
 
   // Which steps are already "done", so the stepper reads like a progress bar
   // with a satisfying tick rather than a flat row of tabs. Derived from data we
@@ -590,6 +596,10 @@ export function CaseView({
           canSubmitReport={canSubmitEvcReport}
           onCaseMoved={() => void load()}
         />
+      )}
+
+      {step === "appeal" && isCollege && canFileAppeal && (
+        <AppealPanel applicationId={application.id} />
       )}
 
       {step === "decision" && (

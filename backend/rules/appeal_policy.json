@@ -1,25 +1,27 @@
 {
   "version": "2026.1",
-  "status": "unverified",
-  "placeholder": true,
-  "advisory_only": true,
+  "status": "verified",
+  "placeholder": false,
+  "advisory_only": false,
   "recorded_on": "2026-10-27",
-  "source": "md/1_PRD.md FR-27 (P0, PS A, line 206: '7-day appeal clock from decision upload; one appeal only; schedule SAC; record Council final decision'), the §7 rules table (line 288: 'Appeal to Council | Once, within 7 days of decision upload | 2.24a'), and §11 line 288 (the institution-side 'Speaking Order uploaded' cadence 'Day 3 and day 6 of 7; window closes day 7' — the two reminder days the appeal-clock sweep reuses). md/rules2.json REG-APPEAL-001 records the 7-day figure as an unverified example and explicitly instructs not to activate it as binding.",
-  "note": "PLACEHOLDER CONFIG — the 7-day window and the one-appeal-only limit are AICTE regulatory values (APH cl. 2.24a). A human Executive Committee decision links its Speaking Order document, and this advisory clock uses that document's uploaded_at as its trigger. The endpoint only displays a countdown and a may-file flag; this configuration never gates a decision or rejects an appeal. Values remain Unverified/placeholder and must not be represented as binding until an official clause is confirmed (DEC-0003, REG-APPEAL-001).",
+  "source": "SRC-APH-APPEAL-2024-27; AICTE Approval Process Handbook 2024-27, Chapter II §§2.23.3, 2.24(a-f), PDF pp. 44-45 (printed pp. 29-30), verified 2026-10-27; implements PRD FR-27.",
+  "note": "Verified Chapter II appeal policy. The seven-day filing period is measured as seven elapsed 24-hour periods from the accepted Executive Committee decision transition, which records the portal decision with its linked Speaking Order in one audited operation. The file upload may precede that operation and does not itself start the deadline. Appeal filing is limited to one per application. This policy is not extended to other APH chapters or decision-makers.",
   "window_days": 7,
   "max_appeals": 1,
   "appeal_action": "file_appeal",
+  "applicable_route_keys": ["existing_technical", "evc_only", "evc_sac_shc"],
+  "scope_note": "Chapter II existing-institution flow only. The Chapter I new_technical route is excluded until its Chapter I appeal procedure is separately verified and implemented.",
   "trigger": {
     "states": ["approved", "rejected"],
-    "basis": "speaking_order_document.uploaded_at",
-    "legacy_fallback": "application.current_state_since",
-    "note": "For decisions with a linked Speaking Order, use the human-uploaded document time. Older decisions without a linked order retain their existing advisory state-entry timestamp. The seven-day duration remains a clearly labelled, nonbinding placeholder."
+    "basis": "executive_decision_transition.created_at",
+    "required_link": "speaking_order_document_id",
+    "note": "The accepted Executive Committee decision transition records the portal decision and linked Speaking Order atomically; its created_at is the verified clock trigger. Speaking Order file upload may be earlier and is not the publication time. Legacy decisions without a linked order cannot be appealed through this flow."
   },
   "receiving_authority": {
     "id": "sac_schedule_pending",
-    "label": "State-level Advisory Committee (SAC) — scheduled after the appeal window",
-    "placeholder": true,
-    "note": "FR-27 ends with 'schedule SAC; record Council final decision'. Which SAC, and who sits it, is an open human question (same class as the §19 Q5 designated authority); this names the role, never a person, and schedules nothing on its own."
+    "label": "Standing Appellate Committee (SAC)",
+    "placeholder": false,
+    "note": "AICTE notifies the hearing schedule on its web portal; the prototype records the schedule through an explicitly assigned SAC application role."
   },
   "reminder_thresholds": [
     {

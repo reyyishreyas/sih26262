@@ -55,7 +55,7 @@ def _ready_for_decision(client, as_user, db, clock) -> str:
     return report_id
 
 
-def test_executive_decision_links_speaking_order_and_starts_advisory_clock(
+def test_executive_decision_links_speaking_order_and_starts_verified_appeal_clock(
     client, as_user, db, clock
 ):
     _ready_for_decision(client, as_user, db, clock)
@@ -103,9 +103,10 @@ def test_executive_decision_links_speaking_order_and_starts_advisory_clock(
         f"/api/v1/applications/{APPLICATION_ID}/appeal-window", headers=headers
     )
     assert appeal.status_code == 200, appeal.text
-    assert appeal.json()["decision_at"] == iso(upload_time)
-    assert appeal.json()["advisory_only"] is True
-    assert appeal.json()["placeholder"] is True
+    assert appeal.json()["decision_at"] == iso(transition.created_at)
+    assert appeal.json()["decision_at"] != iso(upload_time)
+    assert appeal.json()["advisory_only"] is False
+    assert appeal.json()["placeholder"] is False
     assert db.scalars(
         select(AuditEvent).where(AuditEvent.action == "workflow.reject")
     ).first()

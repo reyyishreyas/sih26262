@@ -354,16 +354,18 @@
       "rule_id": "REG-APPEAL-001",
       "name": "Appeal eligibility, authority, and deadline",
       "category": "appeal",
-      "status": "blocked",
+      "status": "verified",
       "priority": "high",
-      "rule": "Define which decision/outcome is appealable, who may file, the deadline trigger, permitted submission window, receiving authority, required evidence, and resulting workflow path.",
+      "rule": "For Chapter II applications, an institution/applicant aggrieved by an Executive Committee decision may appeal once to the Council within 7 days of decision upload. The Standing Appellate Committee considers the appeal; AICTE notifies the hearing schedule; the institution presents compliance/supporting documents through two authorized representatives with self-attested photo ID; SAC recommendations go to the Council, whose decision is final and uploaded to the portal.",
+      "source": "SRC-APH-APPEAL-2024-27; AICTE Approval Process Handbook 2024-27, Chapter II §§2.23.3, 2.24(a-f), PDF pp. 44-45 (printed pp. 29-30). Verified 2026-10-27 by named reviewer reyyishreyas and independently fetched by Codex.",
       "expected_behavior": [
-        "calculate deadline only from verified trigger and duration",
-        "preserve appeal submission receipt",
-        "reject or flag late submissions according to confirmed policy",
-        "record the authority and outcome"
+        "accept one appeal by the institution/applicant against an Executive Committee decision within 7 calendar days from decision upload",
+        "preserve appeal submission receipt and supporting evidence links",
+        "record the SAC schedule, two authorized representatives and their self-attested photo ID evidence",
+        "record SAC hearing recommendation and route it to Council",
+        "record Council final decision and portal publication"
       ],
-      "source_requirement": "The seven-day period mentioned in project notes is an example requiring clause and applicability verification; do not activate it based on notes alone."
+      "source_requirement": "Verified for Chapter II appeals only. Do not widen to other application chapters, decision-makers or outcomes without their source clauses. The application role permissions are prototype ACL assignments, not evidence of official delegation."
     },
     {
       "rule_id": "REG-DOCS-001",

@@ -1,3 +1,4 @@
+from .appeal import Appeal, AppealEvidence, AppealRepresentative
 from .application import (
     Application,
     ApplicationItem,
@@ -43,6 +44,9 @@ from .workflow import StageInstance, WorkflowTransition, WorkflowTransitionDefin
 __all__ = [
     "Alert",
     "AlertDelivery",
+    "Appeal",
+    "AppealEvidence",
+    "AppealRepresentative",
     "Application",
     "ApplicationItem",
     "AuditChainHead",

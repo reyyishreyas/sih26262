@@ -1,6 +1,8 @@
 import type {
   AlertLifecycle,
   AlertRow,
+  AppealRecord,
+  AppealWindow,
   ApplicationSummary,
   AuditEvent,
   CaseDetail,
@@ -546,6 +548,51 @@ export const api = {
     request<{ count: number; rows: ExecutiveQueueRow[] }>(
       "/executive-committee/queue",
     ),
+  appealWindow: (applicationId: string) =>
+    request<AppealWindow>(`/applications/${applicationId}/appeal-window`),
+  applicationAppeal: (applicationId: string) =>
+    request<{ application_id: string; appeal: AppealRecord | null }>(`/applications/${applicationId}/appeal`),
+  fileAppeal: (applicationId: string, grounds: string, supportingDocumentIds: string[]) =>
+    request<AppealRecord>(`/applications/${applicationId}/appeals`, {
+      method: "POST",
+      body: JSON.stringify({ grounds, supporting_document_ids: supportingDocumentIds }),
+    }),
+  registerAppealRepresentatives: (appealId: string, representatives: {
+    name: string; institutional_role: string; id_document_id: string; authorization_attested: boolean;
+  }[]) => request<AppealRecord>(`/appeals/${appealId}/representatives`, {
+    method: "POST", body: JSON.stringify({ representatives }),
+  }),
+  sacAppeals: () => request<{ rows: AppealRecord[] }>("/sac/appeals"),
+  scheduleAppealHearing: (appealId: string, payload: { hearing_at: string; venue?: string; meeting_url?: string }) =>
+    request<AppealRecord>(`/sac/appeals/${appealId}/schedule`, { method: "POST", body: JSON.stringify(payload) }),
+  recordAppealHearing: (appealId: string, recommendation: string) =>
+    request<AppealRecord>(`/sac/appeals/${appealId}/hearing-record`, {
+      method: "POST", body: JSON.stringify({ recommendation }),
+    }),
+  councilAppeals: () => request<{ rows: AppealRecord[] }>("/council/appeals"),
+  uploadCouncilDecisionOrder: (applicationId: string, file: File) => {
+    const form = new FormData();
+    form.set("file", file);
+    return request<UploadResult>(`/applications/${applicationId}/documents/council-decision-orders`, {
+      method: "POST", body: form,
+    });
+  },
+  recordCouncilDecision: (appealId: string, payload: { outcome: "approved" | "not_approved"; decision: string; decision_document_id: string }) =>
+    request<AppealRecord>(`/council/appeals/${appealId}/decision`, { method: "POST", body: JSON.stringify(payload) }),
+  downloadAppealEvidence: async (appealId: string, documentId: string) => {
+    const headers = new Headers();
+    const token = storedToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(`${BASE}/appeals/${appealId}/evidence/${documentId}`, { headers });
+    if (!response.ok) throw new ApiError(`Could not fetch appeal evidence (${response.status})`, response.status);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `appeal-${documentId}.pdf`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  },
   uploadExecutiveSpeakingOrder: (applicationId: string, file: File) => {
     const form = new FormData();
     form.set("file", file);

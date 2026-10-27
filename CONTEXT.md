@@ -68,6 +68,8 @@ Password for all: **`DemoPassw0rd!`**
 | `regional@demo.local` | Regional officer | `regional_officer` | Northern Region |
 | `supervisor@demo.local` | Supervisory officer | `supervisory_officer` | region |
 | `evc@demo.local` | EVC member | `evc_member` | committee |
+| `sac@demo.local` | SAC member | `sac_member` | Northern Region |
+| `council@demo.local` | Council member | `council_member` | appeal decisions |
 | `admin@demo.local` | Administrator | `administrator` | global |
 
 Sign-in is a **typed email/password form** (no one-tap), and `POST /auth/login`
@@ -809,5 +811,7 @@ Phase 6.2 update: visit scheduling also records online/physical mode and Monitor
 Phase 6.2 complete: active committee-scoped EVC members can be assigned (open-COI members excluded); institution representatives confirm visit bookings; API/UI/audit/migration verified (IMPL-0053 / DEC-0017). Phase 6.3 is next; fraud referral and subsequent committee/decision routes remain subject to human authority and regulatory-source approval.
 Phase 6.3 complete: assigned EVC experts upload human reports; completed visits with reported deficiencies appear in the regional SHC queue; fraud flags create pending Competent Authority referrals without penalty or automated findings (IMPL-0054 / DEC-0018). Next: Phase 6.4 SHC scheduling and recommendation.
 Phase 6.4 complete: SHC can schedule hearings, record human compliance notes and recommendations; completed recommendations appear in a region-scoped Executive Committee queue with scoped EVC report download. No decision or case transition is inferred (IMPL-0055 / DEC-0019). Verification: `make lint`, `make test` (794 passed, 1 upstream warning, 0 skipped), frontend build and SQLite migration upgrade/check through 0021. Next: Phase 6.5 human Executive Committee decision and Speaking Order (FR-26).
+
+Phase 6.6 complete: verified Chapter II appeal rules are implemented for `existing_technical`, `evc_only`, and `evc_sac_shc`: institution filing, SAC schedule/recommendation, Council final decision and order, scoped evidence, role permissions, audit and UI (IMPL-0057 / DEC-0021). `make lint`, `make test` (809 passed, 1 upstream warning), frontend build, SQLite migration upgrade/check pass. `new_technical` remains excluded until its Chapter I appeal rule is verified. Next: Phase 6.7.
 
 **48-hour cut line: items 1–9 + 11.**

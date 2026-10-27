@@ -1,31 +1,23 @@
-"""Appeal window: the FR-27 seven-day clock on a decision, and who may appeal.
+"""Verified Chapter II appeal window and supporting deadline reminder.
 
 Plan 3.5 (AGENT-02) models the PRD §7/§11 appeal clock as configuration plus
-pure lookups, so nothing about "how long, and how often" is hard-coded.
+pure lookups. Phase 6.6 implements the human SAC/Council appeal records.
 
-PRD FR-27 (line 206) and the §7 rules table (line 288) record: an appeal to
-the Council runs **once, within 7 days of the decision upload** (APH cl.
-2.24a); §11 line 288 gives the institution-side reminder cadence (**day 3 and
-day 6 of 7, window closes day 7**). ``md/rules2.json`` REG-APPEAL-001 records
-the 7-day figure as an *unverified example* and instructs that it must not be
-activated as binding, so every value here ships as clearly-labelled
-placeholder configuration (``rules/appeal_policy.json``).
+AICTE Approval Process Handbook 2024–27 Chapter II §§2.23.3–2.24(a-f),
+recorded as SRC-APH-APPEAL-2024-27, provides the appeal path: one appeal to the
+Council within 7 days of Executive Committee decision upload, considered by
+SAC, with the Council's final decision published on the portal. The 7-day
+trigger is the linked Speaking Order upload time.
 
 Two constraints shape this module:
 
-1. **No invented regulation, no silent activation.** The day counts, the
-   one-appeal limit and the receiving authority (SAC — an open human question,
-   like the §19 Q5 designated authority) all live in config and carry
-   ``unverified``/``placeholder``/``advisory_only`` labels that are returned
-   on every snapshot, so a caller can never mistake a placeholder for a
-   confirmed AICTE rule.
-2. **Advisory only, no new state (DEC-0003, Phase 6.6).** These functions
-   compute a window and a "may file" flag for display. They gate nothing, move
-   no case and write nothing. There is deliberately no ``file_appeal``
-   transition — Phase 6.6 implements that separately — so an appeal is counted from any recorded
-   ``WorkflowTransition`` whose action matches the configured
-   ``appeal_action`` once Phase 6.6 adds it, and today that count is simply
-   zero.
+1. **Verified scope only.** Chapter II §§2.23.3–2.24 support the current
+   appeal permission and workflow. The configuration and endpoints do not
+   extend these rules to other APH chapters or decision makers.
+2. **The trigger must exist.** Chapter II §§2.23.3–2.24 starts the seven-day
+   period when the Executive Committee decision is uploaded. A prior decision
+   without its Speaking Order upload has no verified filing deadline and is
+   not eligible for the Phase 6.6 filing endpoint.
 
 For new Executive Committee decisions, the window starts at the linked Speaking
 Order's ``uploaded_at`` time. Legacy decisions without that link continue to use
@@ -39,12 +31,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from ..core.clock import iso, to_utc
-from ..models import Application, Document, WorkflowTransition
-from . import working_calendar
+from ..models import Appeal, Application, WorkflowTransition
 from .policy import appeal_policy
 
 DECISION_STATES = frozenset({"approved", "rejected"})
@@ -56,18 +47,23 @@ def config() -> dict[str, Any]:
 
 
 def window_days() -> int:
-    """The configured appeal window length in days (placeholder, advisory)."""
+    """Verified Chapter II appeal period in elapsed days."""
     return int(config().get("window_days", 0))
 
 
 def max_appeals() -> int:
-    """How many appeals a case may carry (FR-27: once — placeholder)."""
+    """One appeal per Executive Committee decision, per Chapter II §2.24(a)."""
     return int(config().get("max_appeals", 1))
 
 
 def appeal_action() -> str:
     """The workflow action that records a filed appeal (config, not code)."""
     return str(config().get("appeal_action", "file_appeal"))
+
+
+def in_verified_scope(application: Application) -> bool:
+    """Only enable the appeal rule on route keys mapped to APH Chapter II."""
+    return application.route_key in config().get("applicable_route_keys", ())
 
 
 @dataclass(frozen=True)
@@ -103,24 +99,15 @@ class AppealWindow:
 
 
 def _is_decided(application: Application) -> bool:
-    return application.current_state in DECISION_STATES
+    return in_verified_scope(application) and application.current_state in DECISION_STATES
 
 
 def appeals_filed(db: Session, application_id: str) -> int:
-    """How many appeals are recorded for this case (0 until Phase 6.6).
-
-    Counted from ``WorkflowTransition`` rows whose action matches the
-    configured ``appeal_action`` — structured data, never free-text guesswork.
-    With no such transition defined yet this is always zero, which keeps the
-    "one appeal only" limit honest rather than assumed.
-    """
-    rows = db.scalars(
-        select(WorkflowTransition).where(
-            WorkflowTransition.application_id == application_id,
-            WorkflowTransition.action == appeal_action(),
-        )
-    ).all()
-    return len(rows)
+    """Count persisted appeal rows for the application."""
+    return int(
+        db.scalar(select(func.count(Appeal.id)).where(Appeal.application_id == application_id))
+        or 0
+    )
 
 
 def window_for(
@@ -137,17 +124,13 @@ def window_for(
     if not _is_decided(application):
         return None
 
-    decision_at = to_utc(decision_at or application.current_state_since)
+    decision_at = to_utc(decision_at)
     if decision_at is None:
         return None
 
-    from .deadline_service import end_of_day
-
     days = window_days()
-    opens_at = end_of_day(working_calendar.business_date(decision_at))
-    closes_at = end_of_day(
-        working_calendar.business_date(decision_at) + timedelta(days=days - 1)
-    )
+    opens_at = decision_at
+    closes_at = decision_at + timedelta(days=days)
     return AppealWindow(
         application_id=application.id,
         decision_state=application.current_state,
@@ -161,7 +144,7 @@ def window_for(
 
 
 def _decision_upload_time(db: Session, application: Application) -> datetime | None:
-    """Use the linked Speaking Order upload as the appeal-clock trigger."""
+    """Use the accepted decision record with its linked order as the trigger."""
     transition = db.scalars(
         select(WorkflowTransition)
         .where(
@@ -173,12 +156,8 @@ def _decision_upload_time(db: Session, application: Application) -> datetime | N
         .order_by(WorkflowTransition.created_at.desc(), WorkflowTransition.id.desc())
     ).first()
     if transition and transition.speaking_order_document_id:
-        document = db.get(Document, transition.speaking_order_document_id)
-        if document is not None:
-            return to_utc(document.uploaded_at)
-    # Existing decisions predate first-class Speaking Orders. Preserve their
-    # advisory clock until they are superseded by a newly recorded decision.
-    return to_utc(application.current_state_since)
+        return to_utc(transition.created_at)
+    return None
 
 
 def _with_appeals(db: Session, window: AppealWindow) -> AppealWindow:
@@ -207,22 +186,56 @@ def appeal_snapshot(db: Session, application: Application, now: datetime) -> dic
     ``status: "not_decided"`` rather than inventing a window.
     """
     config_data = config()
-    window = window_for(
-        application,
-        now,
-        decision_at=_decision_upload_time(db, application),
-    )
-    if window is None:
+    if not in_verified_scope(application):
         return {
             "application_id": application.id,
-            "status": "not_decided",
+            "status": "outside_verified_scope",
+            "decision_state": application.current_state,
+            "window_days": window_days(),
+            "max_appeals": max_appeals(),
+            "appeals_filed": appeals_filed(db, application.id),
+            "may_file": False,
+            "placeholder": False,
+            "advisory_only": False,
+            "source": config_data.get("source"),
+            "receiving_authority": config_data.get("receiving_authority"),
+        }
+    decision_at = _decision_upload_time(db, application)
+    if decision_at is None:
+        return {
+            "application_id": application.id,
+            "status": "decision_order_missing" if application.current_state in DECISION_STATES else "not_decided",
             "decision_state": application.current_state,
             "window_days": window_days(),
             "max_appeals": max_appeals(),
             "appeals_filed": appeals_filed(db, application.id),
             "may_file": False,
             "placeholder": config_data.get("placeholder", False),
-            "advisory_only": config_data.get("advisory_only", True),
+            "advisory_only": config_data.get("advisory_only", False),
+            "source": config_data.get("source"),
+            "receiving_authority": config_data.get("receiving_authority"),
+        }
+    window = window_for(
+        application,
+        now,
+        decision_at=decision_at,
+    )
+    if window is None:
+        reason = (
+            "decision_order_missing"
+            if _is_decided(application)
+            else "not_decided"
+        )
+        return {
+            "application_id": application.id,
+            "status": reason,
+            "decision_state": application.current_state,
+            "window_days": window_days(),
+            "max_appeals": max_appeals(),
+            "appeals_filed": appeals_filed(db, application.id),
+            "may_file": False,
+            "placeholder": config_data.get("placeholder", False),
+            "advisory_only": config_data.get("advisory_only", False),
             "source": config_data.get("source"),
             "receiving_authority": config_data.get("receiving_authority"),
         }
@@ -232,7 +245,7 @@ def appeal_snapshot(db: Session, application: Application, now: datetime) -> dic
     snapshot.update(
         {
             "placeholder": config_data.get("placeholder", False),
-            "advisory_only": config_data.get("advisory_only", True),
+            "advisory_only": config_data.get("advisory_only", False),
             "source": config_data.get("source"),
             "receiving_authority": config_data.get("receiving_authority"),
         }
@@ -255,6 +268,8 @@ def appeal_window_item(
     from .deadline_service import DeadlineItem
 
     decision_at = _decision_upload_time(db, application) if db is not None else None
+    if decision_at is None:
+        return None
     window = window_for(application, now, decision_at=decision_at)
     if window is None or window.closes_at is None:
         return None
@@ -269,7 +284,7 @@ def appeal_window_item(
             "decision_state": window.decision_state,
             "decision_at": iso(window.decision_at),
             "window_days": window_days(),
-            "placeholder": True,
-            "advisory_only": True,
+            "placeholder": False,
+            "advisory_only": False,
         },
     )
