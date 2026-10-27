@@ -195,7 +195,11 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("GET", "/api/v1/internal/reconcile-clocks"): frozenset({ADMIN_USERS}),
     # audit
     ("GET", "/api/v1/applications/{application_id}/audit"): frozenset({AUDIT_READ}),
+    ("GET", "/api/v1/applications/{application_id}/audit/export"): frozenset(
+        {AUDIT_READ}
+    ),
     ("GET", "/api/v1/audit/verify"): frozenset({AUDIT_READ}),
+    ("POST", "/api/v1/audit/verify"): frozenset({AUDIT_READ}),
     # officer dashboard
     ("GET", "/api/v1/officer/dashboard"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/officer/pendency"): frozenset({MONITORING_READ}),

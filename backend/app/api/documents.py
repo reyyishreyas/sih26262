@@ -161,31 +161,91 @@ def upload_document(
         or 0
     ) + 1
 
-    extraction = ocr_service.get_ocr_extractor().extract(
-        doc_type=doc_type, content=content, file_name=filename
+    audit = AuditService(db)
+    audit.append(
+        action="document.extraction_started",
+        entity_type="application",
+        entity_id=application.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        after={"doc_type": doc_type, "sha256": sha, "version": version},
+        request_id=current_request_id(),
     )
+    db.commit()
+    try:
+        extraction = ocr_service.get_ocr_extractor().extract(
+            doc_type=doc_type, content=content, file_name=filename
+        )
+    except Exception:
+        audit.append(
+            action="document.extraction_failed",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="rejected",
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+            reason="document extraction failed",
+            after={"doc_type": doc_type, "sha256": sha},
+            request_id=current_request_id(),
+        )
+        db.commit()
+        raise
     # Phase 5.1 (FR-38): classify the upload against the PRD's five document
     # classes — advisory only. A disagreement with the uploader's declared
     # type becomes a warning (the UI already shows extraction warnings);
     # the recorded doc_type is never changed and the upload never fails for
     # it. Missing/unreadable text answers "no_text", never a guess.
-    classification = doc_classifier.classify(
-        page_texts=extraction.page_texts,
-        file_name=filename,
-        declared_doc_type=doc_type,
-    )
-    if classification["mismatch_note"]:
-        extraction.warnings.append(classification["mismatch_note"])
+    try:
+        classification = doc_classifier.classify(
+            page_texts=extraction.page_texts,
+            file_name=filename,
+            declared_doc_type=doc_type,
+        )
+        if classification["mismatch_note"]:
+            extraction.warnings.append(classification["mismatch_note"])
 
-    # Phase 5.3 (FR-40): a model value counts only if its text is found on
-    # the page (fuzzy match to the OCR words) — else REVIEW_REQUIRED.
-    # Advisory on a 201, like the classifier's mismatch: the stored value,
-    # the doc_type and every status stay exactly as they are; only the
-    # field's grounding provenance and a warning are recorded.
-    for note in fuzzy_grounding.ground_candidates(
-        extraction.fields, extraction.page_texts
-    ):
-        extraction.warnings.append(note)
+        # Phase 5.3 (FR-40): a model value counts only if its text is found on
+        # the page (fuzzy match to the OCR words) — else REVIEW_REQUIRED.
+        # Advisory on a 201, like the classifier's mismatch: the stored value,
+        # the doc_type and every status stay exactly as they are; only the
+        # field's grounding provenance and a warning are recorded.
+        for note in fuzzy_grounding.ground_candidates(
+            extraction.fields, extraction.page_texts
+        ):
+            extraction.warnings.append(note)
+    except Exception:
+        audit.append(
+            action="document.extraction_failed",
+            entity_type="application",
+            entity_id=application.id,
+            outcome="rejected",
+            actor_id=access.user_id,
+            actor_role=access.primary_role,
+            reason="document processing failed",
+            after={"doc_type": doc_type, "sha256": sha, "version": version},
+            request_id=current_request_id(),
+        )
+        db.commit()
+        raise
+
+    audit.append(
+        action="document.extraction_completed",
+        entity_type="application",
+        entity_id=application.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        after={
+            "doc_type": doc_type,
+            "sha256": sha,
+            "version": version,
+            "fields_extracted": len(extraction.fields),
+            "warning_count": len(extraction.warnings),
+        },
+        request_id=current_request_id(),
+    )
+    db.commit()
 
     stored = False
     try:
@@ -209,7 +269,6 @@ def upload_document(
         )
         db.add(document)
         db.flush()
-
         created_fields: list[ExtractedField] = []
         for candidate in extraction.fields:
             field_obj = ExtractedField(
@@ -305,6 +364,24 @@ def upload_document(
             },
             request_id=current_request_id(),
         )
+        if version > 1:
+            AuditService(db).append(
+                action="document.replaced",
+                entity_type="document",
+                entity_id=document.id,
+                outcome="accepted",
+                actor_id=access.user_id,
+                actor_role=access.primary_role,
+                reason=reason.strip(),
+                before={"version": version - 1},
+                after={
+                    "application_id": application.id,
+                    "version": version,
+                    "doc_type": doc_type,
+                    "sha256": sha,
+                },
+                request_id=current_request_id(),
+            )
         db.commit()
     except Exception:
         db.rollback()
@@ -367,7 +444,7 @@ def download_document(
     one-page placeholder PDF is generated on the fly so the UI can always open
     something real.
     """
-    require_application(db, access, application_id)
+    application = require_application(db, access, application_id)
     document = db.get(Document, document_id)
     if document is None or document.application_id != application_id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "document not found on this case")
@@ -386,6 +463,23 @@ def download_document(
                 "the stored file is no longer available (retention may have removed it)",
             )
         content = path.read_bytes()
+
+    AuditService(db).append(
+        action="document.accessed",
+        entity_type="document",
+        entity_id=document.id,
+        outcome="accepted",
+        actor_id=access.user_id,
+        actor_role=access.primary_role,
+        after={
+            "application_id": application.id,
+            "version": document.version,
+            "doc_type": document.doc_type,
+            "sha256": document.file_sha256,
+        },
+        request_id=current_request_id(),
+    )
+    db.commit()
 
     return Response(
         content=content,
