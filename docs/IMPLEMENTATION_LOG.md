@@ -13,6 +13,8 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0048 | 2026-10-27 | Implementation | Phase 5.9: optional OpenRouter vision adapter, metadata-only ExternalCallLog, strict JSON schema and grounding; default off | Tested | Phase 5 5.9 (AGENT-04; FR-39, FR-51) | Codex |
+| DEC-0012 | 2026-10-27 | Decision | OpenRouter calls require an explicit switch plus server-trusted public/synthetic low-confidence source; API key alone never enables processing | Accepted | Phase 5 5.9; FR-39/51; PRD §19 Q13 | Codex |
 | IMPL-0047 | 2026-10-27 | Implementation | Phase 5.8: audited officer dispositions for operational amber/red findings; scrutiny exits require each current finding to have one | Tested | Phase 5 5.8 (AGENT-05; FR-47) | Codex |
 | DEC-0011 | 2026-10-27 | Decision | The FR-47 gate covers only persisted current-baseline operational FAIL/NEEDS_REVIEW findings; Phase 5 advisory diagnostics stay nonblocking | Accepted | Phase 5 5.8; FR-47; rules1/rules2 safety constraints | Codex |
 | IMPL-0046 | 2026-10-27 | Implementation | Phase 5.7: aggregate advisory PRE-CHECK PASSED / REVIEW REQUIRED / DEFICIENCY CANDIDATE labels; all outcomes nonblocking; only Verified mappings can yield a pass | Tested | Phase 5 5.7 (AGENT-04; FR-46) | Codex |
@@ -107,6 +109,27 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0048 — Phase 5.9: optional OpenRouter vision fallback (FR-39, FR-51)
+- Date / agent / branch / commit: 2026-10-27 / Codex / master / pending commit.
+- Task ID and PRD IDs: Phase 5.9 (AGENT-04); FR-39 and FR-51; PRD §8 lines 134/161.
+- Goal: provide a config-driven vision adapter for low-confidence pages, strict structured output, grounding, an off switch, and a metadata log for every provider attempt.
+- What existed before: `OCRExtractor` + grounding service; Gemini-backed lease parser was separate. No OpenRouter adapter, config, or `ExternalCallLog` existed.
+- What I did:
+  - Added `Settings.openrouter_*`: disabled by default, model configurable, confidence threshold default 0.75 and range checked, timeout bounded; a key alone never enables use.
+  - Added `adapters/vision/openrouter.py` using the official Chat Completions multimodal endpoint, `temperature=0`, strict `json_schema`, and `provider.require_parameters`. Local validation rejects malformed/extra fields, invalid confidence/page numbers, and duplicate field names.
+  - Every candidate is grounded against the OCR page text through the existing fuzzy grounding service; ungrounded candidates remain `REVIEW_REQUIRED`. The adapter only suggests fields and its prompt prohibits compliance/workflow decisions.
+  - External calls require an internal caller to assert trusted public/synthetic provenance and page confidence below threshold. The public upload API does not expose that assertion or invoke this adapter, preventing ordinary institution documents from being sent.
+  - Added `ExternalCallLog` + migration `0017_external_call_logs`. Each attempt is persisted as started before network I/O, then completed/failed with provider, model, attempt, page count, latency, status, non-sensitive failure code and request id only. No prompt, image, text, response, or key is stored.
+  - Saved the user-provided key in local ignored `.env` (mode 600) with `SIH_OPENROUTER_ENABLED=false`. `.env.example` has an empty key field and disabled switch.
+- Files changed: `.env.example`, `backend/app/core/config.py`, `backend/app/adapters/vision/__init__.py`, `backend/app/adapters/vision/openrouter.py`, `backend/app/models/compliance.py`, `backend/app/models/__init__.py`, `backend/migrations/versions/0017_external_call_logs.py`, `backend/rules/fuzzy_grounding.json`, `backend/tests/test_openrouter_vision.py`, `md/6_IMPLEMENTATION_PLAN.md`, `docs/TRACEABILITY.md`, `docs/SOURCES.md`, `docs/DECISIONS.md`, `README.md`, `CONTEXT.md`, this log, and `docs/BUG_LOG.md`. Local `.env` is ignored and intentionally not listed/staged.
+- Migration/API/config: additive migration `0017_external_call_logs`; no public endpoint added; environment config added to `Settings` and `.env.example`; no new dependency.
+- Permission and audit effects: no permission or workflow changes. External request attempts are recorded in a separate metadata-only `ExternalCallLog` before and after the network call. Existing endpoint audit chain is untouched.
+- Verification: `../.venv/bin/ruff check app tests migrations` → clean; `../.venv/bin/pytest -q tests/test_openrouter_vision.py tests/test_fuzzy_grounding.py` → **18 passed**; `make lint` → clean; `make test` → **776 passed, 1 upstream Starlette/httpx warning, 0 skipped**; `SIH_DATABASE_URL=sqlite:////tmp/sih-phase59.db ../.venv/bin/alembic upgrade head` → success through 0017; same URL + `alembic check` → `No new upgrade operations detected`; config inspection confirmed local key loads and switch remains false. No provider request made; provider behavior tested with mocked HTTP responses. Frontend build not run (no UI changes).
+- Limitations / assumptions / manual steps: no genuine document source is server-marked public/synthetic yet, so the upload path cannot invoke the adapter. Phase 5.10 adds labelled synthetic fixtures; a trusted internal integration can use those. OpenRouter model/provider support for `json_schema` varies by endpoint; request requires provider parameters and local validation remains mandatory. PostgreSQL/Compose not run.
+- Related bugs: BUG-0040 (migration Ruff import order, fixed); BUG-0041 (config verification command used a root-relative Python path, corrected).
+- Open questions: provider external-processing approval remains a project-level setting per PRD §19 Q13; default is off.
+- Next task: Phase 5.10, synthetic Format-2 NOC and Format-3 Resolution fixtures plus public EoA master record.
 
 ### IMPL-0047 — Phase 5.8: audited finding dispositions and scrutiny gate (FR-47)
 - Date / agent / branch / commit: 2026-10-27 / Codex / master / pending commit

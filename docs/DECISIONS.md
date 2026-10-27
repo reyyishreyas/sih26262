@@ -56,3 +56,6 @@ Only persisted operational `FAIL` and `NEEDS_REVIEW` findings from the latest ev
 - Who approves regulatory interpretations, role/route/deadline changes, and rule-config updates (four-eyes approval is planned in Phase 9.4 but no approver is named).
 - Which repo/remote is authoritative and who may push (master prompt: never change remotes or push without confirmation).
 - Acceptance date and sign-off authority for the evaluation build.
+
+### DEC-0012 — When may the OpenRouter fallback send a page?
+The fallback is off by default, even when an API key exists. It also requires a server-side caller to assert that the page is from a public or synthetic source and requires OCR confidence below the configured threshold. The upload endpoint does not accept a client-supplied public/synthetic assertion and does not invoke this adapter. Only metadata is stored in `ExternalCallLog`; no page image, document text, prompt, response, or API key is persisted. This preserves the PRD/Essentials privacy constraint while leaving a controlled path for verified public or synthetic fixtures.

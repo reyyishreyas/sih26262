@@ -16,6 +16,8 @@
 ## Index (one line per entry)
 | ID | Date | Sev | Area | Title | Status | Linked IMPL |
 |---|---|---|---|---|---|---|
+| BUG-0041 | 2026-10-27 | S4 | command | Local settings verification used a backend-relative Python path from repo root | Fixed | IMPL-0048 |
+| BUG-0040 | 2026-10-27 | S4 | lint | New Phase 5.9 migration had unsorted imports on first Ruff run | Fixed | IMPL-0048 |
 | BUG-0039 | 2026-10-27 | S4 | authz test harness | Phase 5.8 matrix probe lacked a valid request body, so Pydantic returned 422 before the scope check | Fixed | IMPL-0047 |
 | BUG-0038 | 2026-10-27 | S4 | lint | Initial Phase 5.8 Ruff run found duplicated imports and a missing clock import | Fixed | IMPL-0047 |
 | BUG-0037 | 2026-10-27 | S4 | test | Phase 5.7 policy contract test compared mapping keys instead of outcome labels | Fixed | IMPL-0046 |
@@ -87,6 +89,38 @@
 - Solution applied: consolidated imports, added `get_clock`, and ran Ruff autofix for ordering. Regression guard: full Ruff check.
 - Verification: `make lint` clean; final `make test` **771 passed, 0 skipped**.
 - Related: IMPL-0047.
+
+### BUG-0041 — Config verification command used a path relative to the wrong working directory
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
+- Severity / Area: S4 / command.
+- Status: Fixed.
+- Where it showed up: local `.env` settings verification command invoked from the repository root.
+- Expected: Python imports the backend settings and confirms the key is configured while external calls remain disabled.
+- Actual: `ModuleNotFoundError: No module named 'app'` because the command used `../.venv/bin/python` and ran outside `backend/`.
+- Exact error output (trimmed): `ModuleNotFoundError: No module named 'app'`.
+- Steps to reproduce: run the backend-module import from repo root without adding `backend` to `PYTHONPATH`.
+- Environment: macOS, Python 3.13.
+- Hypotheses tried: path/working-directory mismatch; no application defect was indicated.
+- Root cause: relative executable path and module import root were inconsistent.
+- Solution applied: reran from `backend/` using `../.venv/bin/python`; asserted the key loads and `openrouter_enabled` is false without printing the key.
+- Verification: output confirmed the local key loaded and external calls remain disabled; `.env` mode is 600 and Git ignores it.
+- Related: IMPL-0048.
+
+### BUG-0040 — Ruff import ordering in the new external-call migration
+- Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
+- Severity / Area: S4 / lint.
+- Status: Fixed.
+- Where it showed up: initial `cd backend && ../.venv/bin/ruff check app tests migrations`.
+- Expected: the additive migration passes repository Ruff rules.
+- Actual: Ruff `I001` on the Alembic migration's `sqlalchemy` and `alembic` imports.
+- Exact error output (trimmed): `I001 Import block is un-sorted or un-formatted`.
+- Steps to reproduce: run Ruff before formatting the new migration.
+- Environment: macOS, Python 3.13, Ruff 0.14.4.
+- Hypotheses tried: none; direct import-order diagnostic.
+- Root cause: Alembic template import order differed from repository Ruff configuration.
+- Solution applied: `ruff check --fix migrations/versions/0017_external_call_logs.py`.
+- Verification: backend Ruff clean; full `make lint` clean; final `make test` passed **776 tests**.
+- Related: IMPL-0048.
 
 ## Entry template
 ```

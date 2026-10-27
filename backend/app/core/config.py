@@ -13,7 +13,7 @@ from functools import lru_cache
 from pathlib import Path
 
 from dotenv import load_dotenv
-from pydantic import model_validator
+from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import make_url
 
@@ -136,6 +136,15 @@ class Settings(BaseSettings):
     # AI / LLM Grounded Extraction (Gemini).
     # If not set, falls back to deterministic local grounded parsing.
     gemini_api_key: str | None = None
+
+    # Optional low-confidence vision fallback. A key alone never enables it;
+    # operators must also set the explicit master switch. The fallback adapter
+    # independently requires trusted public/synthetic provenance per page.
+    openrouter_enabled: bool = False
+    openrouter_api_key: str | None = None
+    openrouter_model: str = "google/gemini-2.5-flash"
+    openrouter_confidence_threshold: float = Field(default=0.75, ge=0.0, le=1.0)
+    openrouter_timeout_seconds: float = Field(default=20.0, gt=0.0, le=120.0)
 
     # Bounded retention for transient operational rows. Audit events are retained
     # indefinitely because deleting a middle event would break the hash chain.

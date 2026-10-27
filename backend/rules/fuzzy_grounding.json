@@ -7,7 +7,8 @@
   "rule_reference": "RULE-OCR-01",
   "note": "Thresholds are labelled placeholders: the PRD requires fuzzy matching but gives no numbers, and section 19 does not list them as an open question — so they are set here, marked, and must be calibrated by a human against real scans before anyone relies on them. REVIEW_REQUIRED means a human reads the page; it never blocks, rejects, or changes a stored value.",
   "model_methods": [
-    "gemini_grounded_ai"
+    "gemini_grounded_ai",
+    "openrouter_vision"
   ],
   "matching": {
     "case_sensitive": false,
