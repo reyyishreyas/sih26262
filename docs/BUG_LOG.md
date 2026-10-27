@@ -14,6 +14,7 @@
 - Solution applied: retain the explicit source page and no-box honesty behavior; add an “Open original PDF in a new tab” fallback. The fixture mismatch itself is not corrected in this task.
 - Verification: preview pane and fallback link rendered in the isolated browser; page 2 could not be visually verified in the placeholder. Real uploaded PDFs with valid page/bbox provenance were not available for this smoke.
 - Related: IMPL-0050; Phase 5 exit check remains open.
+- Update (2026-10-27): documented with pushed Phase 5.11 commit `74b3ba6`; the seed/page mismatch remains a workaround limitation.
 
 ### BUG-0045 — Isolated browser review origin was outside the configured CORS list
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
@@ -29,6 +30,7 @@
 - Solution applied: restart only the temporary API with explicit `http://localhost:5174` CORS origin. No repository or existing server configuration changed.
 - Verification: temporary API startup log confirmed preflight 400; after restart with `SIH_CORS_ORIGINS=["http://localhost:5174"]`, synthetic demo sign-in and case loading succeeded.
 - Related: IMPL-0050.
+- Update (2026-10-27): temporary CORS workaround and verification recorded in pushed commit `74b3ba6`; no persistent CORS setting changed.
 
 ### BUG-0044 — Local development server could not start on occupied API port
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
@@ -44,6 +46,7 @@
 - Solution applied: left the existing port 8000 process untouched. Started a separate test API on 8001 with isolated `/private/tmp/sih26262_phase5_ui.sqlite` and a test UI on 5174; synthetic browser review succeeded.
 - Verification: existing process owns 8000; shell health check could not connect. Isolated UI sign-in and case view worked after CORS was configured; the broader current app was not restarted or altered.
 - Related: IMPL-0050.
+- Update (2026-10-27): isolated review workaround recorded in pushed commit `74b3ba6`; original port-8000 process remained untouched.
 
 ### BUG-0043 — Phase 5.10 test import ordering failed Ruff
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
@@ -59,6 +62,7 @@
 - Solution applied: format the import block with Ruff's import fixer; no product behavior changed.
 - Verification: `make lint` clean; `make test` → **777 passed, 1 warning, 0 skipped**.
 - Related: IMPL-0049.
+- Update (2026-10-27): Ruff fix and verification recorded in pushed commit `5a69e2a`.
 
 ### BUG-0042 — System pytest auto-loaded an unrelated Anaconda plugin
 - Date found / found by / branch / commit: 2026-10-27 / Codex / master / pending commit.
@@ -74,6 +78,7 @@
 - Solution applied: use `../.venv/bin/pytest` from `backend/` (or documented `make test`) to isolate repo dependencies; no dependency or plugin configuration changed.
 - Verification: `../.venv/bin/pytest -q tests/test_phase5_site_move_fixtures.py` → **1 passed, 1 upstream warning**; full `make test` pending.
 - Related: Phase 5.10 / IMPL-0049.
+- Update (2026-10-27): repository virtualenv workaround and verification recorded in pushed commit `5a69e2a`.
 
 **Purpose:** every error, bug, failed test, failed command, regression, environment problem or surprising behaviour hit while working on this repo, **with the solution that was actually applied** (or the status if unsolved). Decisions and normal implementation go in `docs/IMPLEMENTATION_LOG.md`; link the two by ID.
 

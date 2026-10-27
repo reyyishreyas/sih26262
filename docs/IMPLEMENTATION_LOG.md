@@ -130,6 +130,7 @@ Reuse the authenticated document-content endpoint and existing normalized boundi
 - Limitations: interactive exit path did not validate live public EoA loading, actual site-move upload/autofill, or exact PDF box alignment. The demo EoA is only a source pointer and fixture master data is fictional. Phase 5 exit check remains open pending a source-backed, policy-compliant end-to-end site-move pack. Current local app on 8000 was already occupied; its instance was not modified.
 - Open questions: PRD §19 source/template/schema questions remain unresolved; obtaining a real institution EoA locally conflicts with `AGENTS.md`'s prohibition on committing real institution documents. No approval/regulatory status changed.
 - Git status at implementation: pending commit/push; unrelated untracked image files left untouched.
+- Update (2026-10-27): Phase 5.11 was committed as `74b3ba6` and pushed successfully to `origin/master`. Final status: `master...origin/master`; only the four pre-existing untracked images under `md/` remain. The 5.10 plan item and Phase 5 exit check remain open as described above.
 
 ### DEC-0013 — Public EoA source pointer and fictional regression fixture
 The PRD's public EoA demo source is recorded as a source pointer, but the real institution PDF and its data are not copied into the repository because `AGENTS.md` prohibits committing real institution documents. The executable master-record JSON is fictional, labelled synthetic, and test-only. Synthetic Format-2-style NOC and Format-3-style Resolution JSON fixtures exercise existing classification and advisory cross-check/site-check services. Official form fields and regulatory interpretations remain Unverified; fixtures do not establish compliance or authority.
@@ -146,6 +147,7 @@ The PRD's public EoA demo source is recorded as a source pointer, but the real i
 - Limitations: fixture values are wholly fictional; official Format-2/Format-3 templates and field mappings are not verified. Source pointer is not an integrated live/public data feed. The UI slice was implemented in IMPL-0050, but public EoA master data and site-move upload/autofill remain unimplemented.
 - Open questions: PRD §19 template/field mapping questions remain unresolved; no regulatory rule status changed.
 - Git status at implementation: pending final commit and push; unrelated untracked image files were left untouched.
+- Update (2026-10-27): fixture implementation was committed as `5a69e2a` and pushed to `origin/master`. Follow-up assessment keeps the plan item Partial because the public EoA is a source pointer, not integrated master data. Final status after subsequent task: `master...origin/master`; unrelated untracked images remain untouched.
 
 ### IMPL-0048 — Phase 5.9: optional OpenRouter vision fallback (FR-39, FR-51)
 - Date / agent / branch / commit: 2026-10-27 / Codex / master / pending commit.
