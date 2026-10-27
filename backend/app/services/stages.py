@@ -277,6 +277,22 @@ def sync_stage_instances(
 
     # A stage owns the current state: it is the live stage.
     _activate(ordered[active_index], now)
+    if from_state is not None:
+        source_index = next(
+            (
+                index
+                for index, entry in enumerate(stages_cfg)
+                if from_state in entry["active_states"]
+            ),
+            None,
+        )
+        if source_index is not None and source_index < active_index:
+            source_row = ordered[source_index]
+            if source_row.status == "pending":
+                # The accepted transition itself proves this stage was entered
+                # and then left, even if another configured exception route
+                # means the stage is not mandatory on every path.
+                _complete(source_row, actor_id, now)
     for index, row in enumerate(ordered):
         if index == active_index:
             continue

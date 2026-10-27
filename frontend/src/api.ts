@@ -24,6 +24,7 @@ import type {
   Institution,
   OfficerDashboard,
   RehearsalReport,
+  ReopeningRecord,
   RouteScoreboard,
   ScrutinyResultsView,
   SessionUser,
@@ -579,6 +580,37 @@ export const api = {
   },
   recordCouncilDecision: (appealId: string, payload: { outcome: "approved" | "not_approved"; decision: string; decision_document_id: string }) =>
     request<AppealRecord>(`/council/appeals/${appealId}/decision`, { method: "POST", body: JSON.stringify(payload) }),
+  reopening: (applicationId: string) =>
+    request<{ application_id: string; reopening: ReopeningRecord | null }>(`/applications/${applicationId}/reopening`),
+  requestReopening: (applicationId: string, reason: string, resolutionDocumentId: string) =>
+    request<ReopeningRecord>(`/applications/${applicationId}/reopening`, {
+      method: "POST", body: JSON.stringify({ reason, resolution_document_id: resolutionDocumentId }),
+    }),
+  reopeningQueue: () => request<{ items: ReopeningRecord[] }>("/reopening/queue"),
+  reviewReopening: (id: string, payload: { approved: boolean; reason: string; public_notice_document_id?: string }) =>
+    request<ReopeningRecord>(`/reopening/${id}/review`, { method: "POST", body: JSON.stringify(payload) }),
+  submitReopeningPayment: (id: string, evidenceDocumentId: string) =>
+    request<ReopeningRecord>(`/reopening/${id}/payment`, {
+      method: "POST", body: JSON.stringify({ evidence_document_id: evidenceDocumentId }),
+    }),
+  reviewReopeningPayment: (id: string, verified: boolean, reason: string) =>
+    request<ReopeningRecord>(`/reopening/${id}/payment-review`, {
+      method: "POST", body: JSON.stringify({ verified, reason }),
+    }),
+  downloadReopeningEvidence: async (reopeningId: string, documentId: string) => {
+    const headers = new Headers();
+    const token = storedToken();
+    if (token) headers.set("Authorization", `Bearer ${token}`);
+    const response = await fetch(`${BASE}/reopening/${reopeningId}/documents/${documentId}`, { headers });
+    if (!response.ok) throw new ApiError(`Could not fetch reopening evidence (${response.status})`, response.status);
+    const blob = await response.blob();
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = `reopening-${documentId}.pdf`;
+    anchor.click();
+    URL.revokeObjectURL(url);
+  },
   downloadAppealEvidence: async (appealId: string, documentId: string) => {
     const headers = new Headers();
     const token = storedToken();

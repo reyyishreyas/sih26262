@@ -3,9 +3,9 @@
   "table_2_3": {
     "status": "unverified",
     "advisory_only": true,
-    "source": "md/1_PRD.md \u00a76 'Table 2.3 (21 rows) \u2014 routing test source of truth'",
+    "source": "md/1_PRD.md §6 'Table 2.3 (21 rows) — routing test source of truth'",
     "recorded_on": "2026-10-26",
-    "note": "The 21 APH Table 2.3 routing rows, transcribed from the PRD table. Status Unverified per PRD \u00a70 and DEC-0003: until a named reviewer checks the exact clause in the exact APH edition and records it in docs/SOURCES.md, this section is advisory configuration only \u2014 it must never block, return or reject an application. Clause numbers are deliberately not guessed; each row cites its PRD table row as its source.",
+    "note": "The 21 APH Table 2.3 routing rows, transcribed from the PRD table. Status Unverified per PRD §0 and DEC-0003: until a named reviewer checks the exact clause in the exact APH edition and records it in docs/SOURCES.md, this section is advisory configuration only — it must never block, return or reject an application. Clause numbers are deliberately not guessed; each row cites its PRD table row as its source.",
     "rows": [
       {
         "row": 1,
@@ -14,7 +14,7 @@
         "route": "SD",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 1"
+        "source": "md/1_PRD.md §6 Table 2.3 row 1"
       },
       {
         "row": 2,
@@ -23,16 +23,16 @@
         "route": "SD",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 2"
+        "source": "md/1_PRD.md §6 Table 2.3 row 2"
       },
       {
         "row": 3,
         "category_id": "t23-03",
-        "category": "Conversion Diploma\u2194Degree",
+        "category": "Conversion Diploma↔Degree",
         "route": "SCR+EVC+AA",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 3"
+        "source": "md/1_PRD.md §6 Table 2.3 row 3"
       },
       {
         "row": 4,
@@ -41,7 +41,7 @@
         "route": "SCR",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 4"
+        "source": "md/1_PRD.md §6 Table 2.3 row 4"
       },
       {
         "row": 5,
@@ -50,7 +50,7 @@
         "route": "SCR+EVC+AA",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 5"
+        "source": "md/1_PRD.md §6 Table 2.3 row 5"
       },
       {
         "row": 6,
@@ -59,7 +59,7 @@
         "route": "SCR+EVC+AA",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 6"
+        "source": "md/1_PRD.md §6 Table 2.3 row 6"
       },
       {
         "row": 7,
@@ -68,7 +68,7 @@
         "route": "SCR+EVC+AA",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 7"
+        "source": "md/1_PRD.md §6 Table 2.3 row 7"
       },
       {
         "row": 8,
@@ -77,7 +77,7 @@
         "route": "SCR",
         "window": "public_notice",
         "evc_not_applicable": true,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 8",
+        "source": "md/1_PRD.md §6 Table 2.3 row 8",
         "note": "PRD shows this row as 'SCR (EVC n/a)'."
       },
       {
@@ -87,7 +87,7 @@
         "route": "SCR+EVC+AA",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 9"
+        "source": "md/1_PRD.md §6 Table 2.3 row 9"
       },
       {
         "row": 10,
@@ -96,7 +96,7 @@
         "route": "SCR+EVC+AA",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 10"
+        "source": "md/1_PRD.md §6 Table 2.3 row 10"
       },
       {
         "row": 11,
@@ -105,7 +105,7 @@
         "route": "SCR+EVC+AA",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 11"
+        "source": "md/1_PRD.md §6 Table 2.3 row 11"
       },
       {
         "row": 12,
@@ -114,7 +114,7 @@
         "route": "SCR",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 12"
+        "source": "md/1_PRD.md §6 Table 2.3 row 12"
       },
       {
         "row": 13,
@@ -123,7 +123,7 @@
         "route": "SCR+EVC+AA",
         "window": "public_notice",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 13"
+        "source": "md/1_PRD.md §6 Table 2.3 row 13"
       },
       {
         "row": 14,
@@ -132,7 +132,7 @@
         "route": "SCR+EVC+AA",
         "window": "year_round",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 14"
+        "source": "md/1_PRD.md §6 Table 2.3 row 14"
       },
       {
         "row": 15,
@@ -141,16 +141,16 @@
         "route": "SCR",
         "window": "year_round",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 15"
+        "source": "md/1_PRD.md §6 Table 2.3 row 15"
       },
       {
         "row": 16,
         "category_id": "t23-16",
-        "category": "Women's Institution \u2194 Co-ed",
+        "category": "Women's Institution ↔ Co-ed",
         "route": "SCR",
         "window": "year_round",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 16"
+        "source": "md/1_PRD.md §6 Table 2.3 row 16"
       },
       {
         "row": 17,
@@ -159,7 +159,7 @@
         "route": "SCR",
         "window": "year_round",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 17"
+        "source": "md/1_PRD.md §6 Table 2.3 row 17"
       },
       {
         "row": 18,
@@ -168,7 +168,7 @@
         "route": "SCR",
         "window": "year_round",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 18"
+        "source": "md/1_PRD.md §6 Table 2.3 row 18"
       },
       {
         "row": 19,
@@ -177,7 +177,7 @@
         "route": "SCR",
         "window": "year_round",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 19"
+        "source": "md/1_PRD.md §6 Table 2.3 row 19"
       },
       {
         "row": 20,
@@ -186,7 +186,7 @@
         "route": "SCR+EVC+AA",
         "window": "year_round",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 20"
+        "source": "md/1_PRD.md §6 Table 2.3 row 20"
       },
       {
         "row": 21,
@@ -195,13 +195,13 @@
         "route": "SCR+EVC+AA",
         "window": "year_round",
         "evc_not_applicable": false,
-        "source": "md/1_PRD.md \u00a76 Table 2.3 row 21",
+        "source": "md/1_PRD.md §6 Table 2.3 row 21",
         "note": "PRD: year round, processed twice a year per UGC timeline."
       }
     ],
     "expected_rows": 21,
-    "expected_rows_note": "PRD \u00a76 heading: 'Table 2.3 (21 rows) \u2014 routing test source of truth'. The scoreboard compares the rows actually encoded (len(rows)) against this expected count so a deleted row shows as a coverage gap (e.g. 20/21) instead of silently shrinking the table. 21 is the PRD's own documented row count, not a guessed number.",
-    "route_patterns_note": "Stage composition per PRD \u00a76 pattern, in the \u00a77 end-to-end flow order. 'when': always | if_deficiencies (PRD \u00a76: AA opens SHC/SAC only if the earlier outcome has deficiencies \u2014 FR-10) | on_decision (PRD \u00a77: the appeal window follows the decision). Advisory like the rest of this section.",
+    "expected_rows_note": "PRD §6 heading: 'Table 2.3 (21 rows) — routing test source of truth'. The scoreboard compares the rows actually encoded (len(rows)) against this expected count so a deleted row shows as a coverage gap (e.g. 20/21) instead of silently shrinking the table. 21 is the PRD's own documented row count, not a guessed number.",
+    "route_patterns_note": "Stage composition per PRD §6 pattern, in the §7 end-to-end flow order. 'when': always | if_deficiencies (PRD §6: AA opens SHC/SAC only if the earlier outcome has deficiencies — FR-10) | on_decision (PRD §7: the appeal window follows the decision). Advisory like the rest of this section.",
     "route_patterns": {
       "SD": {
         "label": "Self-Disclosure only: system generates the Nil Deficiency report; no scrutiny",
@@ -316,7 +316,7 @@
         ]
       }
     },
-    "stage_order_note": "Canonical flow order (PRD \u00a77), used to interleave the stages of a combined application's categories (FR-08). Advisory like the rest.",
+    "stage_order_note": "Canonical flow order (PRD §7), used to interleave the stages of a combined application's categories (FR-08). Advisory like the rest.",
     "stage_order": [
       "readiness",
       "nil_deficiency_report",
@@ -327,17 +327,17 @@
       "appeal_window",
       "grant"
     ],
-    "sequencing_rules_note": "PRD \u00a76 routing rule 4 (cl. 2.13.1m): a category that must clear before another may start. 'clears_with' names the per-category outcome that counts as clearing \u2014 provisional vocabulary until the Phase 6 decision points define it. Advisory like the rest of this section.",
+    "sequencing_rules_note": "PRD §6 routing rule 4 (cl. 2.13.1m): a category that must clear before another may start. 'clears_with' names the per-category outcome that counts as clearing — provisional vocabulary until the Phase 6 decision points define it. Advisory like the rest of this section.",
     "sequencing_rules": [
       {
         "category": "t23-06",
         "requires": "t23-16",
         "clears_with": "approved",
-        "source": "md/1_PRD.md \u00a76 routing rule 4 (APH cl. 2.13.1m)",
+        "source": "md/1_PRD.md §6 routing rule 4 (APH cl. 2.13.1m)",
         "note": "Women's-to-Co-ed conversion first, merger after it clears."
       }
     ],
-    "additional_evc_actions_note": "PRD \u00a76 routing rules 1 and 5 (FR-19): actions that pull a case into the EVC queue outside its route's standard stages \u2014 a 'random' EVC for a self-disclosure case (cl. 2.3.5), and a second EVC after movable property is shifted on a Change of Site (cl. 2.17e). 'authorised_roles' is deliberately an empty, labelled placeholder: PRD open question #4 asks which roles may add a random EVC and has no recorded answer, so no authority is guessed. Advisory like the rest of this section \u2014 these are data an officer-facing screen can read, never a transition the workflow executes on its own.",
+    "additional_evc_actions_note": "PRD §6 routing rules 1 and 5 (FR-19): actions that pull a case into the EVC queue outside its route's standard stages — a 'random' EVC for a self-disclosure case (cl. 2.3.5), and a second EVC after movable property is shifted on a Change of Site (cl. 2.17e). 'authorised_roles' is deliberately an empty, labelled placeholder: PRD open question #4 asks which roles may add a random EVC and has no recorded answer, so no authority is guessed. Advisory like the rest of this section — these are data an officer-facing screen can read, never a transition the workflow executes on its own.",
     "additional_evc_actions": [
       {
         "action_id": "random_evc",
@@ -350,7 +350,7 @@
         "authorised_roles_status": "unverified_placeholder",
         "status": "unverified",
         "advisory_only": true,
-        "source": "md/1_PRD.md \u00a76 routing rule 1 (APH cl. 2.3.5)",
+        "source": "md/1_PRD.md §6 routing rule 1 (APH cl. 2.3.5)",
         "note": "APH cl. 2.3.5 cited as the PRD cites it; not independently verified (docs/SOURCES.md). The route pattern is SD, so this applies to every category whose route is self-disclosure (t23-01, t23-02)."
       },
       {
@@ -366,11 +366,11 @@
         "authorised_roles_status": "unverified_placeholder",
         "status": "unverified",
         "advisory_only": true,
-        "source": "md/1_PRD.md \u00a76 routing rule 5 (APH cl. 2.17e)",
-        "note": "APH cl. 2.17e cited as the PRD cites it; not independently verified. The PRD says a second EVC 'may be needed' \u2014 an officer judgement after the shift, so this records eligibility for the action, never an automatic second visit."
+        "source": "md/1_PRD.md §6 routing rule 5 (APH cl. 2.17e)",
+        "note": "APH cl. 2.17e cited as the PRD cites it; not independently verified. The PRD says a second EVC 'may be needed' — an officer judgement after the shift, so this records eligibility for the action, never an automatic second visit."
       }
     ],
-    "aa_gate_note": "PRD FR-10 ('Open SAC/SHC only on deficiency or negative outcome', T2.3) and \u00a76 pattern note: the 'AA' (as applicable) gate on the SCR+EVC+AA pattern \u2014 SHC/SAC opens only when the earlier outcome has a deficiency or a negative scrutiny result. The gate answers 'is SHC due?' as open / closed / needs_review. An undecided or unrecognised scrutiny result is 'needs_review', never a guessed open or closed (missing data must not silently pass). The result vocabulary ('nil_deficiency' / 'deficiency') is taken from PRD FR-14's own wording, not invented. Advisory like the rest of this section \u2014 the answer is input to the stage graph, never a transition this service performs.",
+    "aa_gate_note": "PRD FR-10 ('Open SAC/SHC only on deficiency or negative outcome', T2.3) and §6 pattern note: the 'AA' (as applicable) gate on the SCR+EVC+AA pattern — SHC/SAC opens only when the earlier outcome has a deficiency or a negative scrutiny result. The gate answers 'is SHC due?' as open / closed / needs_review. An undecided or unrecognised scrutiny result is 'needs_review', never a guessed open or closed (missing data must not silently pass). The result vocabulary ('nil_deficiency' / 'deficiency') is taken from PRD FR-14's own wording, not invented. Advisory like the rest of this section — the answer is input to the stage graph, never a transition this service performs.",
     "aa_gate": {
       "opens_on": [
         "deficiency",
@@ -388,9 +388,9 @@
       "unrecognised_result": "needs_review",
       "status": "unverified",
       "advisory_only": true,
-      "source": "md/1_PRD.md FR-10 (Table 2.3) and \u00a76 SCR+EVC+AA pattern note"
+      "source": "md/1_PRD.md FR-10 (Table 2.3) and §6 SCR+EVC+AA pattern note"
     },
-    "fallback_eoa_note": "PRD FR-11 / \u00a76 routing rule 3: after a 'not approved' outcome on Start new Programme/Level, Conversion Diploma\u2194Degree, or Women's Institution \u2194 Co-ed, an EoA for the existing institution may be issued if requirements are met, and the engine opens this branch automatically. 'if requirements are met' is NOT enumerated in the PRD, so a qualifying category with a not-approved outcome answers 'review_required' \u2014 a human decides whether to actually issue the EoA; nothing here issues or blocks anything. The three clause numbers are recorded as the PRD gives them, as a set: the PRD does not say which clause covers which category, so no clause-to-category mapping is asserted. Advisory like the rest of this section.",
+    "fallback_eoa_note": "PRD FR-11 / §6 routing rule 3: after a 'not approved' outcome on Start new Programme/Level, Conversion Diploma↔Degree, or Women's Institution ↔ Co-ed, an EoA for the existing institution may be issued if requirements are met, and the engine opens this branch automatically. 'if requirements are met' is NOT enumerated in the PRD, so a qualifying category with a not-approved outcome answers 'review_required' — a human decides whether to actually issue the EoA; nothing here issues or blocks anything. The three clause numbers are recorded as the PRD gives them, as a set: the PRD does not say which clause covers which category, so no clause-to-category mapping is asserted. Advisory like the rest of this section.",
     "fallback_eoa": {
       "categories": [
         "t23-03",
@@ -407,12 +407,12 @@
       "requirements_condition": "unevaluated_placeholder",
       "status": "unverified",
       "advisory_only": true,
-      "source": "md/1_PRD.md FR-11 and \u00a76 routing rule 3 (APH cl. 2.7l, 2.14j, 2.15e)"
+      "source": "md/1_PRD.md FR-11 and §6 routing rule 3 (APH cl. 2.7l, 2.14j, 2.15e)"
     }
   },
   "routes": {
     "new_technical": {
-      "label": "New technical institution \u2014 Scrutiny + EVC",
+      "label": "New technical institution — Scrutiny + EVC",
       "transitions": [
         {
           "action": "submit",
@@ -545,7 +545,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_not_approve",
@@ -558,7 +558,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_grant_approval",
@@ -571,7 +571,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_confirm_rejection",
@@ -584,12 +584,25 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
+        },
+        {
+          "action": "reopen_application",
+          "from_state": "submitted",
+          "to_state": "returned",
+          "required_permission": "reopening.review",
+          "allowed_roles": [
+            "competent_authority"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Competent Authority reopens a wrongly submitted application once after filing-window and TER/late-penalty evidence verification"
         }
       ]
     },
     "existing_technical": {
-      "label": "Existing technical institution \u2014 Scrutiny only",
+      "label": "Existing technical institution — Scrutiny only",
       "transitions": [
         {
           "action": "submit",
@@ -663,7 +676,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_not_approve",
@@ -676,7 +689,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_grant_approval",
@@ -689,7 +702,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_confirm_rejection",
@@ -702,7 +715,20 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
+        },
+        {
+          "action": "reopen_application",
+          "from_state": "submitted",
+          "to_state": "returned",
+          "required_permission": "reopening.review",
+          "allowed_roles": [
+            "competent_authority"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Competent Authority reopens a wrongly submitted application once after filing-window and TER/late-penalty evidence verification"
         }
       ]
     },
@@ -823,7 +849,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_not_approve",
@@ -836,7 +862,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_grant_approval",
@@ -849,7 +875,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_confirm_rejection",
@@ -862,7 +888,20 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
+        },
+        {
+          "action": "reopen_application",
+          "from_state": "submitted",
+          "to_state": "returned",
+          "required_permission": "reopening.review",
+          "allowed_roles": [
+            "competent_authority"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Competent Authority reopens a wrongly submitted application once after filing-window and TER/late-penalty evidence verification"
         }
       ]
     },
@@ -1013,7 +1052,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_not_approve",
@@ -1026,7 +1065,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_grant_approval",
@@ -1039,7 +1078,7 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
         },
         {
           "action": "council_confirm_rejection",
@@ -1052,7 +1091,20 @@
           "required_rules": [],
           "required_documents": [],
           "requires_reason": true,
-          "description": "Council records the final decision on the institution appeal (APH Ch. II \u00a72.24)."
+          "description": "Council records the final decision on the institution appeal (APH Ch. II §2.24)."
+        },
+        {
+          "action": "reopen_application",
+          "from_state": "submitted",
+          "to_state": "returned",
+          "required_permission": "reopening.review",
+          "allowed_roles": [
+            "competent_authority"
+          ],
+          "required_rules": [],
+          "required_documents": [],
+          "requires_reason": true,
+          "description": "Competent Authority reopens a wrongly submitted application once after filing-window and TER/late-penalty evidence verification"
         }
       ]
     }

@@ -399,6 +399,21 @@ export interface AppealRecord {
   council_decision: string | null;
 }
 
+export interface ReopeningRecord {
+  id: string;
+  application_id: string;
+  status: string;
+  reason: string;
+  requested_at: string;
+  review_reason: string | null;
+  representation_document_id: string;
+  public_notice_document_id: string | null;
+  payment_evidence_document_id: string | null;
+  filing_window_confirmed: boolean;
+  payment_verified: boolean;
+  resumed_at: string | null;
+}
+
 export interface AppealWindow {
   application_id: string;
   status: "open" | "lapsed" | "not_decided" | "decision_order_missing" | "outside_verified_scope";

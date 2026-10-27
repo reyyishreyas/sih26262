@@ -38,6 +38,7 @@ from .identity import (
     UserRoleAssignment,
 )
 from .rehearsal import SimInputSnapshot, SimMetric, SimRuleResult, SimRun
+from .reopening import ReopeningRequest
 from .rules import Rule, RuleTest, RuleVersion
 from .workflow import StageInstance, WorkflowTransition, WorkflowTransitionDefinition
 
@@ -69,6 +70,7 @@ __all__ = [
     "Permission",
     "ReadinessFlag",
     "Region",
+    "ReopeningRequest",
     "Role",
     "RolePermission",
     "Rule",

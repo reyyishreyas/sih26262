@@ -1,0 +1,28 @@
+{
+  "policy_id": "REG-REOPEN-001",
+  "status": "verified_with_manual_yearly_inputs",
+  "advisory_only": false,
+  "source": "SRC-APH-REOPEN-2024-27; APH 2024-27 Chapter II §2.3.3(d-e), Table 2.1, printed pp. 13-14 (PDF pp. 27-29).",
+  "verified_requirements": [
+    "Institution representation for wrongly submitted application must include its Trust/Society/Company resolution (or the specified government-institution authorization), in Format 3.",
+    "Representation must be within the final date notified for the approval process.",
+    "Application may be reopened one time, with Competent Authority approval.",
+    "Institution must pay necessary TER charges and applicable late-submission penalty before it resumes the application."
+  ],
+  "enforced_by_application": [
+    "single persisted reopening request per application",
+    "reopening request supported by a same-case resolution document",
+    "Competent Authority must reference the applicable public notice when confirming the filing window",
+    "institution payment evidence must be reviewed by a Competent Authority before the application transitions back to returned for correction"
+  ],
+  "yearly_inputs": {
+    "public_notice_last_date": null,
+    "applicable_ter_and_late_penalty_schedule": null,
+    "note": "The applicable annual notice, category/institution-specific TER amount and late-penalty calculation are not computed by this prototype. The reviewer must inspect source-backed payment evidence; do not treat a missing schedule as zero or waive payment."
+  },
+  "prototype_scope": {
+    "request_state": "submitted",
+    "resumed_state": "returned",
+    "note": "The current workflow supports reopening after final submission and before scrutiny begins. Other in-process states require route-specific verification before being added."
+  }
+}

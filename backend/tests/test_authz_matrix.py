@@ -62,6 +62,8 @@ from app.core.permissions import (
     MONITORING_READ,
     REGIONAL_OFFICER,
     REHEARSAL_RUN,
+    REOPENING_REQUEST,
+    REOPENING_REVIEW,
     ROLE_DEFAULT_SCOPE,
     ROLE_PERMISSIONS,
     SAC_APPEAL_MANAGE,
@@ -91,6 +93,7 @@ ROLES: dict[str, str] = {
     "institution@demo.local": INSTITUTION_REPRESENTATIVE,
     "sac@demo.local": SAC_MEMBER,
     "council@demo.local": COUNCIL_MEMBER,
+    "competent-authority@demo.local": COMPETENT_AUTHORITY,
     "scrutiny@demo.local": SCRUTINY_OFFICER,
     "regional@demo.local": REGIONAL_OFFICER,
     "evc@demo.local": EVC_MEMBER,
@@ -296,6 +299,13 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("GET", "/api/v1/council/appeals"): frozenset({COUNCIL_APPEAL_READ}),
     ("POST", "/api/v1/council/appeals/{appeal_id}/decision"): frozenset({COUNCIL_DECISION_RECORD}),
     ("GET", "/api/v1/appeals/{appeal_id}/evidence/{document_id}"): frozenset({APPEAL_SUBMIT, SAC_APPEAL_READ, SAC_APPEAL_MANAGE, COUNCIL_APPEAL_READ, COUNCIL_DECISION_RECORD}),
+    ("GET", "/api/v1/applications/{application_id}/reopening"): frozenset({REOPENING_REQUEST, REOPENING_REVIEW}),
+    ("POST", "/api/v1/applications/{application_id}/reopening"): frozenset({REOPENING_REQUEST}),
+    ("GET", "/api/v1/reopening/queue"): frozenset({REOPENING_REVIEW}),
+    ("GET", "/api/v1/reopening/{reopening_id}/documents/{document_id}"): frozenset({REOPENING_REVIEW, DOCUMENT_READ}),
+    ("POST", "/api/v1/reopening/{reopening_id}/review"): frozenset({REOPENING_REVIEW}),
+    ("POST", "/api/v1/reopening/{reopening_id}/payment"): frozenset({REOPENING_REQUEST}),
+    ("POST", "/api/v1/reopening/{reopening_id}/payment-review"): frozenset({REOPENING_REVIEW}),
     (
         "GET",
         "/api/v1/executive-committee/queue/{queue_item_id}/document",
@@ -418,6 +428,18 @@ JSON_BODIES: dict[tuple[str, str], dict] = {
     ("POST", "/api/v1/applications/{application_id}/appeals"): {
         "grounds": "Authorization matrix appeal request.",
         "supporting_document_ids": ["matrix-missing-document"],
+    },
+    ("POST", "/api/v1/applications/{application_id}/reopening"): {
+        "reason": "Authorization matrix reopening request.", "resolution_document_id": "matrix-document"
+    },
+    ("POST", "/api/v1/reopening/{reopening_id}/review"): {
+        "approved": False, "reason": "Authorization matrix review."
+    },
+    ("POST", "/api/v1/reopening/{reopening_id}/payment"): {
+        "evidence_document_id": "matrix-document"
+    },
+    ("POST", "/api/v1/reopening/{reopening_id}/payment-review"): {
+        "verified": False, "reason": "Authorization matrix review."
     },
     ("POST", "/api/v1/appeals/{appeal_id}/representatives"): {
         "representatives": [
@@ -617,6 +639,7 @@ def test_specialized_review_roles_do_not_gain_general_case_or_document_access():
     }
     assert set(ROLE_PERMISSIONS[COMPETENT_AUTHORITY]) == {
         FRAUD_REFERRAL_READ,
+        REOPENING_REVIEW,
         AUDIT_READ,
     }
     assert set(ROLE_PERMISSIONS[EXECUTIVE_COMMITTEE_MEMBER]) == {

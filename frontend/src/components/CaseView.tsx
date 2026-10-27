@@ -18,6 +18,7 @@ import {
 } from "../labels";
 import { AuditTimeline } from "./AuditTimeline";
 import { AppealPanel } from "./AppealPanel";
+import { ReopeningPanel } from "./ReopeningPanel";
 import { EvidencePanel } from "./EvidencePanel";
 import { EvcPanel } from "./EvcPanel";
 import { FindingsTable } from "./FindingsTable";
@@ -51,7 +52,8 @@ type StepKey =
   | "tasks"
   | "trywhat"
   | "history"
-  | "appeal";
+  | "appeal"
+  | "reopening";
 
 interface Step {
   key: StepKey;
@@ -89,6 +91,7 @@ export function CaseView({
   const canConfirmVisit = user.permissions.includes("evc.visit.confirm");
   const canSubmitEvcReport = user.permissions.includes("evc.report.upload");
   const canFileAppeal = user.permissions.includes("appeal.submit");
+  const canRequestReopening = user.permissions.includes("reopening.request");
 
   // Role, not permission flags, decides which workspace this is. A College rep
   // holds application.submit but never case.transition — gating on the latter
@@ -233,6 +236,9 @@ export function CaseView({
         list.push({ key: "send", label: "Send it in" });
       }
       list.push({ key: "documents", label: "Send documents" });
+      if (canRequestReopening && detail?.application.current_state === "submitted") {
+        list.push({ key: "reopening", label: "Correct a submission" });
+      }
       if (evcStage) list.push({ key: "evc", label: "Committee visit" });
       if (canFileAppeal && ["approved", "rejected"].includes(detail?.application.current_state ?? "")) {
         list.push({ key: "appeal", label: "Appeal" });
@@ -252,7 +258,7 @@ export function CaseView({
     if (canRehearse) list.push({ key: "trywhat", label: "Try “what if”" });
     if (canAudit) list.push({ key: "history", label: "History" });
     return list;
-  }, [isCollege, canRehearse, canAudit, canFileAppeal, detail, hasVisits]);
+  }, [isCollege, canRehearse, canAudit, canFileAppeal, canRequestReopening, detail, hasVisits]);
 
   // Which steps are already "done", so the stepper reads like a progress bar
   // with a satisfying tick rather than a flat row of tabs. Derived from data we
@@ -600,6 +606,10 @@ export function CaseView({
 
       {step === "appeal" && isCollege && canFileAppeal && (
         <AppealPanel applicationId={application.id} />
+      )}
+
+      {step === "reopening" && isCollege && canRequestReopening && (
+        <ReopeningPanel applicationId={application.id} />
       )}
 
       {step === "decision" && (

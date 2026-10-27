@@ -42,6 +42,8 @@ SAC_APPEAL_MANAGE = "sac.appeal.manage"
 COUNCIL_APPEAL_READ = "council.appeal.read"
 COUNCIL_DECISION_RECORD = "council.decision.record"
 COUNCIL_ORDER_UPLOAD = "council.order.upload"
+REOPENING_REQUEST = "reopening.request"
+REOPENING_REVIEW = "reopening.review"
 
 ALL_PERMISSIONS: dict[str, str] = {
     APPLICATION_READ: "Read applications within scope",
@@ -78,6 +80,8 @@ ALL_PERMISSIONS: dict[str, str] = {
     COUNCIL_APPEAL_READ: "Read appeals and SAC recommendations within Council scope",
     COUNCIL_DECISION_RECORD: "Record the final Council decision on an appeal",
     COUNCIL_ORDER_UPLOAD: "Upload the portal copy of a Council final decision",
+    REOPENING_REQUEST: "Request the one-time reopening of a wrongly submitted application",
+    REOPENING_REVIEW: "Review reopening requests and verify required payment evidence",
 }
 
 INSTITUTION_REPRESENTATIVE = "institution_representative"
@@ -97,6 +101,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         APPLICATION_READ,
         APPLICATION_CREATE,
         APPLICATION_SUBMIT,
+        REOPENING_REQUEST,
         DOCUMENT_READ,
         DOCUMENT_UPLOAD,
         COMPLIANCE_EVALUATE,
@@ -136,7 +141,7 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
         AUDIT_READ,
         UNDERTAKING_READ,
     ),
-    COMPETENT_AUTHORITY: (FRAUD_REFERRAL_READ, AUDIT_READ),
+    COMPETENT_AUTHORITY: (FRAUD_REFERRAL_READ, REOPENING_REVIEW, AUDIT_READ),
     SHC_MEMBER: (
         SHC_QUEUE_READ,
         SHC_HEARING_SCHEDULE,
@@ -172,6 +177,8 @@ ROLE_PERMISSIONS: dict[str, tuple[str, ...]] = {
             COUNCIL_APPEAL_READ,
             COUNCIL_DECISION_RECORD,
             COUNCIL_ORDER_UPLOAD,
+            REOPENING_REQUEST,
+            REOPENING_REVIEW,
         )
     ),
 }

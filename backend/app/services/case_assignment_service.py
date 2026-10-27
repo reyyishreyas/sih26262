@@ -71,6 +71,7 @@ def next_actor_roles(db: Session, application: Application) -> set[str]:
     return {
         role
         for definition in definitions
+        if definition.action != "reopen_application"
         for role in (definition.allowed_roles or [])
     }
 

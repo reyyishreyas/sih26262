@@ -16,6 +16,7 @@ from ..core.clock import get_clock
 from ..core.permissions import (
     ADMINISTRATOR,
     ALL_PERMISSIONS,
+    COMPETENT_AUTHORITY,
     COUNCIL_MEMBER,
     EVC_MEMBER,
     INSTITUTION_REPRESENTATIVE,
@@ -253,6 +254,7 @@ def seed(db: Session) -> dict:
     representative = user("institution@demo.local", "Demo Institution Representative")
     sac_member = user("sac@demo.local", "Demo SAC Member")
     council_member = user("council@demo.local", "Demo Council Member")
+    competent_authority = user("competent-authority@demo.local", "Demo Competent Authority")
 
     def grant(user_obj: User, role_name: str, scope_type: str, scope_id: str | None):
         existing = db.scalars(
@@ -280,6 +282,7 @@ def seed(db: Session) -> dict:
     grant(representative, INSTITUTION_REPRESENTATIVE, "institution", institution.id)
     grant(sac_member, SAC_MEMBER, "region", region_north.id)
     grant(council_member, COUNCIL_MEMBER, "global", None)
+    grant(competent_authority, COMPETENT_AUTHORITY, "region", region_north.id)
 
     existing_jurisdiction = db.scalars(
         select(JurisdictionAssignment).where(

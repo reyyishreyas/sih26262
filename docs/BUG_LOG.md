@@ -1,6 +1,70 @@
 # docs/BUG_LOG.md
 
 | BUG-0058 | 2026-10-28 | S2 | release packaging | Appeal API module omitted from Phase 6.6 commit | Fixed | IMPL-0057 |
+| BUG-0060 | 2026-10-28 | S3 | regression tests | Reopening integration exposed assignment and stage bookkeeping assumptions | Fixed | IMPL-0058 |
+| BUG-0059 | 2026-10-28 | S3 | lint | Ruff rejected generated migration import order | Fixed | IMPL-0058 |
+| BUG-0062 | 2026-10-28 | S4 | test fixture | Reopening transition test expected generic transition authorization | Fixed | IMPL-0058 |
+| BUG-0061 | 2026-10-28 | S3 | authorization matrix | New reopening routes and Competent Authority role were absent from the matrix | Fixed | IMPL-0058 |
+
+### BUG-0062 — Reopening bypass test assumed Competent Authority had generic transition access
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S4 / test contract.
+- Status: **Fixed**.
+- Expected: test proves CA cannot reopen without approval/payment evidence.
+- Actual: it expected HTTP 200 from an endpoint gated by existing `case.read`/`application.read`; the role correctly receives 403.
+- Reproduction: `pytest tests/test_phase6_reopening.py`.
+- Environment: pytest, FastAPI test client, SQLite.
+- Hypotheses tried: generic transition is not the designated CA endpoint.
+- Root cause: test expected a permission bypass instead of testing endpoint and service contracts.
+- Solution: assert HTTP 403, then call the workflow service with effective CA access and verify the configured transition rejects missing evidence.
+- Verification: focused reopening suite passed (3 tests); full suite passed 815 tests.
+- Regression test: `test_reopen_transition_cannot_bypass_request_and_payment_review`.
+- Related: IMPL-0058.
+
+### BUG-0061 — Reopening authorization matrix omitted new routes and role
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S3 / authorization regression coverage.
+- Status: **Fixed**.
+- Expected: every permission-gated reopening route and CA role is represented in the exhaustive matrix.
+- Actual: focused matrix tests identified six missing routes and a stale specialized-role permission expectation.
+- Reproduction: `pytest tests/test_authz_matrix.py` after adding reopening endpoints.
+- Environment: pytest, FastAPI test client, SQLite.
+- Hypotheses tried: new route dependencies were absent from the matrix.
+- Root cause: the test matrix deliberately requires every gated route and role permission to be explicitly listed.
+- Solution: add exact reopen/read/review/payment/evidence endpoint rows and CA demo persona; assert narrow CA review permission.
+- Verification: authz, stage, assignment and reopening targeted suite passed 57 tests; full suite passed 815 tests.
+- Regression test: `test_matrix_lists_every_permission_gated_route` and specialized-role permission assertion.
+- Related: IMPL-0058.
+
+### BUG-0060 — Reopening integration exposed assignment and stage bookkeeping assumptions
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S3 / workflow assignment and stage bookkeeping.
+- Status: **Fixed**.
+- Expected: a new Competent Authority role does not receive routine submitted cases, and a case that leaves a stage in an accepted transition has that stage recorded as completed even when other routes can skip it.
+- Actual: full suite initially selected the Competent Authority as the primary officer due load ordering and left a pending Scrutiny stage incomplete on an accepted return.
+- Reproduction: `make test` after adding the reopening role and route.
+- Environment: Python 3.13, SQLite test fixtures.
+- Hypotheses tried: seeded CA role changed assignment candidate ordering; stage sync only backfilled mandatory route stages.
+- Root cause: generic role discovery treated the special reopening action as an ordinary next actor; stage completion failed to record the actually exited source stage on a cross-route transition.
+- Solution: exclude `reopen_application` from routine case assignment; on accepted transitions, complete a pending source stage when the transition proves it was entered and left.
+- Verification: targeted assignment/stage/authz/reopening suite 57 passed; full `make test` subsequently passed **815 tests, 2 upstream warnings**.
+- Regression test: existing case assignment and stage graph tests plus `test_phase6_reopening.py`.
+- Related: IMPL-0058.
+
+### BUG-0059 — Ruff rejected generated reopening migration import order
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S3 / lint.
+- Status: **Fixed**.
+- Expected: generated migration conforms to repo Ruff settings.
+- Actual: `make lint` reported I001 on the Alembic/SQLAlchemy imports.
+- Reproduction: `make lint` after generating `c78327c876fb`.
+- Environment: repo Ruff configuration.
+- Hypotheses tried: generated template does not match custom import ordering.
+- Root cause: Alembic autogenerated a split unsorted import block.
+- Solution: formatted the import block with Ruff.
+- Verification: `make lint` → all checks passed.
+- Regression test: lint.
+- Related: IMPL-0058.
 
 ### BUG-0058 — Appeal API module omitted from Phase 6.6 commit
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / `cd22678`.

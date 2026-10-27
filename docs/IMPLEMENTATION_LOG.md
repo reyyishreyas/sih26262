@@ -15,6 +15,10 @@
 | DEC-0021 | 2026-10-27 | Decision | Appeal policy verified for Chapter II routes only; seven-day limit and one appeal enforced | Accepted (official source verified; named reviewer) | Phase 6 6.6; FR-27 | reyyishreyas + Codex |
 | IMPL-0057 | 2026-10-27 | Implementation | Phase 6.6: institution appeal, SAC schedule/recommendation and Council final decision | Tested | Phase 6 6.6 (FR-27) | Codex |
 | BUG-0058 | 2026-10-28 | Bug | Appeal API module omitted from Phase 6.6 commit | Fixed | Phase 6 6.6; FR-27 | Codex |
+| DEC-0022 | 2026-10-28 | Decision | Reopening gate uses year-specific source/payment evidence and human CA verification | Accepted (user confirmation + official clause checked) | Phase 6 6.7; FR-29 | reyyishreyas + Codex |
+| IMPL-0058 | 2026-10-28 | Implementation | Phase 6.7: one-time Competent Authority reopening request and payment gate | Tested | Phase 6 6.7 (FR-29) | Codex |
+| BUG-0060 | 2026-10-28 | Bug | Reopening integration exposed assignment and stage bookkeeping assumptions | Fixed | Phase 6 6.7; FR-29 | Codex |
+| BUG-0059 | 2026-10-28 | Bug | Ruff rejected generated reopening migration import order | Fixed | Phase 6 6.7; FR-29 | Codex |
 |---|---|---|---|---|---|---|
 | DEC-0020 | 2026-10-27 | Decision | Executive decision permission is an application access control; official APH authority remains Unverified | Accepted (user clarification; no external legal claim) | Phase 6 6.5; FR-26 | reyyishreyas + Codex |
 | IMPL-0056 | 2026-10-27 | Implementation | Phase 6.5: human Executive Committee decision, Speaking Order link and advisory appeal trigger | Tested | Phase 6 6.5 (FR-26; FR-27 clock trigger) | Codex |
@@ -124,6 +128,22 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0022 — Reopening requires year-specific source inputs and human evidence review
+- Date / owner: 2026-10-28 / reyyishreyas + Codex.
+- Status: Accepted; user confirmed the official policy was verified. Exact text checked against AICTE APH 2024–27 Chapter II §2.3.3(d-e) and Table 2.1 (SRC-APH-REOPEN-2024-27).
+- Enforce: one request; institution's required resolution; final date from the applicable public notice; Competent Authority approval; necessary TER and applicable late penalty evidenced and verified before resumption.
+- The app does not calculate an annual amount, infer a deadline, or treat unknown payment as zero. The Competent Authority records and audits the human review with linked source/payment documents. Prototype route is limited to submitted cases before scrutiny; other in-process reopening scenarios need their own verified mapping.
+
+### IMPL-0058 — Phase 6.7 one-time reopening (FR-29)
+- Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.
+- Added persisted one-time reopening request, same-case Format 3 resolution evidence, Competent Authority review, public-notice reference, payment-evidence submission and human verification, and resumption through a configured/audited transition. Generic workflow transition requests cannot substitute for the required reviewer/payment record.
+- Added scoped API, audit events/evidence access, dedicated institution and Competent Authority permissions/seed, UI, migration `c78327c876fb`, policy/source mapping and tests. The Competent Authority has no general case or document read grant.
+- Stage sync now records a source stage as completed when an accepted transition proves the case left it. Routine assignment excludes exception-only reopening actions.
+- Verification: `make lint` → all checks passed; `make test` → **815 passed, 2 upstream Starlette deprecation warnings**; `cd frontend && npm run build` → passed; fresh SQLite migration upgrade through `c78327c876fb` and Alembic check → no new operations; focused assignment/stage/authz/reopening suite 57 passed.
+- Limitations: no annual TER/penalty calculation, live payment gateway, or applicable Public Notice auto-ingestion. A human records the notice and verifies the evidence; the current single workflow mapping covers submitted-state reopening before scrutiny only.
+- Related bugs: BUG-0059 and BUG-0060.
+- Next: Phase 6.8 (grant/ratification and publication) after exact clause/status and academic-calendar inputs are recorded.
 
 ### IMPL-0057 Update — Include the appeal API module in the pushed commit
 - Date: 2026-10-28. **Amends:** IMPL-0057 above.

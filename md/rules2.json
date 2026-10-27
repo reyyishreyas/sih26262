@@ -263,6 +263,23 @@
         "enabled policy is tested for declaration, review, exclusion, and audit"
       ],
       "source_requirement": "Obtain the applicable official or project-approved conflict-of-interest policy."
+    },
+    {
+      "rule_id": "REG-REOPEN-001",
+      "name": "One-time reopening of wrongly submitted application",
+      "category": "workflow_exception_and_payment_gate",
+      "status": "verified",
+      "priority": "critical",
+      "rule": "An institution that wrongly submitted an application may represent to AICTE Headquarters by the notified last date with the required Trust/Society/Company resolution (or specified government-institution authorization) in Format 3. With Competent Authority approval, the application may be reopened one time; necessary TER charges and applicable late-submission penalty must be paid before resumption.",
+      "source": "SRC-APH-REOPEN-2024-27; AICTE Approval Process Handbook 2024-27, Chapter II §2.3.3(d-e), printed p.14/PDF p.29; Table 2.1, printed pp.13-14/PDF pp.28-29.",
+      "applicability": "Chapter II prototype: only submitted-state reopening implemented. Annual notice dates and year/category-specific payment calculations are human-reviewed inputs; the app does not compute fees or treat unknown amounts as zero.",
+      "safety_constraints": [
+        "One persisted request per application.",
+        "Competent Authority decision is human-authored and audited.",
+        "Payment evidence and filing-window source must be reviewed before workflow resumption.",
+        "Generic transition requests cannot bypass the payment and review gates."
+      ],
+      "advisory_only": false
     }
   ],
   "aicte_specific_rules_to_verify": [

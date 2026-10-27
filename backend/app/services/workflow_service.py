@@ -40,6 +40,7 @@ from ..models import (
     EvcReport,
     EvcVisit,
     FindingDisposition,
+    ReopeningRequest,
     RuleEvaluation,
     WorkflowTransition,
     WorkflowTransitionDefinition,
@@ -270,6 +271,30 @@ def request_transition(
             ],
             request_id=request_id,
         )
+
+    if action == "reopen_application":
+        reopening = db.scalar(
+            select(ReopeningRequest).where(
+                ReopeningRequest.application_id == application.id,
+                ReopeningRequest.status == "payment_submitted",
+            )
+        )
+        if (
+            reopening is None
+            or reopening.filing_window_confirmed_at is None
+            or reopening.payment_verified_at is None
+            or reopening.payment_evidence_document_id is None
+            or reopening.public_notice_document_id is None
+        ):
+            return _reject(
+                db,
+                application=application,
+                access=access,
+                action=action,
+                from_state=from_state,
+                reasons=["Competent Authority filing-window and TER/late-penalty evidence verification is required"],
+                request_id=request_id,
+            )
 
     if speaking_order_document_id is not None:
         order = db.get(Document, speaking_order_document_id)

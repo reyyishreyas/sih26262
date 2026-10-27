@@ -11,6 +11,7 @@ import { AlertList } from "./components/AlertList";
 import { CaseView } from "./components/CaseView";
 import { CommitteeQueueView } from "./components/CommitteeQueueView";
 import { AppealsWorkspace } from "./components/AppealsWorkspace";
+import { ReopeningWorkspace } from "./components/ReopeningWorkspace";
 import { DashboardView } from "./components/DashboardView";
 import { DemoClock } from "./components/DemoClock";
 import { Icon } from "./components/Icon";
@@ -29,7 +30,7 @@ import type {
   WorkflowRoute,
 } from "./types";
 
-type View = "cases" | "monitoring" | "reports" | "routing" | "demo" | "shc" | "executive" | "sac-appeals" | "council-appeals";
+type View = "cases" | "monitoring" | "reports" | "routing" | "demo" | "shc" | "executive" | "sac-appeals" | "council-appeals" | "reopening";
 
 /**
  * The URL is the source of truth for where you are, so a case can be shared as
@@ -39,7 +40,7 @@ type View = "cases" | "monitoring" | "reports" | "routing" | "demo" | "shc" | "e
  */
 function routeFromHash(): { view: View; selected: string | null } {
   const match = window.location.hash.match(
-    /^#\/(cases|monitoring|reports|routing|demo|shc|executive|sac-appeals|council-appeals)(?:\/(.+))?$/,
+    /^#\/(cases|monitoring|reports|routing|demo|shc|executive|sac-appeals|council-appeals|reopening)(?:\/(.+))?$/,
   );
   if (!match) return { view: "cases", selected: null };
   const view = match[1] as View;
@@ -108,6 +109,7 @@ export default function App() {
   const canExecutive = user?.permissions.includes("executive.queue.read") ?? false;
   const canSacAppeals = user?.permissions.includes("sac.appeal.read") ?? false;
   const canCouncilAppeals = user?.permissions.includes("council.appeal.read") ?? false;
+  const canReviewReopening = user?.permissions.includes("reopening.review") ?? false;
   const canCreate = user?.permissions.includes("application.create") ?? false;
   const isAdmin = user?.permissions.includes("admin.users") ?? false;
   const isCollege = useMemo(
@@ -289,6 +291,7 @@ export default function App() {
           {canExecutive && <button type="button" className={view === "executive" ? "nav active" : "nav"} onClick={() => setView("executive")}><Icon name="fileText" size={18} /> Executive queue</button>}
           {canSacAppeals && <button type="button" className={view === "sac-appeals" ? "nav active" : "nav"} onClick={() => setView("sac-appeals")}><Icon name="fileText" size={18} /> Appeals · SAC</button>}
           {canCouncilAppeals && <button type="button" className={view === "council-appeals" ? "nav active" : "nav"} onClick={() => setView("council-appeals")}><Icon name="fileText" size={18} /> Appeals · Council</button>}
+          {canReviewReopening && <button type="button" className={view === "reopening" ? "nav active" : "nav"} onClick={() => setView("reopening")}><Icon name="fileText" size={18} /> Reopening reviews</button>}
           {canMonitor && (
             <button
               type="button"
@@ -497,6 +500,7 @@ export default function App() {
         {view === "executive" && canExecutive && <><div className="hello"><h2 className="hello-title">Executive Committee</h2></div><CommitteeQueueView mode="executive" /></>}
         {view === "sac-appeals" && canSacAppeals && <><div className="hello"><h2 className="hello-title">SAC appeals</h2></div><AppealsWorkspace mode="sac" /></>}
         {view === "council-appeals" && canCouncilAppeals && <><div className="hello"><h2 className="hello-title">Council appeals</h2></div><AppealsWorkspace mode="council" /></>}
+        {view === "reopening" && canReviewReopening && <><div className="hello"><h2 className="hello-title">Reopening reviews</h2></div><ReopeningWorkspace /></>}
       </main>
     </div>
   );

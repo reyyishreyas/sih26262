@@ -22,7 +22,7 @@ Two questions are asked separately for every request:
 | Executive Committee member | Region | Read decision-ready queue entries, upload Speaking Orders and record human decisions through configured workflow routes; this app role does not itself certify external legal authority |
 | SAC member | Region | Read appealed cases in scope, record a hearing schedule and human recommendation to Council |
 | Council member | Global or assigned Council scope | Read SAC-recommended appeals and record the Council's final human decision and uploaded order |
-| Competent Authority | Region | Read fraud referrals; the referral is not a fraud finding or penalty |
+| Competent Authority | Region | Read fraud referrals and review one-time reopening requests/payment evidence; no general case/document access |
 | Supervisory officer | Region | Read-only monitoring: pendency, ageing, escalations, alerts |
 | Administrator | Global | Users, role assignments, rule versions, assignments, deadline sweep |
 
@@ -61,6 +61,8 @@ assignments.
 | `admin.rules` | | | | | | | | | ✓ |
 | `admin.assignments` | | | | | | | | | ✓ |
 | `alert.deliver` | | | | | | | | | ✓ |
+
+Phase 6.7 reopening permissions are dedicated: the institution representative may submit a request and payment evidence; Competent Authority may read the region-scoped queue, inspect only linked reopening evidence, confirm the applicable notice and review the payment. Neither receives general case or document access through these permissions. The authorized service transition is separately guarded by the persisted request/review/payment record.
 
 Phase 6.6 permissions are intentionally separated from the general matrix above:
 

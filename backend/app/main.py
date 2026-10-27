@@ -34,6 +34,7 @@ from .api import (
     portal,
     readiness,
     rehearsals,
+    reopening,
     reports,
     undertakings,
     workflow,
@@ -193,6 +194,7 @@ def create_app() -> FastAPI:
         appeals,
         portal,
         reports,
+        reopening,
     ):
         app.include_router(module.router, prefix=prefix)
 
