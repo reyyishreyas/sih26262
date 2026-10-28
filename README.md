@@ -122,10 +122,10 @@ Further reading: [architecture](docs/ARCHITECTURE.md) · [compliance rules](docs
 To be plain about it: this is an unfinished prototype, built under hackathon deadlines. Within that scope we chose depth over breadth — the end-to-end pipeline today is exercised on a small set of prescribed documents (EoA letter, lease agreement, affidavit, ownership record) evaluated against a starter subset of the APH rules. The next stages of work:
 
 - **Full APH coverage.** Extend the rule set from this starter subset to the complete rule catalogue of the Approval Process Handbook — every document type, every applicable condition.
-- **An admin rules panel, so rule changes never touch code.** Because every rule, route and deadline is already data (versioned JSON), the natural next step is an admin screen where an administrator uploads the newly published APH PDF; the system parses the changed provisions, stages rule revisions for review, and a second administrator approves — the same four-eyes discipline the console already uses. AICTE revises the handbook, we upload it, the platform re-configures itself. No release, no code change.
+- **An admin rules panel, so rule changes never touch code.** Because every rule, route and deadline is already data (versioned JSON), the natural next step is an admin screen where an administrator uploads the newly published APH PDF; the system parses the changed provisions, stages rule revisions for review, and a second administrator approves — the same four-eyes discipline the console already uses. AICTE revises the handbook; we upload it, and the platform reconfigures itself. No release, no code change.
 - **A better crash-test for the college.** The rehearsal engine currently serves the checking side; we want to build the college-facing version into a richer pre-flight experience — so an institution can test its own submissions against the current rules before AICTE ever sees them.
 - **Real delivery channels and integration.** Notifications currently end in a file (mock adapter); wire real email/SMS, and integrate with existing AICTE systems as the problem statement allows.
-- **Production maturity.** Security audit, load testing, records-retention policy and accessibility review before anything beyond a demonstration.
+- **Production maturity.** Security audit, load testing, records-retention policy, and accessibility review before anything beyond a demonstration.
 
 ## What this is not
 
@@ -133,4 +133,4 @@ A prototype, not a certified government system. It has not been security-audited
 
 ## Team
 
-**Parikshit** — Team Leader · Reyyi Shreyas · Srisha Prajwal · Kushal Sharma · Pranav
+**Parikshit** — Team Leader · Reyyi Shreyas · Srisha Prajwal · Kushal Sharma · Pranav · Deepal Jain 
