@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0080 | 2026-10-28 | Verification | Phase 10.4: demo script rehearsed end to end on the Compose stack (twice, from fresh seeds) | Tested | Phase 10.4 | MiMo (OpenCode agent) |
 | IMPL-0079 | 2026-10-28 | Documentation | Phase 10.3 docs sync: the six core docs now match the Phase 5–9 implementation | Tested | Phase 10.3 | MiMo (OpenCode agent) |
 | IMPL-0078 | 2026-10-28 | Verification | Phase 10.2: CI green on `2dac70b`; coverage 90% → 91% vs the `9945e6a` baseline | Tested | Phase 10.2 | MiMo (OpenCode agent) |
 | IMPL-0077 | 2026-10-28 | Verification | Phase 10.1 Postgres stack: make up/smoke/verify-isolation all pass with the Phase 6.8–9.5 tables | Tested | Phase 10.1 | MiMo (OpenCode agent) |
@@ -181,6 +182,24 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0080 — Phase 10.4 demo script rehearsed end to end on the Compose stack
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
+- Task and PRD IDs: Phase 10.4 (plan line 131) — rehearse `docs/DEMO_SCRIPT.md` end to end on the running stack.
+- How: scripted exactly the demo-script sequence against `localhost:8000` (Compose from Phase 10.1; fixed clock 2026-10-22T09:00Z; `app_rw` confirmed via `/health`), then twice more after resets so the "first sweep creates" moment is captured.
+- Results (every step matches the script):
+  - Sign-in refused without the UI origin ("Sign-in is only available from the application's sign-in screen."); tokens fetched with the origin for scrutiny/institution/regional/admin/supervisor.
+  - Scope filter: institution sees exactly 1 in-scope institution.
+  - Compliance on `app-main-0001`: PASS×3 (lease validity, issuing authority, identity match), FAIL×2 (`REQUIRED_DOC_AFFIDAVIT`, `UNDERTAKING_NO_OVERDUE`), NEEDS_REVIEW (`LEASE_DATE_CONSISTENCY`), NOT_APPLICABLE (faculty ratio). DEMO_SCRIPT §2 updated with the previously missing 7th finding row.
+  - Approval accepted on `app-existing-0003` (scrutiny → approved, audited); a repeat approval refused with the state reason; `schedule_evc` refused naming the missing affidavit; refusal audited.
+  - Monitoring summary served live; deadline sweep idempotent (fresh stack: created 6 → re-run created 0/existing 6).
+  - Crash-test: resolved 2, remaining 0, new 0, `production_modified: false`; the state-override guard returned the documented 422 ("override 'application.current_state' is not evidence…").
+  - Audit chain `GET /audit/verify` → ok: `true`; UI `/` returns 200; `/health` components ok with the three DB roles.
+- State hygiene: the rehearsal approves a case by design, so the stack was reset (`make reset`) after both passes; final state is the clean deterministic seed, `/health` `app_rw` ok.
+- Code/config changes: none (docs: DEMO_SCRIPT §2 finding list). The full backend green at `07f50d4` covers the code state; CI runs on the docs pushes.
+- Limitations: rehearsed through the API tracks (the script's curl paths) plus UI reachability; the clickable UI walkthrough itself was exercised manually in earlier phases and is not browser-automated (DEFERRALS).
+- Related: IMPL-0077 (10.1 stack), IMPL-0079 (10.3 docs sync).
+- Next: Phase 11 — final wrap-up; re-check plan and repo state first.
 
 ### IMPL-0079 — Phase 10.3 docs sync (ARCHITECTURE, DATA_MODEL, RULES, ACCEPTANCE_TESTS, DEMO_SCRIPT, DEFERRALS)
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).

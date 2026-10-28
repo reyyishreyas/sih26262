@@ -80,6 +80,9 @@ Read the findings table, not the colours:
   an accusation.
 - `INSTITUTION_IDENTITY_MATCH` — **PASS**.
 - `EXISTING_INSTITUTION_FACULTY_RATIO` — **NOT_APPLICABLE** for a new institution.
+- `UNDERTAKING_NO_OVERDUE` — **FAIL**: a post-approval undertaking on this case is
+  past its due date, and a blocked approval will refuse until it is met or formally
+  waived with a reason (Phase 4/6).
 
 Mention: each row carries the field paths and source pages. Unverified evidence would
 be `NEEDS_REVIEW`, never a pass.
