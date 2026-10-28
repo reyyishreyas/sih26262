@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0086 | 2026-10-28 | Measurement | Phase 11.5 measured records: synthetic-set extraction P/R 100%, per-page OCR 2.7s, API 6–25ms, 146-entry authz matrix, findings-evidence tracing | Measured | Phase 11.5; FR-39/FR-48 | MiMo (OpenCode agent) |
 | IMPL-0085 | 2026-10-28 | Verification | Phase 11.4 Scenario D rehearsed: sweep 8 → rerun 0, audited alerts, chain verification recorded | Tested | Phase 11.4 | MiMo (OpenCode agent) |
 | IMPL-0084 | 2026-10-28 | Verification | Phase 11.3 Scenario C rehearsed: corrupt/unsupported/unreadable uploads fail honestly, no PASS, no contents in logs | Tested | Phase 11.3 | MiMo (OpenCode agent) |
 | IMPL-0083 | 2026-10-28 | Verification | Phase 11.2 Scenario B rehearsed: unauthenticated/other-institution/off-role denials and authorised pass, exactly as the RBAC matrix | Tested | Phase 11.2 | MiMo (OpenCode agent) |
@@ -28,6 +29,7 @@
 | BUG-0084 | 2026-10-28 | Bug | Scanned EoA report had no selectable document type and lease-only fallback | Fixed | IMPL-0075 |
 | BUG-0085 | 2026-10-28 | Bug | EoA extractor runtime check referenced state from the wrong parser | Fixed | IMPL-0075 |
 | IMPL-0074 | 2026-10-28 | Implementation | Hybrid PDF OCR, evidence retrieval and field search improvements | Tested | OCR/evidence UX; FR-38–FR-40, FR-48 | Codex |
+| DEC-0033 | 2026-10-28 | Decision (proposed, pending acceptance) | Workload targets for Phase 11.5: text ≤250ms/page, scanned OCR ≤4s/page, read API ≤250ms — offered for the team to ratify, not accepted | Open | Phase 11.5 | MiMo (OpenCode agent) |
 | DEC-0032 | 2026-10-28 | Decision | Uploaded-document extraction stays on configured local OCR path | Accepted | OCR safety; FR-39 | Codex |
 | BUG-0083 | 2026-10-28 | Bug | Normalised lease expiry evidence cited a parser label | Fixed | IMPL-0074 |
 | IMPL-0073 | 2026-10-28 | Implementation | Phase 9.5 console deadline change moves live alert timing | Tested | Phase 9.5; Demo step 10 | Codex |
@@ -187,6 +189,21 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0086 — Phase 11.5 measured records (no invented numbers) + proposed workload targets
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
+- Task and PRD IDs: Phase 11.5 (plan line 139), FR-39/FR-48 measurement duty.
+- All numbers measured on this machine / the running Compose stack on 2026-10-28; none invented. Scope honesty first: the extraction "labelled set" is the repo's own synthetic PDF factory (`tests/pdf_factory.lease_deed_pdf`), 3 documents × 5 labels, clean machine-generated text — a narrow sanity set, **not** real-world accuracy.
+- **Extraction precision/recall (synthetic labelled set, exact match after date normalisation):** expected labels 15, extracted 15, exact-correct 15 → **precision 15/15 = 100%, exact-match recall 15/15 = 100%** on `lessee_name`, `lessor_name`, `issuing_authority`, `valid_from`, `valid_to`. First run recorded 60% recall — that was **my script's label-map error** (`lessee` vs the parser's actual `lessee_name`), corrected by reading the committed parser/tests (`real.py::_parse_lease_deed`, `test_document_extraction.py::…`); the per-label mismatch print (`mismatch: lessee have=… want=…`) proved extracted=None for every doc. No BUG entry logged because it was a measurement-script authoring defect caught and fixed before any product conclusion, per the doc-noise rule; the CORRECT numbers stand on the second run.
+- **Processing time per page:** text-layer 1-page lease docs **1–94 ms per document** (3 docs, median 1 ms); the real scanned 3-page EoA report (tracked in the repo, Tesseract OCR) **8.15 s total ≈ 2.7 s/page** returning 27 candidate fields.
+- **API latency (Compose stack, 5 samples averaged, localhost):** `/health` ≈ 6 ms; `POST /auth/login` ≈ 16 ms (deliberate PBKDF2 cost); `GET /applications` ≈ 11 ms; `GET /applications/{id}` ≈ 25 ms; `GET …/compliance` ≈ 21 ms; `GET …/audit` ≈ 14 ms; `POST …/compliance/evaluate` ≈ 23 ms.
+- **Access-control pass rate:** the seeded-vs-role deny matrix is asserted parametrically by `test_authz_matrix.py` (**146 entries**, green in the committed suite) plus the live Scenario-B walk (IMPL-0083) — 100% consistent with the matrix, not a new claim.
+- **% findings with valid evidence (seeded case `app-main-0001`, 7 findings):** 3 PASS findings each carry ≥1 verified-input evidence reference; the `NEEDS_REVIEW` discrepancy cites 2 verified references; the 2 FAILs are absence findings (`REQUIRED_DOC_AFFIDAVIT` cites none by design — the missing document *is* the finding). So 6 of 7 findings trace to named evidence (or its recorded absence); no finding invents an unlinked value.
+- **Workload targets — open human gate:** the plan requires team agreement for targets before they are recorded. Proposed, advisory and **pending acceptance (DEC-0033)**: text-layer parse ≤ 250 ms/page, scanned OCR ≤ 4 s/page on this hardware class, API p95-style read endpoints ≤ 250 ms (observed 6–25 ms average here) — offered as starting points for the team to ratify, not accepted numbers.
+- State hygiene: measurement ran off-stack (temporary scripts, removed); Compose state untouched by this step.
+- Limitations: single machine, single case, synthetic set; no percentile infrastructure; latency is average-of-5 with warm caches.
+- Related: IMPL-0083, IMPL-0080, DEC-0033, IMPL-0074–0076 (OCR).
+- Next: Phase 11.6 evaluation matrix with evidence only; then 11.7 Appendix-F walk.
 
 ### IMPL-0085 — Phase 11.4 Scenario D rehearsed (deadline/audit)
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
