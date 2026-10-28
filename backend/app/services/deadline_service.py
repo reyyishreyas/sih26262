@@ -227,7 +227,7 @@ def collect_items(db: Session, now: datetime) -> list[DeadlineItem]:
     return items
 
 
-def eligible_thresholds(alert_type: str, due_at: datetime, now: datetime):
+def eligible_thresholds(alert_type: str, due_at: datetime, now: datetime, db: Session | None = None):
     kind = {
         "undertaking_due": "undertaking",
         "document_expiry": "document_expiry",
@@ -237,7 +237,7 @@ def eligible_thresholds(alert_type: str, due_at: datetime, now: datetime):
         "compliance_window": "compliance",
         "security_deposit_due": "security_deposit",
     }[alert_type]
-    for threshold in policy.thresholds(kind):
+    for threshold in policy.thresholds(kind, db=db):
         if now >= due_at + timedelta(days=threshold.offset_days):
             yield threshold
 
@@ -282,7 +282,7 @@ def sweep(db: Session, now: datetime | None = None, *, dry_run: bool = False) ->
         application = db.get(Application, item.application_id)
         if application is None:
             continue
-        for threshold in eligible_thresholds(item.alert_type, item.due_at, now):
+        for threshold in eligible_thresholds(item.alert_type, item.due_at, now, db=db):
             result.scanned += 1
             recipients = alert_service.recipients_for(
                 db, application, severity=threshold.severity

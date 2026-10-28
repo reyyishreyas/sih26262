@@ -150,10 +150,15 @@ class Threshold:
     severity: str
 
 
-def thresholds(kind: str) -> list[Threshold]:
+def thresholds(kind: str, db=None) -> list[Threshold]:
+    source = deadline_policy()
+    if db is not None:
+        from .policy_config_service import active
+
+        source = active(db, "deadlines")
     return [
         Threshold(entry["level"], int(entry["offset_days"]), entry["severity"])
-        for entry in deadline_policy().get(kind, [])
+        for entry in source.get(kind, [])
     ]
 
 

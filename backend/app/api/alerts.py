@@ -319,7 +319,9 @@ def preview(
     items = deadline_service.collect_items(db, now)
     preview_rows = []
     for item in items:
-        for threshold in deadline_service.eligible_thresholds(item.alert_type, item.due_at, now):
+        for threshold in deadline_service.eligible_thresholds(
+            item.alert_type, item.due_at, now, db=db
+        ):
             preview_rows.append(
                 {
                     "entity_type": item.entity_type,

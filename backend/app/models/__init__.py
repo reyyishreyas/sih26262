@@ -38,6 +38,7 @@ from .identity import (
     User,
     UserRoleAssignment,
 )
+from .policy_config import PolicyConfigVersion
 from .rehearsal import SimInputSnapshot, SimMetric, SimRuleResult, SimRun
 from .reopening import ReopeningRequest
 from .rules import Rule, RuleTest, RuleVersion
@@ -80,6 +81,7 @@ __all__ = [
     "RuleEvaluation",
     "RuleTest",
     "RuleVersion",
+    "PolicyConfigVersion",
     "ScrutinyItemResult",
     "ScrutinyOverallResult",
     "ShcHearing",

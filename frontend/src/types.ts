@@ -805,6 +805,27 @@ export interface Undertaking {
   evidence_document_ids?: string[];
 }
 
+export interface PolicyConfigVersion {
+  id: string;
+  policy_key: string;
+  version: number;
+  status: "draft" | "approved";
+  content: Record<string, unknown>;
+  content_hash: string;
+  summary: string;
+  created_by: string;
+  created_at: string;
+  reviewed_by: string | null;
+  reviewed_at: string | null;
+}
+
+export interface PolicyConfigBundle {
+  policy_key: string;
+  baseline: Record<string, unknown>;
+  active: Record<string, unknown>;
+  versions: PolicyConfigVersion[];
+}
+
 export interface EvcVisit {
   id: string;
   application_id: string;

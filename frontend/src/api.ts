@@ -23,6 +23,8 @@ import type {
   FullReport,
   Institution,
   OfficerDashboard,
+  PolicyConfigBundle,
+  PolicyConfigVersion,
   RehearsalReport,
   ReopeningRecord,
   RouteScoreboard,
@@ -727,6 +729,13 @@ export const api = {
       body: JSON.stringify({ moment }),
     }),
   demoClockReset: () => request<DemoClockMove>("/admin/demo-clock/reset", { method: "POST" }),
+  policyConfigs: () => request<PolicyConfigBundle[]>("/admin/policies"),
+  createPolicyDraft: (key: string, content: Record<string, unknown>, summary: string) =>
+    request<PolicyConfigVersion>(`/admin/policies/${key}/drafts`, {
+      method: "POST", body: JSON.stringify({ content, summary }),
+    }),
+  approvePolicyDraft: (key: string, version: number) =>
+    request<PolicyConfigVersion>(`/admin/policies/${key}/${version}/approve`, { method: "POST" }),
 };
 
 export { BASE as API_BASE };

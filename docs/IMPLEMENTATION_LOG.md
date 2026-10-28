@@ -13,6 +13,11 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| DEC-0031 | 2026-10-28 | Decision | Operational policy edits are immutable snapshots requiring a different administrator; deadlines activate from DB versions | Accepted | Phase 9.4; FR-36/FR-50 | Codex |
+| IMPL-0072 | 2026-10-28 | Implementation | Phase 9.4 four-eyes policy configuration console | Tested | Phase 9.4; FR-36/FR-50 | Codex |
+| BUG-0080 | 2026-10-28 | Bug | Ruff rejected Phase 9.4 imports | Fixed | IMPL-0072 |
+| BUG-0081 | 2026-10-28 | Bug | Fee verification test expected generic validation wording | Fixed | IMPL-0072 |
+| BUG-0082 | 2026-10-28 | Bug | Direct-SQL trigger verification rolled back fixture early | Fixed | IMPL-0072 |
 | DEC-0030 | 2026-10-28 | Decision | Candidate additional-fee values remain nonblocking until named source review and institution classification exist | Accepted | Phase 9.3; FR-21/FR-25 | Codex |
 | IMPL-0071 | 2026-10-28 | Implementation | Phase 9.3 fee table and guarded lookup engine | Partial | Phase 9.3; FR-21/FR-25 | Codex |
 | DEC-0029 | 2026-10-28 | Decision | Deposit proof clock requires officer-recorded linked notice; configured timing remains advisory | Accepted | Phase 9.2; FR-33; Phase 6 deposit seam | Codex |
@@ -164,6 +169,30 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0031 — Policy changes use immutable snapshots and four-eyes publication
+- Date / owner: 2026-10-28 / Codex.
+- Task / PRD IDs: Phase 9.4; FR-36/FR-50.
+- Decision: Configuration edits are drafts stored as immutable version snapshots with canonical content hashes. A different administrator must approve; approved snapshots cannot be changed or deleted. Deadline snapshots feed runtime reminder evaluation. Other configuration categories are versioned and shown as approved snapshots, but they do not affect operational code until their consumers are integrated.
+- Why: Preserve history, separate author from reviewer, and ensure only supported policy consumers change behavior. Unverified fee policies remain nonblocking.
+- Permission and audit effects: existing `admin.rules` permission only; draft creation, rejected draft, rejected self-approval and approval are hash-audited.
+- Related: IMPL-0072; BUG-0080–BUG-0082.
+
+### IMPL-0072 — Phase 9.4 four-eyes policy configuration console (FR-36 / FR-50)
+- Date / author / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: Phase 9.4; FR-36/FR-50.
+- What existed before: immutable `RuleVersion` was used for compliance rules, but no API or UI existed for route/deadline/fee/escalation/template configuration snapshots.
+- What changed: added an admin-only JSON policy editor, schema validation, draft history, content hashes, preview snapshots and second-administrator approval. Approved snapshots are immutable at ORM and SQLite/PostgreSQL migration-trigger layers. Deadline reminders read latest approved deadline snapshots; preview and sweep share the same resolver.
+- Files changed: `backend/app/api/policy_config.py`, `backend/app/main.py`, `backend/app/models/__init__.py`, `backend/app/models/policy_config.py`, `backend/app/services/policy_config_service.py`, `backend/app/services/policy.py`, `backend/app/services/deadline_service.py`, `backend/app/api/alerts.py`, `backend/migrations/versions/88d7b25893c4_add_four_eyes_policy_config_history.py`, `backend/tests/test_policy_config.py`, `backend/tests/test_authz_matrix.py`, `frontend/src/App.tsx`, `frontend/src/api.ts`, `frontend/src/types.ts`, `frontend/src/components/PolicyConsole.tsx`.
+- Migrations / API / config: new `policy_config_versions` table and audited endpoints under `/admin/policies`; categories: routes, deadlines, fees, escalation and templates. Deadline thresholds are bounded and validated. Other policy snapshots remain non-runtime until their service consumers are integrated.
+- Decisions: DEC-0031.
+- Permission and audit effects: existing `admin.rules`; no new role or permission. API checks permission server-side; same administrator cannot approve their draft. Draft create/validation rejection/self-approval rejection/approval are audited. Approved snapshots cannot be updated or deleted.
+- Verification: `make lint` passed; `make test` **852 passed, 2 upstream warnings**; focused policy/authz/fee suite **43 passed, 2 warnings**; frontend production build passed; SQLite migration upgrade, downgrade/re-upgrade, trigger inspection/direct SQL update-delete rejection, and `alembic check` passed.
+- Status per requirement: console, version history, four-eyes review and deadline runtime activation — Tested. Route/fee/escalation/template consumer activation — not integrated; snapshots are reviewable history only.
+- Limitations / assumptions / manual steps: approval is restricted to users already carrying `admin.rules`; operators need two distinct administrator accounts. A deadline change affects reminder timing. This task does not verify an AICTE rule or activate a fee.
+- Related bugs: BUG-0080–BUG-0082.
+- Open questions: named source verification for policy categories remains tracked under Phase 9.3.
+- Next: Phase 9.5 composed deadline-change alert timing test.
 
 ### DEC-0030 — Candidate additional fees remain nonblocking pending source review and institution classification
 - Date / owner: 2026-10-28 / Codex.

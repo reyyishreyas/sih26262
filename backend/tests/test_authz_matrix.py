@@ -32,6 +32,7 @@ from sqlalchemy import select
 from app.api.deps import translate_permission_error
 from app.core.permissions import (
     ADMIN_ASSIGNMENTS,
+    ADMIN_RULES,
     ADMIN_USERS,
     ADMINISTRATOR,
     APPEAL_SUBMIT,
@@ -246,6 +247,9 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("GET", "/api/v1/officer/assignments"): frozenset({MONITORING_READ}),
     # administration
     ("GET", "/api/v1/admin/roles"): frozenset({ADMIN_USERS}),
+    ("GET", "/api/v1/admin/policies"): frozenset({ADMIN_RULES}),
+    ("POST", "/api/v1/admin/policies/{policy_key}/drafts"): frozenset({ADMIN_RULES}),
+    ("POST", "/api/v1/admin/policies/{policy_key}/{version}/approve"): frozenset({ADMIN_RULES}),
     ("GET", "/api/v1/admin/users"): frozenset({ADMIN_USERS}),
     ("POST", "/api/v1/admin/assignments"): frozenset({ADMIN_ASSIGNMENTS}),
     (

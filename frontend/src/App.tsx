@@ -20,6 +20,7 @@ import { Login } from "./components/Login";
 import { NewApplicationForm } from "./components/NewApplicationForm";
 import { ReportsView } from "./components/ReportsView";
 import { RouteScoreboardView } from "./components/RouteScoreboard";
+import { PolicyConsole } from "./components/PolicyConsole";
 import { plainRole, plainState, stateIcon, stateTone } from "./labels";
 import { useRefreshOnFocus } from "./useRefreshOnFocus";
 import type {
@@ -31,7 +32,7 @@ import type {
   WorkflowRoute,
 } from "./types";
 
-type View = "cases" | "monitoring" | "reports" | "routing" | "demo" | "shc" | "executive" | "sac-appeals" | "council-appeals" | "reopening" | "grants";
+type View = "cases" | "monitoring" | "reports" | "routing" | "demo" | "policies" | "shc" | "executive" | "sac-appeals" | "council-appeals" | "reopening" | "grants";
 
 /**
  * The URL is the source of truth for where you are, so a case can be shared as
@@ -41,7 +42,7 @@ type View = "cases" | "monitoring" | "reports" | "routing" | "demo" | "shc" | "e
  */
 function routeFromHash(): { view: View; selected: string | null } {
   const match = window.location.hash.match(
-    /^#\/(cases|monitoring|reports|routing|demo|shc|executive|sac-appeals|council-appeals|reopening|grants)(?:\/(.+))?$/,
+    /^#\/(cases|monitoring|reports|routing|demo|policies|shc|executive|sac-appeals|council-appeals|reopening|grants)(?:\/(.+))?$/,
   );
   if (!match) return { view: "cases", selected: null };
   const view = match[1] as View;
@@ -117,6 +118,7 @@ export default function App() {
   const canRatifyGrants = user?.permissions.includes("grant.council.ratify") ?? false;
   const canCreate = user?.permissions.includes("application.create") ?? false;
   const isAdmin = user?.permissions.includes("admin.users") ?? false;
+  const canAdminRules = user?.permissions.includes("admin.rules") ?? false;
   const isCollege = useMemo(
     () => user?.roles.includes("institution_representative") ?? false,
     [user],
@@ -331,6 +333,7 @@ export default function App() {
               <Icon name="clock" size={18} /> Demo clock
             </button>
           )}
+          {canAdminRules && <button type="button" className={view === "policies" ? "nav active" : "nav"} onClick={() => setView("policies")}><Icon name="settings" size={18} /> Policy configuration</button>}
         </nav>
 
         <div className="who">
@@ -512,6 +515,13 @@ export default function App() {
               </p>
             </div>
             <DemoClock />
+          </>
+        )}
+        {view === "policies" && canAdminRules && user && (
+          <>
+            <div className="hello"><h2 className="hello-title"><Icon name="settings" size={26} /> Policy configuration</h2>
+              <p className="muted">Versioned drafts and four-eyes review for operational configuration.</p></div>
+            <PolicyConsole userId={user.id} />
           </>
         )}
         {view === "shc" && canShc && <><div className="hello"><h2 className="hello-title">SHC hearings</h2></div><CommitteeQueueView mode="shc" /></>}

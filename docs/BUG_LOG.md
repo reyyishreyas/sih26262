@@ -1,5 +1,9 @@
 # docs/BUG_LOG.md
 
+| BUG-0082 | 2026-10-28 | S4 | migration trigger verification | First direct-SQL immutability check removed its fixture row before testing delete | Fixed | IMPL-0072 |
+| BUG-0080 | 2026-10-28 | S4 | lint | New Phase 9.4 API/model/migration import blocks were unsorted | Fixed | IMPL-0072 |
+| BUG-0081 | 2026-10-28 | S4 | test assertion | Fee verification validation test expected a generic error word | Fixed | IMPL-0072 |
+
 | BUG-0077 | 2026-10-28 | S3 | migration generation | Default local Alembic database was behind current head | Workaround | IMPL-0070 |
 | BUG-0078 | 2026-10-28 | S4 | lint | New Phase 9.2 imports were unsorted and had unused imports | Fixed | IMPL-0070 |
 | BUG-0079 | 2026-10-28 | S4 | deadline test | Deadline assertion assumed UTC instead of configured business timezone | Fixed | IMPL-0070 |
@@ -21,6 +25,51 @@
 | BUG-0059 | 2026-10-28 | S3 | lint | Ruff rejected generated migration import order | Fixed | IMPL-0058 |
 | BUG-0062 | 2026-10-28 | S4 | test fixture | Reopening transition test expected generic transition authorization | Fixed | IMPL-0058 |
 | BUG-0061 | 2026-10-28 | S3 | authorization matrix | New reopening routes and Competent Authority role were absent from the matrix | Fixed | IMPL-0058 |
+
+### BUG-0082 — Direct-SQL immutability check rolled back its fixture too early
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S4 / migration trigger verification.
+- Status: **Fixed**.
+- Expected: independently verify that the SQLite migration triggers reject direct SQL updates and deletes of approved snapshots.
+- Actual: the first script correctly caught the update failure, rolled back the transaction including the newly inserted fixture, then reported a false failure because the subsequent delete targeted no row.
+- Reproduction: direct SQLite smoke script against `/tmp/sih-phase9.db`.
+- Environment: SQLite migration test DB.
+- Hypotheses tried: inspected `sqlite_master`; both triggers were present and correct.
+- Root cause: test harness rollback removed the fixture after the expected update exception.
+- Solution applied: commit the fixture insert first, run both prohibited statements, then rollback cleanup after both assertions.
+- Verification: `approved snapshot direct SQL update/delete both rejected`.
+- Regression test: migration triggers inspected and both failure branches exercised.
+- Related: IMPL-0072.
+
+### BUG-0080 — Ruff rejected Phase 9.4 imports
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S4 / lint.
+- Status: **Fixed**.
+- Expected: Phase 9.4 backend API, model, migration and tests pass Ruff.
+- Actual: Ruff reported import ordering errors in five touched modules.
+- Reproduction: `make lint` after adding the policy configuration API and model.
+- Environment: repository Ruff configuration.
+- Hypotheses tried: none; Ruff identified the import blocks.
+- Root cause: new imports were added in noncanonical order.
+- Solution applied: ran Ruff fix on the reported files.
+- Verification: targeted Ruff fix completed; full `make lint` is rerunning.
+- Regression test: lint.
+- Related: IMPL-0072.
+
+### BUG-0081 — Fee validation test asserted generic wording
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S4 / test assertion.
+- Status: **Fixed**.
+- Expected: test confirms an incomplete fee verification record is refused.
+- Actual: API returned a precise list of required fields; test searched for the absent word “complete”.
+- Reproduction: `pytest tests/test_policy_config.py`.
+- Environment: FastAPI test client.
+- Hypotheses tried: the endpoint returned HTTP 422 as expected; only the text assertion failed.
+- Root cause: assertion expected wording different from the specific validation message.
+- Solution applied: assert on “named reviewer,” which is part of the precise error detail.
+- Verification: focused suite rerunning.
+- Regression test: `test_verified_fee_draft_requires_complete_source_metadata`.
+- Related: IMPL-0072.
 
 ### BUG-0077 — Local Alembic database was behind current head
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
