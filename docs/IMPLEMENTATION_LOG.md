@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0087 | 2026-10-28 | Verification | Phase 11.6/11.7: evidence-only evaluation matrix in TRACEABILITY.md; 18-box Appendix F walk in DEFERRALS.md; authz count corrected (BUG-0088) | Tested | Phase 11.6/11.7; AGENT-12 | MiMo (OpenCode agent) |
 | IMPL-0086 | 2026-10-28 | Measurement | Phase 11.5 measured records: synthetic-set extraction P/R 100%, per-page OCR 2.7s, API 6–25ms, 146-entry authz matrix, findings-evidence tracing | Measured | Phase 11.5; FR-39/FR-48 | MiMo (OpenCode agent) |
 | IMPL-0085 | 2026-10-28 | Verification | Phase 11.4 Scenario D rehearsed: sweep 8 → rerun 0, audited alerts, chain verification recorded | Tested | Phase 11.4 | MiMo (OpenCode agent) |
 | IMPL-0084 | 2026-10-28 | Verification | Phase 11.3 Scenario C rehearsed: corrupt/unsupported/unreadable uploads fail honestly, no PASS, no contents in logs | Tested | Phase 11.3 | MiMo (OpenCode agent) |
@@ -190,6 +191,24 @@
 
 ## Entries (newest first)
 
+### IMPL-0087 — Phase 11.6 + 11.7: evaluation matrix (evidence only) and the Appendix-F honesty walk
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
+- Task and PRD IDs: Phase 11.6 (plan line 140), Phase 11.7 (plan line 141), AGENT-12; SRC-SPEC-26262 caveat.
+- 11.6 — evaluation matrix, evidence only:
+  - New "Final evaluation matrix (Phase 11.6)" section in `docs/TRACEABILITY.md` with the eight requested areas (Workflow, Documents, Traceability, Security, Audit, UX, Reliability, Scope honesty), each row carrying tests / commits / CI runs / measured records and an explicit honest-limits column; no numeric score without a reproduced number.
+  - Before writing, every figure was re-derivable: the authz-matrix counts were re-measured and exposed the BUG-0088 correction (125 (method × route) `MATRIX` entries; 171 allowed route–role pairs; 34 collected tests; the committed "146-entry" summary was a counting slip).
+  - Stale TRACEABILITY rows corrected against the implementation: PRD-AUTH-001 (route×permission matrix now implemented, routes derived from the running app), PRD-ASG-001 (COI implemented Phase 6.5 — declarations hide cases and pool exclusion incl. committee members; manual reassignment still absent), PRD-AUD-001 restored from "appeals remain Blocked" to Implemented (Phase 6.6 audited both ways, Phase 9.4 console hash-audited, Phase 9.2 provision/submit/verify trail; Phase 8.1 closed for implemented flows, IMPL-0068), PRD-SLA-001 (appeal window source-verified via SRC-APH-APPEAL-2024-27; deposit cadence advisory under DEC-0029; approved console snapshots feed the sweep), PRD-OCR-001 (bbox/provenance/engine columns exist; threshold calibration still N), PRD-RULE-001 (regulatory_reference/status carried as pending-verification labels), PRD-UI-001 (current 30-component panel list). REG-001/REG-002 stay Unverified/Blocked (human clause gate) — untouched on purpose.
+  - Maintenance rule added: matrix rows may not carry a number that has not been reproduced from a command output.
+- 11.7 — Appendix F walk:
+  - All 18 PRD Appendix F (line 414) boxes walked in `docs/DEFERRALS.md` with per-box verdict + evidence: 16 met; 2 recorded as limitations — box 1 (official source capture: PS source `null`, 2026–27 addendum unverified, most APH clauses still "pending verification") and box 3 (technical spec absent from the repo; reconstructions PRD-based). Standing caveats: no automated API/frontend contract test, deadline *values* advisory until captured, no DR drill executed (deployment/backup/recovery documentation exists and the production Compose profile was started and probed earlier — DEFERRALS row).
+  - The PRD file's checkboxes were deliberately **not** ticked: that checklist is the human release gate.
+  - Living docs re-synced where the walk proved them stale: `docs/PRODUCTION.md` §9 four-eyes bullet (enforced on the policy console; not beyond it) and OCR wording (local OCR real; LLM/notifications mock-only); §11 release-gate test count 163 → 858.
+- Code/config changes: none (docs only; no model, migration, API or frontend change — CI verifies the unchanged code state).
+- Verification: figures re-derived from artefacts (`len(MATRIX)`=125, allowed-pairs sum=171, `pytest --collect-only`=34; SOURCES.md amendment read; PRODUCTION.md fully re-read for the walk); docs-only commit, CI checked green on push after commit.
+- Limitations: the walk verifies boxes against *this repo's* evidence — it cannot substitute for the named human review of sources (boxes 1/3); the evaluation matrix intentionally contains no vanity percentages (Phase 11.5's synthetic-set 100% P/R is cited with its scope).
+- Related: IMPL-0086, BUG-0088, IMPL-0080–0085 (scenarios), IMPL-0079 (docs sync), DEC-0033.
+- Next: no unchecked plan checklist items remain in Phase 11; the open human gates stay open (Phase 9.3 activation inputs; Phase 6 exit-check Partial; official source capture; DEC-0033 ratification). Re-check `git status`/plan before any further work.
+
 ### IMPL-0086 — Phase 11.5 measured records (no invented numbers) + proposed workload targets
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
 - Task and PRD IDs: Phase 11.5 (plan line 139), FR-39/FR-48 measurement duty.
@@ -203,6 +222,7 @@
 - State hygiene: measurement ran off-stack (temporary scripts, removed); Compose state untouched by this step.
 - Limitations: single machine, single case, synthetic set; no percentile infrastructure; latency is average-of-5 with warm caches.
 - Related: IMPL-0083, IMPL-0080, DEC-0033, IMPL-0074–0076 (OCR).
+- Update (2026-10-28, BUG-0088): the access-control figure in this entry is corrected — `test_authz_matrix.py` maps **125 (method, route) pairs** in `MATRIX` (171 allowed route–role pairs; 34 collected tests incl. parametrisations), all green in the committed suite. The originally written "146-entry" did not reproduce and was a counting slip; nothing about the tests themselves changes.
 - Next: Phase 11.6 evaluation matrix with evidence only; then 11.7 Appendix-F walk.
 
 ### IMPL-0085 — Phase 11.4 Scenario D rehearsed (deadline/audit)

@@ -260,13 +260,13 @@ The following are **not** implemented or not validated. Do not describe them as
 done in a review:
 
 - MFA, SSO/government identity, password reset by email, and account recovery
-- Segregation of duties / four-eyes approval
+- Four-eyes approval beyond the deadline/policy console (rule-version edits and payment approvals remain single-actor; the Phase 9.4 console enforces draft≠approver)
 - Database-level trigger for rule-version immutability (the ORM guard is tested, the
   trigger is not)
 - Retention, archival, partitioning, legal hold and right-to-erasure workflows
 - Malware scanning of uploaded files (signature and size checks exist, not AV)
 - External object storage with signed URLs; files are not served to clients
-- Real OCR, LLM explanations or notification delivery (mock adapters only)
+- LLM explanations and notification delivery (mock adapters only); OCR runs locally on the machine (pypdf/Tesseract) — external OCR/LLM stay off by design
 - Load, soak, failover and disaster-recovery tests
 - Independent penetration test, dependency audit and secret scan in CI
 - Historical state replay (chronological audit timeline only)
@@ -309,7 +309,7 @@ A release is only eligible when CI passes:
 - Ruff lint and import order
 - Python syntax compilation
 - SQLite `alembic upgrade head` + `alembic check`
-- 163 backend tests
+- 858 backend tests (count recorded 2026-10-28, `docs/ACCEPTANCE_TESTS.md`)
 - PostgreSQL role-isolation job (including `alembic check` as `sih_migrator` and the
   live role contract)
 - Frontend `tsc --noEmit` + Vite production build

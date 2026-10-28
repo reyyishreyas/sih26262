@@ -1,5 +1,6 @@
 # docs/BUG_LOG.md
 
+| BUG-0088 | 2026-10-28 | S4 | measurement accuracy | IMPL-0086's "146-entry" authz-matrix figure did not reproduce; verified counts are 125/171/34 | Fixed | IMPL-0087 |
 | BUG-0087 | 2026-10-28 | S4 | OCR test flake | One-off scanned-EoA assertion failure in a full run; not reproduced in four reruns | Open | — |
 | BUG-0086 | 2026-10-28 | S3 | scanned EoA option table | Aggregate change-options field was omitted because OCR split the next-table heading | Fixed | IMPL-0076 |
 | BUG-0082 | 2026-10-28 | S4 | migration trigger verification | First direct-SQL immutability check removed its fixture row before testing delete | Fixed | IMPL-0072 |
@@ -1593,6 +1594,17 @@
 - Update history: 2026-10-26 — verified on a Tesseract-equipped machine: 0 skipped, status stays `Workaround` (skip path still exists for other hosts). 2026-10-27 (Phase 5.2, IMPL-0039): a **third** `requires_ocr` test added (`test_field_provenance.py`); re-verified on this machine — Tesseract 5.5.3 present since **24 Oct** (symlink date, i.e. before this task, not installed by it), `make test` → **704 passed, 0 skipped**; CONTEXT's "Tesseract is not installed here, so the 2 OCR tests skip" note (added `604fd54` the same day) was wrong for this machine and contradicted this entry's own 2026-10-26 update — corrected in the 5.2 CONTEXT edit. Status stays `Workaround`.
 
 | BUG-0064 | 2026-10-28 | S4 | test harness and lint | Initial Phase 6.8 integration run exposed test fixture, auth matrix expectation and import-sort authoring defects | Fixed | IMPL-0059 |
+
+### BUG-0088 — Measurement error: the "146-entry" access-control figure recorded in IMPL-0086
+- Date found / found by / branch / commit: 2026-10-28 (during the Phase 11.6 evaluation-matrix re-verification) / MiMo (OpenCode agent) / master / found against `f7dac4d`.
+- Severity / area: S4 / measurement-log accuracy; no code path failed.
+- Expected: every number recorded as a "measured record" (the Phase 11.5 no-invented-numbers rule) reproduces from the named artefact.
+- Actual: IMPL-0086 asserted the authorisation matrix is "**146 entries**"; the matrix constant `tests/test_authz_matrix.py::MATRIX` measures **125 (method, route) pairs**, the sum of allowed (route, role) pairs is **171**, and the file collects **34** tests incl. parametrisations. None equals 146; the figure was a counting slip made while summarising, not a mis-statement of greenness (the matrix tests are green in the committed suite).
+- Root cause: summary written from an unrecorded intermediate count instead of from a captured command output.
+- Solution applied: corrected figures recorded with an "Update (BUG-0088)" line in IMPL-0086; `md/6_IMPLEMENTATION_PLAN.md` 11.5 tick and CONTEXT corrected; evaluation matrix (IMPL-0087) cites the verified 125/171/34 numbers.
+- Verification: `python - <<'…' import test_authz_matrix; len(MATRIX)` → 125; `sum(len(fs))` → 171; `pytest --collect-only -q` → 34.
+- Regression test: the matrix file itself (`test_matrix_lists_every_permission_gated_route` derives gated routes from the running app, so a new sensitive route cannot be silently counted or missed).
+- Related: IMPL-0086, IMPL-0087, BUG-0087.
 
 ### BUG-0087 — One-off OCR assertion flake in the scanned-EoA regression during a full `make test`
 - Date found / found by / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / 2bffb65 (the commit under test).

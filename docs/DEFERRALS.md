@@ -68,3 +68,37 @@ exercised**.
 - "Validated against AICTE." Clause mapping is pending verification by a rule owner.
 - "Simulations run on a separate database." They run in a separate schema with
   separate roles, in the same PostgreSQL instance.
+
+## Appendix F release-readiness walk (Phase 11.7, 2026-10-28)
+
+`md/1_PRD.md` Appendix F (line 414) lists 18 release-readiness checkboxes. **The
+PRD's own boxes were deliberately not ticked** — that checklist is the release
+gate a human signs. This walk verifies each item against the repo so a reviewer
+can sign quickly; every box verified here cites its evidence, and anything not
+satisfied is stated as a limitation.
+
+| # | Appendix F item | Verdict | Evidence / limitation |
+|---|---|---|---|
+| 1 | Official source URLs, versions, clauses recorded | **Partial — limitation** | `docs/SOURCES.md` registers the APH URL and access records, and the appeal/reopening/grant clauses are source-checked by a named human reviewer (amendment 2026-10-28). Still open: the Problem Statement source is `null` anywhere in the repo (`SRC-PS-26262`), the 2026–27 addendum is unverified, and the remaining APH clauses behind the seven rules are "pending verification" |
+| 2 | Unverified rules disabled or advisory | **Met** | Advisory families (precheck, site, crosschecks, doc-check, fee table) cannot block or activate anything (`docs/RULES.md`; `test_fee_engine.py::test_prd_candidate_values_are_present_but_cannot_become_due_or_block`); the seven blocking-format rules carry "clause mapping pending verification" labels on rule and finding |
+| 3 | All spec sections reviewed against actual code | **Limitation — cannot be done** | The technical specification file is not in the repo (`SRC-SPEC-26262`); all row reconstructions start from the PRD (header caveat in `docs/TRACEABILITY.md`). When the spec arrives, reconcile rather than rewrite |
+| 4 | Workflow states/routes match approved config | **Met for implemented routes** | Routes are versioned config consumed by the engine (`rules/workflow_routes.json`; `test_workflow.py`, `test_routes_and_revert.py`); the *official* stage/authority matrix stays Unverified (REG-002) and is labelled so |
+| 5 | API schemas match frontend/backend | **Met (manual parity)** | `frontend/src/types.ts`/`api.ts` hand-synced, `tsc --noEmit` + vite build green; limitation: no automated contract/OpenAPI drift test |
+| 6 | Migrations and seeds work | **Met** | 31 Alembic revisions, `alembic upgrade head && alembic check` clean on SQLite and PostgreSQL; Compose migrate job + idempotent seed (`make smoke` repeated, IMPL-0077) |
+| 7 | Authorisation tests cover sensitive resources | **Met** | `test_authz_matrix.py` maps 125 (method × route) pairs / 171 allowed (route × role) pairs with routes derived from the running app (BUG-0088 corrects the summary figure); live Scenario B walk (IMPL-0083) |
+| 8 | Document versioning/access verified | **Met** | Versioned uploads preserve prior versions; access is permission- and scope-gated; bytes never served (tests in `test_api.py`/hardening paths; Scenario A v1→v2, IMPL-0082) |
+| 9 | OCR/AI failure paths tested | **Met** | `test_extraction_failure_is_recorded_without_storing_the_upload`; truncated PDF processes honestly with 0 fields and no PASS (Scenario C, IMPL-0084); vision fallback disabled-by-default with a mocked provider test |
+| 10 | Findings link to evidence and rule versions | **Met** | `rule_evaluations` stores rule key/version + typed outcomes + evidence refs; seeded case trace: 6 of 7 findings cite named evidence or its recorded absence (IMPL-0086) |
+| 11 | Audit coverage and limits documented | **Met** | Phase 8.1 closed for implemented flows (IMPL-0068); coverage *and* limits documented (ARCHITECTURE audit section, DATA_MODEL audit paragraph, `scripts/tamper_demo.py`) |
+| 12 | Deadlines cite approved policy versions | **Met for mechanism; values advisory** | Console-approved immutable snapshots (content-hashed) feed the live sweep (`test_phase9_deadline_console_alerts.py`, Phase 9.4/9.5); the deposited cadence is officer-recorded with an advisory placeholder clock (DEC-0029) — official value capture stays a human input |
+| 13 | Alert scheduling/delivery described accurately | **Met** | Delivery is explicitly simulated (`test_alert_delivery_is_marked_simulated`; README/PRODUCTION wording); ladder behaviour, dedupe and escalation are the tested parts |
+| 14 | Tests/build rerun, results recorded | **Met** | `make test` → 858 passed/2 upstream warnings (twice on 2026-10-28); coverage 91% vs 90% baseline (IMPL-0078); frontend build green (63 modules); CI runs 40659968821/40661431548 green; BUG-0087 (one-off OCR flake) is open-but-not-reproduced and recorded |
+| 15 | Synthetic demo data only | **Met** | Seed and PDF factory are synthetic; production profile refuses `SIH_SEED_ON_STARTUP` (PRODUCTION.md §1); PRD/README disclaim real data obligations |
+| 16 | Deployment, backup, recovery documented | **Met, drill not run** | `docs/PRODUCTION.md` documents deploy order, secrets, TLS, backups (`pg_dump` + storage volume together), restore verification incl. `/audit/verify`, upgrade/rollback; the production-profile Compose was started and probed here (DEFERRALS "Production-shaped Compose" row). Limitation: no DR drill or tested-backup rotation has been executed against live infrastructure; no backup scheduler in-repo |
+| 17 | Limitations/open questions disclosed | **Met** | `docs/DEFERRALS.md`, PRODUCTION §9/§12, PRD §19 open questions, per-phase open items (Phase 9.3 activation gate, Phase 6 exit-check Partial, DEC-0033 Open) |
+| 18 | No unsupported claims about official integrations, accuracy, performance or compliance | **Met with constant vigilance** | The "claims we do not make" list; every accuracy/performance figure is labelled measured-on-this-machine; BUG-0088 shows a wrong figure was caught and corrected in the same session; nothing in the repo claims AICTE validation |
+
+**Remaining limitations to carry into any release decision** (see also
+PRODUCTION §9–§12): official clause coverage (item 1), absent spec file
+(item 3), and the standing cross-cutting caveats — no security audit, no load
+test, no retention policy, register-of-record values pending human verification.
