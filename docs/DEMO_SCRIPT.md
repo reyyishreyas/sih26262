@@ -193,6 +193,22 @@ undertakings** panel — the overdue `faculty_recruitment_undertaking` is flagge
 the institution can mark it submitted with an evidence note, and the officer
 verifies it. Both actions are audited.
 
+## 7b. Editing a deadline and watching alerts move (60 s, optional)
+
+The Monday morning of a policy change, an officer does not need a redeploy:
+
+As **`admin@demo.local`**, open **Policy console**, pick the undertaking reminder
+ladder, and change one threshold (for example `-7` → `-15`). Draft the change.
+
+Sign in as a *different* administrator account to approve (e.g.
+`deadline-reviewer@demo.local` created under **Admin access**). Trying to approve
+your own draft returns *"four-eyes review requires a different administrator"* —
+that refusal is the four-eyes demo. Approved versions are immutable.
+
+Then run the sweep again: the same case now raises the reminder it did not raise
+before the approval — same due date, same clock, only the approved policy
+snapshot in between. Every step is audited with content hashes.
+
 ## 8. Audit integrity (45 s)
 
 Back as scrutiny or admin, open the case audit timeline. Then call
@@ -206,8 +222,9 @@ someone with full database access."
 
 Three sentences:
 
-1. **One engine, six modules** — evidence, rules, workflow, monitoring, alerts, audit
-   share one deterministic rule engine and one clock.
+1. **One engine, one clock** — evidence, rules, workflow, monitoring, alerts and
+   audit share one deterministic rule engine and one clock; appeals, grants,
+   reopening and the four-eyes policy console ride the same stack.
 2. **The crash-test** — finding-level diff against the same immutable rule versions,
    with `production_modified: false` and no invented Load Factor.
 3. **Honest boundaries** — notifications are delivered to a log file, synthetic data,

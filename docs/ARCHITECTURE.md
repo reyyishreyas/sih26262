@@ -25,12 +25,19 @@ FastAPI  ── auth / RBAC + scope ──►  workflow service  ──►  oper
 
 | Module | Service | What it owns |
 |---|---|---|
-| 1. Application intake | `documents.py`, `evidence_service` | uploads, extracted field candidates, verification |
-| 2. Compliance | `compliance_service`, `rule_engine` | rule evaluation, typed findings, blocking set |
+| 1. Application intake | `documents.py`, `evidence_service` | uploads, extracted field candidates with page/bbox provenance (Phase 5.2), verification |
+| 2. Compliance | `compliance_service`, `rule_engine` | rule evaluation, typed findings, blocking set, advisory precheck/site/crosschecks |
 | 3. Workflow | `workflow_service` | transitions, guards, role/state checks |
 | 4. Monitoring | `monitoring_service`, `officer_dashboard.py` | scoped pendency, ageing, escalations |
-| 5. Alerts & undertakings | `deadline_service`, `alert_service` | threshold eligibility, dedupe, retries |
+| 5. Alerts & undertakings | `deadline_service`, `alert_service` | threshold eligibility, dedupe, retries, per-obligation ladders (`security_deposit_due`, Phase 9.2) |
 | 6. Audit | `audit_service` | append-only chain, timeline, integrity verification |
+| 7. Appeals | `appeals.py`, `appeal_service` (Phase 6.6) | APH Ch. II §2.24 window, SAC recommendation, Council decision — audited both ways |
+| 8. Grants & EVC | `evc.py`, `grants.py` (Phase 6.2/6.8) | visits, scanned-intake rows, guard-railed grant lookup |
+| 9. Policy console | `policy_config.py` (Phase 9.4) | four-eyes editable deadline/policy snapshots; approved versions feed the live sweep |
+
+`app/main.py` mounts 23 routers under `settings.api_prefix`; reports
+ (`reports.py`, Phase 7.4) and reopening (`reopening.py`, Phase 7.3) ride the
+ same auth/scope/audit stack.
 
 ## Three database access paths
 
@@ -140,6 +147,13 @@ The scheduler is a separate process (`python -m app.workers.scheduler`) that
 re-queries the database every tick. There is no in-process timer and no broker: the
 database is the queue, and restarting the worker loses nothing.
 
+Reminder ladders live in `rules/deadline_policy.json` (offsets relative to each
+obligation's due date, never absolute dates). Since Phase 9.4/9.5 an approved
+policy-config snapshot can replace the file-derived thresholds at runtime: an
+admin edits a ladder, a *different* administrator approves the immutable version,
+and the live sweep picks it up — a fixed-clock integration test proves the same
+due date moves from "no reminder yet" to firing after approval.
+
 ## Rule evaluation
 
 `app/services/rule_engine.py` compiles each stored condition into an internal
@@ -167,7 +181,13 @@ cases' events.
 Successful document-content reads and extraction outcomes are recorded without
 document contents. Compliance batch evaluations and automatic case hand-offs are
 also audited in the same transaction as their associated write. The timeline
-remains a scoped event list, not a historical state replay.
+remains a scoped event list, not a historical state replay. Every appeal step
+(submit, rejection, hearing, representatives, SAC recommendation, Council
+decision — accepted and refused) is audited (Phase 6.6), as are grants decisions,
+reopening decisions and report exports (Phase 7). Policy-config drafts and
+approvals under the four-eyes console are audited with content hashes (Phase
+9.4); the Security-Deposit proof undertaking records who provisioned it, who
+submitted the evidence and who verified it (Phase 9.2).
 
 This is tamper-**evident**, not tamper-proof: an attacker with full database and
 code access could rewrite the chain. Anchoring the head outside the database (WORM
@@ -182,15 +202,25 @@ storage or a signed external log) is a deployment hardening step, not implemente
   inputs, and the rule title/severity/regulatory reference captured when the
   finding was stored;
 - evidence panel: upload a new version, review extracted candidates with page,
-  method and confidence, verify or reject each field; every verification bumps the
-  baseline version and triggers a recomputation;
-- undertakings panel: submit an undertaking with an evidence note (institution),
-  verify it (officer), overdue items flagged;
+  method, confidence and highlight boxes (Phase 5.2/5.5+), verify or reject each
+  field; every verification bumps the baseline version and triggers a
+  recomputation; demo exit-check flows (EoA/NOC/resolution) show amber
+  mismatch badges and deficiency-candidate labels with confirm/dismiss;
+- undertakings panel: submit an undertaking with evidence notes linked to
+  same-case documents (Phase 9.2), verify it (officer), overdue items flagged;
+  the Security-Deposit proof undertaking carries the officer-recorded notice
+  date and linked document;
 - draft-application form for roles that may open a case;
 - crash-test panel: JSON evidence overrides, finding-level diff, workflow
   implications, explicit `production_modified: false`;
 - transition controls that submit the reason and display guard refusals; actions
   the caller lacks the permission for are shown as unavailable with the reason;
+- appeal panel and committee workspaces (Phase 6.6/6.7): window display,
+  hearing scheduling, recommendation and decision recording with refusal
+  reasons surfaced;
+- grant panels (Phase 6.8) and reports view (Phase 7.4) with export formats;
+- admin policy console (Phase 9.4): four-eyes JSON drafts — one administrator
+  proposes, a different one approves — with version history and hashes;
 - audit timeline and chain verification badge;
 - officer monitoring dashboard and alert list.
 

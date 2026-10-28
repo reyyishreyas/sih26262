@@ -3,15 +3,16 @@
 ```bash
 cd backend
 ../.venv/bin/python -m pytest -q
-# 163 passed
+# 858 passed (2026-10-28; see `make test` in CONTEXT.md for the current count)
 ```
 
 Pytest fixtures (`tests/conftest.py`) use a fixed clock
 (`2026-10-22T09:00:00+00:00`), a per-test SQLite database reset and the synthetic
 seed, so every assertion is reproducible. HTTP tests use FastAPI's `TestClient`.
 
-One warning is emitted: Starlette's notice that `httpx` with
-`starlette.testclient` is deprecated. Behaviour is unaffected.
+One upstream warning is emitted: Starlette's notice that `httpx` with
+`starlette.testclient` is deprecated. Behaviour is unaffected. (Full-suite runs
+also surface a second upstream warning depending on the pytest plug-in set.)
 
 ## Claim → evidence map
 
@@ -97,9 +98,20 @@ One warning is emitted: Starlette's notice that `httpx` with
 | Explicit verification is recorded; ordinary GET verification remains read-only | `test_phase8_audit.py::test_explicit_chain_verification_is_audited_and_get_remains_read_only`; `...::test_recorded_verification_reports_tampering_and_records_rejection` |
 | A throwaway untouched chain passes and a modified row fails verification | `python scripts/tamper_demo.py` |
 
-### RBAC and scope
+### Phase 6 appeals, grants, reopening, executive decisions
 
 | Claim | Test |
+|---|---|
+| Full appeal path: filing → hearing → SAC recommendation → Council final decision, audited both ways | `test_phase6_appeals.py::test_full_appeal_sac_hearing_and_council_final_decision` |
+| Late and duplicate appeals are refused and audited | `test_phase6_appeals.py::test_late_and_duplicate_appeals_are_refused_and_audited` |
+| The seven-working-day window boundary: accepted on day 7, refused after | `test_phase6_appeals.py::test_appeal_at_seven_day_deadline_is_accepted_but_a_second_filing_is_not` |
+| Council/SAC roles cannot gain general document access | `test_phase6_appeals.py::test_council_and_sac_roles_have_no_general_document_access` |
+| A grant batch needs a ratification letter and publishing is guarded | `test_phase6_grants.py::test_grant_batch_requires_ratification_letter_and_publish` |
+| Grant intake rejects non-integer values and roles stay narrow | `test_phase6_grants.py::test_grant_batch_rejects_non_integer_intake_and_roles_are_narrow` |
+| Reopening needs a CA review and verified payment before the state reopens | `test_phase6_reopening.py::test_reopening_requires_ca_review_and_verified_payment_before_state_reopens` |
+| One-time reopening and the payment gate are enforced end to end | `test_phase6_reopening.py::test_one_time_request_and_payment_gate_are_enforced` |
+
+### RBAC and scope| Claim | Test |
 |---|---|
 | Institution sees only its institution | `test_rbac.py::test_institution_rep_sees_only_its_own_institution` |
 | Officer sees only assigned cases | `test_rbac.py::test_case_officer_sees_only_assigned_cases` |
@@ -149,6 +161,25 @@ One warning is emitted: Starlette's notice that `httpx` with
 | Delivery failure is recorded and retried | `test_alerts.py::test_delivery_failure_is_recorded_and_retried` |
 | Dry run writes nothing | `test_alerts.py::test_dry_run_writes_nothing` |
 | Delivery is marked simulated | `test_alerts.py::test_alert_delivery_is_marked_simulated` |
+| A verified lease expiry drives the document-expiry ladder (Phase 9.1) | `test_phase9_lease_alerts.py::test_advance_expiry_reminders_fire_on_a_verified_lease_date`; `...::test_overdue_alerts_fire_after_an_expired_verified_lease` |
+
+### Phase 9.2 Security Deposit proof undertaking
+
+| Claim | Test |
+|---|---|
+| Approval alone does not start the deposit clock | `test_phase9_deposit_undertaking.py::test_approval_alone_does_not_start_the_deposit_clock` |
+| An officer-recorded notice date + same-case document opens the window; delegation to the recorded date only | `test_phase9_deposit_undertaking.py::test_officer_records_notice_and_window_uses_its_date`; `...::test_notice_requires_approved_case_date_and_same_case_document` |
+| Day-1/10/14 reminders fire exactly once after explicit recording | `test_phase9_deposit_undertaking.py::test_notice_reminders_dedupe_after_explicit_recording` |
+| Proof evidence is linked to same-case documents and verified by an officer | `test_phase9_deposit_undertaking.py::test_submitted_proof_documents_are_linked_and_officer_verified` |
+
+### Phase 9.3–9.4 fee engine and policy console
+
+| Claim | Test |
+|---|---|
+| PRD candidate fee values exist but cannot become due or block | `test_fee_engine.py::test_prd_candidate_values_are_present_but_cannot_become_due_or_block` |
+| A fee needs a complete named-source review and payment evidence gate | `test_fee_engine.py::test_verified_fee_requires_payment_only_with_complete_source_review`; `...::test_verified_status_without_source_fields_does_not_activate_gate` |
+| An unknown fee event is rejected | `test_fee_engine.py::test_unknown_fee_event_is_rejected` |
+| A console deadline edit moves the sweep only after a different administrator approves | `test_phase9_deadline_console_alerts.py::test_console_deadline_update_moves_reminder_in_the_sweep` |
 
 ### HTTP surface
 
@@ -252,8 +283,9 @@ CI runs the same script against a PostgreSQL service container
 (`.github/workflows/ci.yml`, job `postgres-isolation`), and also runs
 `alembic check` as `sih_migrator` there. The workflow runs on every push to
 `master`. A verified run is
-[39810253186](https://github.com/reyyishreyas/sih26262/actions/runs/39810253186),
-green on 2026-10-22 (backend, PostgreSQL isolation and frontend build).
+[40659968821](https://github.com/reyyishreyas/sih26262/actions/runs/40659968821),
+green on 2026-10-28 on `2dac70b` (backend with coverage, PostgreSQL isolation
+and frontend build).
 
 ## What is not covered by automated tests
 
@@ -262,7 +294,7 @@ Be explicit in a review; do not imply coverage that does not exist.
 - **Frontend behaviour.** The React app type-checks and builds; there are no
   component or end-to-end browser tests. The UI was driven manually in a browser
   against the running stack (login → findings → evidence → transitions →
-  undertakings → rehearsal → audit timeline).
+  undertakings → appeals → grants → reports → policy console → audit timeline).
 - **PostgreSQL in the pytest suite.** The suite runs on SQLite. PostgreSQL is
   covered by the Alembic run, the Compose migration job, `scripts/smoke.sh` and
   `scripts/verify_isolation.py` — not by pytest assertions.
@@ -270,8 +302,13 @@ Be explicit in a review; do not imply coverage that does not exist.
   backend suite, a PostgreSQL isolation job and a frontend production build. It is
   not a substitute for the live Compose checks above, and a green run is not a
   security audit.
-- **Real OCR / LLM / notifications.** Only mock adapters exist, and only the mock
-  paths are tested.
+- **OCR scope.** Uploaded PDFs are parsed locally (pypdf text layer with
+  Tesseract fallback for scanned pages, plus the grounded lease reader); the
+  scanned-EoA regression exercises real local OCR and is `skipif` when the
+  Tesseract binary is missing. No upload is ever sent to an external service.
+- **Cloud model / external AI.** The external-model path is adapter-shaped but
+  reaches only the configured mock in tests and the prototype default; no real
+  LLM processing is part of the suite.
 - **Load / concurrency.** Tests are single-process. Audit chain locking and alert
   dedupe are tested for correctness, not throughput.
 - **Security.** No penetration test, dependency audit or secret scan is part of the

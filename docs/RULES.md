@@ -130,9 +130,17 @@ hardening would add a database trigger; that is listed in
 
 ## Rule set in this prototype
 
-Seven rules. All are labelled **"clause mapping pending verification"**: the APH
-2024–2027 clause, applicability and effective date must be confirmed by a rule owner
-before any production use. The prototype does not invent clause numbers.
+Seven blocking-format rules in `rules/compliance_rules.json`. All are labelled
+**"clause mapping pending verification"**: the APH 2024–2027 clause, applicability
+and effective date must be confirmed by a rule owner before any production use. The
+prototype does not invent clause numbers.
+
+Surrounding them (advisory, non-blocking, all labelled Unverified) live in
+separate rule files: `precheck_policy.json`, `site_check_policy.json` (SITE-01/02),
+`evidence_crosschecks.json` (E01–E03), `readiness_policy.json`, `annexure_2.json`,
+`doc_check_policy.json`, `security_deposit_policy.json` (Phase 3.6/9.2) and
+`fee_table.json` (Phase 9.3, guarded, values Unverified). None of these can
+block a transition or activate a fee.
 
 | Key | Condition (plain language) | Blocking | Missing | Failure |
 |---|---|---|---|---|
@@ -178,3 +186,13 @@ immutable inputs.
 
 `RuleTest` exists in the schema for storing named cases per version; the seeded
 prototype uses Pytest cases instead of a rule-management UI.
+
+## Policy configuration editing (Phase 9.4)
+
+Deadline ladders, escalation chains, fee tables, templates and routes can be
+edited through the admin policy console without a code change: JSON drafts are
+validated, hashed and stored in `policy_config_versions`; a **different**
+administrator approves; approved snapshots are immutable. Approved deadline
+snapshots feed the live alert sweep (Phase 9.5, tested); route, fee, escalation
+and template snapshots are versioned but not yet consumed by runtime services.
+No unverified fee is ever activated.

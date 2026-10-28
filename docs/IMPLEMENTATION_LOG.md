@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0079 | 2026-10-28 | Documentation | Phase 10.3 docs sync: the six core docs now match the Phase 5–9 implementation | Tested | Phase 10.3 | MiMo (OpenCode agent) |
 | IMPL-0078 | 2026-10-28 | Verification | Phase 10.2: CI green on `2dac70b`; coverage 90% → 91% vs the `9945e6a` baseline | Tested | Phase 10.2 | MiMo (OpenCode agent) |
 | IMPL-0077 | 2026-10-28 | Verification | Phase 10.1 Postgres stack: make up/smoke/verify-isolation all pass with the Phase 6.8–9.5 tables | Tested | Phase 10.1 | MiMo (OpenCode agent) |
 | IMPL-0076 | 2026-10-28 | Update | EoA change-options rows and final verification | Tested | AGENT-04/11; FR-38–FR-40, FR-48 | Codex |
@@ -180,6 +181,22 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0079 — Phase 10.3 docs sync (ARCHITECTURE, DATA_MODEL, RULES, ACCEPTANCE_TESTS, DEMO_SCRIPT, DEFERRALS)
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
+- Task and PRD IDs: Phase 10.3 (plan line 130).
+- What was stale: the six docs last predated Phases 5–9 — ARCHITECTURE still described six modules/no appeals-grants-console, DATA_MODEL listed 3 of the now-31 Alembic revisions and claimed rule-configuration and appeal event sources "do not yet exist", RULES ignored the policy console and the advisory rule families, ACCEPTANCE_TESTS still said "163 passed" with no Phase 6–9 claim→test rows and a 2026-10-22 CI link, DEMO_SCRIPT had no policy-console step and pre-dated the second-admin gate, DEFERRALS still deferred "Real OCR" (it is real local OCR since Phase 5) and "four-eyes" (implemented in Phase 9.4), and "automatic case allocation" said "not implemented" while `case_assignment_service` is tested.
+- What changed (docs only, cross-checked against the code before each edit):
+  - ARCHITECTURE.md: module table extended with appeals/EVC/grants/policy-console rows and the 23-router count; audit paragraph now names appeal, grant, reopening, report-export and policy-config audited actions and the Phase 9.2 provisioning/verification trail; deadline section documents the four-eyes ladder edit → sweep path (Phase 9.5); frontend section covers the new panels (appeals, grants, reports, policy console, evidence highlight, exit-check badges).
+  - DATA_MODEL.md: revision count 31 with the notable migrations named; `extracted_fields` provenance/grounding/engine columns; `grant_batches`/`grant_entries`; undertakings notice/evidence columns; appeal/reopening/policy-config tables; audit-coverage paragraph corrected (rule-config and appeal sources exist — IMPL-0068); export-scoping sentence kept.
+  - RULES.md: still exactly seven blocking-format rules (verified against `rules/compliance_rules.json`); added the advisory rule families in their own files, none of which can block or activate a fee; new "Policy configuration editing" section (Phase 9.4/9.5).
+  - ACCEPTANCE_TESTS.md: current count 858; new claim→test rows for appeals/grants/reopening, Phase 9.1 lease alerts, Phase 9.2 deposit undertaking, Phase 9.3 fee engine, Phase 9.4/9.5 console; OCR and cloud-model bullets rewritten honestly (local OCR real, external services never used); CI link updated to run 40659968821 (`2dac70b`).
+  - DEMO_SCRIPT.md: new optional section 7b (edit a deadline in the console, different-administrator approval, sweep moves) with the console's real refusal message; closing line "one engine, one clock" + the Phase 6–9 panels.
+  - DEFERRALS.md: OCR row rewritten (local pypdf/Tesseract, no external OCR), four-eyes moved from "not implemented" to prototype-level implementation, rule-management UI split from the deadline/fee console, automatic case allocation corrected, CI row at 858 tests/run link, "six illustrative rules" → seven.
+- Verification: each new doc claim derives from greps of the live code or test names verified to exist (23 routers counted in `app/main.py`; `rules/compliance_rules.json` re-counted; console refusal message grepped). No code, model, migration or frontend change; the CI green at `2dac70b`/70dd9b3 covers the unchanged code state.
+- Limitations: EVIDENCE_INTELLIGENCE.md, ROLE_MODEL.md, TRACEABILITY.md, USER_JOURNEY.md are Codex-maintained and were not touched in this step; ACCEPTANCE_TESTS rows remain selective (key claims, not every test).
+- Related: IMPL-0077, IMPL-0078, IMPL-0070–0076, IMPL-0068.
+- Next: Phase 10.4 — rehearse the five-minute demo end to end on the Compose stack (or 10.3 follow-ups during the rehearsal).
 
 ### IMPL-0078 — Phase 10.2 CI green and coverage above baseline
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).

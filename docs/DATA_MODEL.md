@@ -1,9 +1,14 @@
 # Data Model
 
 SQLAlchemy 2.x models, SQLite in development, PostgreSQL-ready. The Alembic
-revisions are `backend/migrations/versions/075aed043fd2_initial_schema.py`,
-`0002_sim_schema_and_finding_labels.py` and `0003_auth_hardening.py`;
-`alembic check` reports no drift against the models on SQLite and PostgreSQL.
+revisions start at `backend/migrations/versions/075aed043fd2_initial_schema.py`
+and now number 31 heads-walked revisions (transition/deficiency/EVC/SHC tables,
+finding dispositions, conflict-of-interest, the four-eyes policy-config history,
+the verified-appeal workflow, one-time reopening, consolidated grant batches,
+extracted-field claim/grounding/provenance-bbox-engine columns, regulatory
+status and the Phase 9.2 undertaking notice/evidence columns);
+`alembic check` reports no drift against the models on SQLite and PostgreSQL
+(verified 2026-10-28 in CI and on the Compose stack, IMPL-0077).
 
 Identifiers are strings (UUID-shaped), timestamps are stored in UTC (`DateTime
 (timezone=True)`; SQLite returns naive values, normalised by `to_utc`).
@@ -49,8 +54,9 @@ cached in the token beyond the user id.
 | `institutions` | AICTE id, name, region |
 | `applications` | Category, route, cycle, `current_state`, `status`, assigned officer, **`baseline_version`**, state-since, submitted-at |
 | `documents` | Document type, file name, SHA-256, perceptual hash, storage ref, version |
-| `extracted_fields` | One field per document version: value, source page/span, method, confidence, `verification_status`, verifier |
+| `extracted_fields` | One field per document version: value, source page/span, method, confidence, `verification_status`, verifier; claim/grounding/provenance columns (Phase 5.x): candidate `bbox` JSON (origin/level), `grounded_*` fields and `engine`/`engine_version` for how a value was read (pypdf, Tesseract, Gemini, mock, grounded lease) |
 | `committees` | EVC committees |
+| `grant_batches` / `grant_entries` (Phase 6.8) | Consolidated grant lookup: batch + guarded per-establishment entries, immutable published versions |
 
 `applications.baseline_version` is bumped on document upload, field verification,
 undertaking changes and accepted transitions. A rehearsal records the version it
@@ -90,9 +96,15 @@ configuration: changing a stage SLA or guard is a data change.
 | Table | Purpose |
 |---|---|
 | `rule_evaluations` | Persisted operational finding: rule key/version, batch id, outcome, explanation, evidence refs, missing inputs, unverified inputs, denormalised rule title/severity/regulatory reference, baseline version, timestamp |
-| `undertakings` | Post-approval obligations with due date, status, reminder policy |
-| `alerts` | One logical alert, **unique `dedupe_key`** |
+| `undertakings` | Post-approval obligations with due date, status, reminder policy; Phase 9.2 adds `obligation_key`, the officer-recorded `source_received_on` notice date, `source_document_id` and linked `evidence_document_ids` |
+| `alerts` | One logical alert, **unique `dedupe_key`**; `security_deposit_due` rides the same table with its own PRD-sourced ladder (Phase 9.2) |
 | `alert_deliveries` | Attempt per channel, status, error, provider reference; unique `(alert_id, channel, attempt)` |
+| `deficiencies` (Phase 4) | Deficiency records with draft→open lifecycle and dispositions |
+| `evc_visits`, SHC/SAC hearing rows (Phases 6.2–6.4) | Scheduled visits/hearings with mode, confirmation, reports |
+| `conflict_of_interest` (Phase 6.3) | Member COI declarations per case |
+| `appeals` (Phase 6.6) | One per decided case: window (7-working-day), hearing, SAC recommendation, Council decision, decision document, all with timestamps |
+| `reopening_requests` (Phase 7.3) | One-time opening of a rejected/auto-eligible case with re-verification envelope |
+| `policy_config_versions` (Phase 9.4) | Four-eyes editable policy JSON: draft → approved, content hash, proposer/approver ids, immutable approved snapshots |
 
 `rule_evaluations` deliberately stores the rule key and version rather than a foreign
 key to a mutable rule row, so historical findings remain interpretable after a rule
@@ -117,11 +129,14 @@ event breaks verification at that sequence number. This is tamper-evident, not
 tamper-proof against someone with full database and code access.
 
 Document-content access, extraction outcomes, case assignment, finding-batch
-evaluation, explicit chain verification, and case-audit export have named event
-actions. The case export contains only scoped events and a server-side verification
-result; it cannot independently verify the global chain without revealing other
-cases' events. Rule/configuration editing and appeal operations do not yet exist,
-so those future actions have no event source today.
+evaluation, explicit chain verification, case-audit export, appeal steps
+(submit/rejection/hearing/SAC/Council — accepted and refused; Phase 6.6),
+reopening decisions, report exports and the four-eyes policy-config
+draft/approve lifecycle all have named event actions (verified across the
+committed test files; Phase 8.1 closed for implemented flows, IMPL-0068).
+The case export still contains only scoped events and a server-side
+verification result; it cannot independently verify the global chain without
+revealing other cases' events.
 
 ## Simulation storage
 
