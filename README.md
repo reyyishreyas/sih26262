@@ -21,6 +21,10 @@ This prototype is a single platform that does that coordination automatically: i
 
 One deliberate idea runs through the whole system: **the analyst does not decide.** Evidence extraction (pypdf text layer, Tesseract OCR, and — for lease agreements — Gemini as the external parser) produces fields for a human to verify. Compliance then evaluates the *verified* fields against version-controlled rules, and only an authorized officer can take a real workflow action. Decisions stay with people; the platform does the watching and the chasing. For a risky call, an officer can also rehearse a hypothetical decision against the same immutable rules in a read-only simulation schema before committing anything to the real case.
 
+### Where the rules and the document flow come from
+
+Nothing in the engine is guessed. The stage routes, the scrutiny → EVC → SAC/SHC progressions, return/revert reasons, undertakings, compliance windows, deadline policy and the shape of each required document are modelled on the **official Approval Process Handbook 2024-25 to 2026-27** issued by AICTE ([the handbook, PDF](https://cdnbbsr.s3waas.gov.in/s35938b4d054136e5d59ada6ec9c295d7a/uploads/2025/03/2025031399.pdf)). In code, all of it lives as versioned JSON in `backend/rules/` (`workflow_routes.json`, `compliance_rules.json`, `deadline_policy.json`) — so when AICTE revises a rule, the change is a data edit, not a code change. AICTE clause numbers are never invented: an unverified rule carries "clause mapping pending verification" until someone pins it to the exact handbook clause.
+
 ## Tech stack
 
 - **Backend:** Python 3.10+, FastAPI, SQLAlchemy 2.x, Alembic; policy as data (`backend/rules/*.json`), no hardcoded routes, fees or deadlines
@@ -78,7 +82,13 @@ If anything misbehaves: `make seed` (idempotent) re-seeds demo data; `rm backend
 | `app-existing-0003` | Existing institution, complete evidence, approvable on the scrutiny-only route |
 | `app-draft-0004` | Draft application used for upload demos |
 
-All people, institutions, documents and outcomes are synthetic. AICTE clause numbers are never invented — rules carry "clause mapping pending verification" until a rule owner maps them to an exact APH clause.
+All people, institutions, documents and outcomes are synthetic.
+
+## Architecture
+
+![System architecture — how the pieces fit](docs/architecture.svg)
+
+The same three-valued rule engine serves the live workflow and the read-only rehearsal sandbox, but through separate database roles: the API's role can touch operational data only, the rehearsal engine reads the baseline with a different read-only role and writes results with a third. `make verify-isolation` proves that contract against the live database.
 
 ## Running the full stack (PostgreSQL)
 
@@ -107,10 +117,20 @@ Makefile          setup / dev / up / reset / lint / test / smoke / verify-isolat
 
 Further reading: [architecture](docs/ARCHITECTURE.md) · [compliance rules](docs/RULES.md) · [role model](docs/ROLE_MODEL.md) · [data model](docs/DATA_MODEL.md) · [user journey](docs/USER_JOURNEY.md) · [rehearsal engine](docs/REHEARSAL_ENGINE.md) · [demo script](docs/DEMO_SCRIPT.md) · [acceptance tests](docs/ACCEPTANCE_TESTS.md) · [what is deliberately not built](docs/DEFERRALS.md)
 
+## Roadmap — future scope
+
+To be plain about it: this is an unfinished prototype, built under hackathon deadlines. Within that scope we chose depth over breadth — the end-to-end pipeline today is exercised on a small set of prescribed documents (EoA letter, lease agreement, affidavit, ownership record) evaluated against a starter subset of the APH rules. The next stages of work:
+
+- **Full APH coverage.** Extend the rule set from this starter subset to the complete rule catalogue of the Approval Process Handbook — every document type, every applicable condition.
+- **An admin rules panel, so rule changes never touch code.** Because every rule, route and deadline is already data (versioned JSON), the natural next step is an admin screen where an administrator uploads the newly published APH PDF; the system parses the changed provisions, stages rule revisions for review, and a second administrator approves — the same four-eyes discipline the console already uses. AICTE revises the handbook, we upload it, the platform re-configures itself. No release, no code change.
+- **A better crash-test for the college.** The rehearsal engine currently serves the checking side; we want to build the college-facing version into a richer pre-flight experience — so an institution can test its own submissions against the current rules before AICTE ever sees them.
+- **Real delivery channels and integration.** Notifications currently end in a file (mock adapter); wire real email/SMS, and integrate with existing AICTE systems as the problem statement allows.
+- **Production maturity.** Security audit, load testing, records-retention policy and accessibility review before anything beyond a demonstration.
+
 ## What this is not
 
 A prototype, not a certified government system. It has not been security-audited or load-tested, and no rule has been validated against the Approval Process Handbook by a competent authority. Automated alerts, extraction and recommendations support the process; statutory scrutiny, verification and decisions remain with the authorized officials — that boundary is enforced in the code, not just in prose. The full list of what we deferred and why is in [docs/DEFERRALS.md](docs/DEFERRALS.md).
 
 ## Team
 
-Reyyish Reyas · Mayank Prakash · Srisha Prajwal G
+**Parikshit** — Team Leader · Reyyi Shreyas · Srisha Prajwal · Kushal Sharma · Pranav
