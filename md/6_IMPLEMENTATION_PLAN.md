@@ -126,8 +126,7 @@ Do not run phases concurrently without agreed interfaces (see `4_AGENTS.md`). Ea
 
 ## Phase 10 — Hardening and handoff
 - [x] 10.1 Postgres run: `make up`, `make smoke`, `make verify-isolation` all pass with new tables (grants updated in `roles.sql`). → Verified 2026-10-28 on Compose: `migrate-1` exited 0 and all containers healthy; `make smoke` **"Smoke test passed."** (11 checks incl. real extraction `simulated=False`, compliance classes, idempotent sweep); `make verify-isolation` **all 12 checks PASS**; Postgres shows `grant_batches`, `grant_entries`, `policy_config_versions` and the `undertakings` notice/evidence columns (migration `d511be0d`). `roles.sql` needed no change — `ALTER DEFAULT PRIVILEGES FOR ROLE sih_migrator` already grants future tables (IMPL-0077).
-- [ ] 10.2 CI green; coverage not lower than baseline.
-- [ ] 10.3 Update `docs/` (ARCHITECTURE, DATA_MODEL, RULES, ACCEPTANCE_TESTS, DEMO_SCRIPT, DEFERRALS) to match what exists.
+- [x] 10.2 CI green; coverage not lower than baseline. → CI run `40659968821` on `2dac70b` **green: backend ✓ (3m23s), frontend ✓, postgres-isolation ✓**. Coverage measured with the CI flags on this machine: baseline at `9945e6a` = **TOTAL 8543 stmts / 831 miss / 90%** (838 passed), HEAD `2dac70b` = **8966 / 840 / 91%** (858 passed) — one point **up**, no untested-code regression (IMPL-0078).- [ ] 10.3 Update `docs/` (ARCHITECTURE, DATA_MODEL, RULES, ACCEPTANCE_TESTS, DEMO_SCRIPT, DEFERRALS) to match what exists.
 - [ ] 10.4 Rehearse the five-minute demo script end to end on the Compose stack.
 - [ ] 10.5 Update `CONTEXT.md` build order and README status table.
 

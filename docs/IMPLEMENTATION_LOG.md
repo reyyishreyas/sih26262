@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0078 | 2026-10-28 | Verification | Phase 10.2: CI green on `2dac70b`; coverage 90% → 91% vs the `9945e6a` baseline | Tested | Phase 10.2 | MiMo (OpenCode agent) |
 | IMPL-0077 | 2026-10-28 | Verification | Phase 10.1 Postgres stack: make up/smoke/verify-isolation all pass with the Phase 6.8–9.5 tables | Tested | Phase 10.1 | MiMo (OpenCode agent) |
 | IMPL-0076 | 2026-10-28 | Update | EoA change-options rows and final verification | Tested | AGENT-04/11; FR-38–FR-40, FR-48 | Codex |
 | BUG-0086 | 2026-10-28 | Bug | EoA change-options aggregate was omitted on actual scan | Fixed | IMPL-0076 |
@@ -179,6 +180,19 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0078 — Phase 10.2 CI green and coverage above baseline
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
+- Task and PRD IDs: Phase 10.2 (plan line 129).
+- What existed: `ci.yml` runs three jobs (backend incl. lint/alembic/pytest with coverage + artifact, postgres-isolation with role bootstrap/migration/verify-isolation/seeding, frontend build); CI was already green on Codex's OCR commits, and no coverage TOTAL had ever been recorded in the docs, so "not lower than baseline" had no number.
+- Verification:
+  - CI on the docs commit `2dac70b` (run `40659968821`): **backend ✓ 3m23s, frontend ✓ 14s, postgres-isolation ✓ 35s** (`gh run watch --exit-status`, then `gh run view`).
+  - Coverage baseline measured honestly with the CI's exact flags (`pytest -q --cov=app --cov-report=term`, fixed clock, isolated SQLite) on a detached worktree at `9945e6a` (the last recorded green before the Phase 9.2–9.5 + OCR burst): **TOTAL 8543 statements / 831 missed / 90%**, 838 passed.
+  - Same flags at HEAD `2dac70b`: **TOTAL 8966 / 840 / 91%**, 858 passed. One point **up**; the 423 new statements brought ~9 new misses.
+- Code/config changes: none (verification-only; baselines worktree removed afterwards).
+- Limitations: local coverage run is the machine closest to CI (same flags/venv) but not literally the CI runners; the coverage artifact upload succeeded but artifact download returned nothing useful for older runs, so the local measurements are the recorded evidence. Coverage remains statements-based without a floor gate in CI — a future `--cov-fail-under` could be added if wanted (not asked for).
+- Related: IMPL-0077, IMPL-0072–0076.
+- Next: Phase 10.3 — update the `docs/` set to match what exists.
 
 ### IMPL-0077 — Phase 10.1 Postgres stack verification (10.1)
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
