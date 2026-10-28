@@ -781,7 +781,7 @@
 - Solution applied (why): widen the column to 512 so it accepts exactly what the adapter writes; no truncation added, nothing invented (IMPL-0090). Alternative considered — truncating spans to 255 at the adapter — rejected: it would silently cut measured evidence.
 - Verification (exact counts): regression test added first and seen failing; after fix `make lint` clean; `make test` → **860 passed, 2 warnings**; `alembic check` clean on a scratch DB; live Compose upload of the same PDF verified in the update line below.
 - Side effects / follow-ups / related: none on permissions/audit; downgrade of `25a2a6957f36` would re-truncate (not used in the demo path). Related: IMPL-0090, BUG-0090, IMPL-0086.
-- Update history: pending — live post-fix upload still to run; logged in an Update line once the demo rerun completes.
+- Update history: **2026-10-28 (Update)** — verification complete. `make reset` on `03daca1` → the migrate service applied `25a2a6957f36`; direct Postgres probe once the whole UI pipeline ran: `SELECT character_maximum_length FROM information_schema.columns WHERE table_name='extracted_fields' AND column_name='source_span'` → **512**. The same scanned EoA upload that 500'd now 201s from the UI; Postgres holds **28** `extracted_fields` rows for the `eoa_letter` (engine `tesseract`, `engine_version 5.3.0`), longest `source_span` **301 chars** (the `change_options` intake-table row) — greater than the old 255 limit, proving the fix was necessary and is effective. The full cursor-driven demo video was recorded end-to-end on this state.
 
 ### BUG-0090 — Compose runtime image ships without Tesseract: the OCR feature is dead in deployment
 - Date found / found by (human or agent + model) / branch / commit: 2026-10-28 (while driving the whole demo pipeline from the React UI — the scanned EoA leg) / MiMo (OpenCode agent) / master / found against `f9b7d05`.
@@ -801,7 +801,7 @@
 - Solution applied (why): install `tesseract-ocr` + `tesseract-ocr-eng` in the runtime image (one-line config fix covering api/worker/migrate, which share the image). Rejected alternative: a build-time failure when the OCR adapter warm-up cannot find Tesseract — would break hosts that legitimately run without OCR (DEC-0006).
 - Verification (exact counts): `make lint` clean; `make test` → **859 passed, 2 warnings**; after rebuild the same UI upload reports the extracted fields (update line below with the exact wording).
 - Side effects / follow-ups / related: image grows by the Tesseract binary + eng data; app-level skip-if-absent unchanged. Follow-up candidates (not acted on): a `make` probe asserting `tesseract --version` inside a built image before demo runs. Related: IMPL-0089, BUG-0001 (Tesseract history), DEC-0006.
-- Update history: pending — live post-rebuild upload check still to run; logged in an Update line once the demo rerun completes.
+- Update history: **2026-10-28 (Update)** — live post-rebuild check complete: `tesseract 5.3.0` inside the fresh api container; the scanned EoA upload now OCRs (28 fields). BUG-0091's update line records that this surfaced a second bug (the 255-char `source_span` column), fixed in IMPL-0090.
 
 ### BUG-0089 — The decision UI could never complete an FR-28 return or revert (reason codes unreachable from the browser)
 - Date found / found by (human or agent + model) / branch / commit: 2026-10-28 (while driving the whole demo pipeline from the React UI for the SIH video) / MiMo (OpenCode agent) / master / found against `44b9d7f`.

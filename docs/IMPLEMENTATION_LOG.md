@@ -204,7 +204,7 @@
 - Limitations / notes: SQLite gate runs cannot catch varchar-length overruns (no length enforcement), which is how a 255/512 mismatch survived 859 passing tests; this is why the column-length contract test matters. Truncation to 512 stays the adapter's decision (measured evidence, bounded); no value is invented.
 - Permission/audit effects: none (schema width only).
 - Related: BUG-0091, IMPL-0089 (Tesseract in the image — which surfaced this), IMPL-0074/0076/0086.
-- Update history: —
+- Update history: **2026-10-28 (Update)** — verification complete. Post-fix `make reset` applied `25a2a6957f36` on Postgres (column width confirmed **512**); the previously 500ing scanned-EoA upload now 201s with **28** extracted fields (engine `tesseract → 5.3.0`), longest `source_span` **301 chars**. Details in BUG-0091's update line.
 
 ### IMPL-0089 — Compose runtime images ship Tesseract; the committed OCR path actually runs in deployment
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (fix commit).
@@ -214,7 +214,7 @@
 - Verification (exact counts): `make lint` clean; `make test` → **859 passed, 2 warnings**; frontend untouched (`npm run build` not re-run). Live check after the image rebuild: upload of the same scanned EoA PDF through the UI now reports the read fields (recorded in BUG-0090's update). `docker compose exec` probe of `tesseract --version` inside the fresh api container is the direct evidence for the binary being present.
 - Limitations: image is larger (~tens of MB for the Tesseract binary + eng data) — accepted, the OCR capability is a core PRD function, not an optional nicety; the skip-if-absent behaviour in the app is unchanged (other hosts degrade honestly).
 - Related: BUG-0090, IMPL-0086 (measured OCR records on the dev host), IMPL-0074/0076 (OCR + scanned EoA), DEC-0006, D-0006 note in BUG-0001.
-- Update history: —
+- Update history: **2026-10-28 (Update)** — live verification complete: `docker compose exec api tesseract --version` → `tesseract 5.3.0`; the scanned EoA upload that had degraded now extracts fields (see BUG-0091's update line — the OCR then hit a second bug, BUG-0091, which is fixed and verified).
 
 ### IMPL-0088 — FR-28 decision-UI gap closed: a return/revert reason code can now be picked from the UI
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / `c247ea9`.
