@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0081 | 2026-10-28 | Documentation | Phase 10.5: CONTEXT build order and README status table updated through Phase 10 | Tested | Phase 10.5 | MiMo (OpenCode agent) |
 | IMPL-0080 | 2026-10-28 | Verification | Phase 10.4: demo script rehearsed end to end on the Compose stack (twice, from fresh seeds) | Tested | Phase 10.4 | MiMo (OpenCode agent) |
 | IMPL-0079 | 2026-10-28 | Documentation | Phase 10.3 docs sync: the six core docs now match the Phase 5–9 implementation | Tested | Phase 10.3 | MiMo (OpenCode agent) |
 | IMPL-0078 | 2026-10-28 | Verification | Phase 10.2: CI green on `2dac70b`; coverage 90% → 91% vs the `9945e6a` baseline | Tested | Phase 10.2 | MiMo (OpenCode agent) |
@@ -182,6 +183,13 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0081 — Phase 10.5 CONTEXT build order and README status table
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
+- Task and PRD IDs: Phase 10.5 (plan line 10.5).
+- What changed (docs only): CONTEXT's build-order thread now runs to Phase 10 completion with the open items named (9.3 activation inputs, Phase 6 deposit-intimation seam, Phase 11); README's status table gained seven rows covering the Phase 6–9 capabilities (appeals, grants, reopening, reports/dashboards, four-eyes console, Security-Deposit undertaking, guarded fees) and its frontend row lists all current panels.
+- Verification: no code change; README rows and Context lines are backed by IMPL-0053–0076 and my IMPL-0067–0080 entries. Also fixed a plan-file markdown defect from my earlier 10.2/10.3 edit (two tick lines were glued onto one line).
+- Next: Phase 11.1 — Demo Scenario A (submission → correction end to end).
 
 ### IMPL-0080 — Phase 10.4 demo script rehearsed end to end on the Compose stack
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).

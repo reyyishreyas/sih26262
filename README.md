@@ -32,13 +32,19 @@ logins, the conventions, and the current build order. The next feature lives in
 | Rehearsal Load Factor | **Deliberately null** | Formula, units, edge cases and test matrix are not validated |
 | Document upload + extraction | **Implemented** | Real reader: pypdf text layer, Tesseract OCR for scans and photos. Values are unverified until a human confirms them; a mock reader stays selectable for tests |
 | Evidence verification | **Implemented** | Per-field verify/reject, audited, bumps the baseline version and invalidates stale batches |
-| Undertakings | **Implemented** | Submit and verify, due dates, overdue flag, feeds the alert scheduler |
+| Undertakings | **Implemented** | Submit and verify, due dates, overdue flag, feeds the alert scheduler; the Security-Deposit proof obligation is provisioned only from an officer-recorded notice date + linked same-case document (Phase 9.2), with linked evidence and day-1/10/14 advisory reminders |
+| Appeals (APH Ch. II) | **Implemented (3 routes)** | Filing inside the 7-working-day window, SAC hearing/recommendation, Council decision and order — every step audited, refusals included (Phase 6.6) |
+| Grants (APH Ch. II) | **Implemented and guarded** | Human-reviewed batches, Council ratification, EoA letter, guarded publication, scoped institution view (Phase 6.8) |
+| One-time reopening | **Implemented** | Requires Competent Authority review, Public Notice reference and human-verified payment evidence before a rejected case reopens (Phase 7.3) |
+| Reports and dashboards | **Implemented** | Seven scoped PRD §12 report families as PDF/CSV; dashboards reconcile to server-scoped case lists (Phase 7) |
+| Admin policy console | **Implemented (four-eyes)** | One administrator drafts, a different one approves; approved deadline snapshots feed the live alert sweep; other categories staged until consumed (Phase 9.4/9.5) |
+| Additional fees (EVC/SHC/SAC) | **Guarded, not active** | Candidate values from the PRD, but no payable amount or block until a named clause register, institution-class mapping and payment model exist (Phase 9.3) |
 | LLM evidence explanations | **Interface not wired** | `app/adapters/llm` (Protocol + mock) is built but unused; the one live model call is `services/grounded_lease_extractor.py` for `lease_agreement` documents — Gemini when `SIH_GEMINI_API_KEY` is set, otherwise a deterministic parser that cites the document verbatim |
 | Notification delivery | **Mock** | Real alert rows and delivery attempts; a JSON line is written to `storage/notifications.log` |
 | Deadline scheduler | **Implemented** | Persistent worker, idempotent dedupe keys, retry path |
 | Officer monitoring | **Implemented** | Server-enforced scope; dashboard/drill-down reconcile |
 | Database | **PostgreSQL 16 in Compose, SQLite in dev/test** | Alembic migrations run on every stack start; the API never performs DDL |
-| Frontend | **Implemented (review UI)** | Case list, findings, evidence, undertakings, rehearsal diff, transitions, audit, monitoring |
+| Frontend | **Implemented (review UI)** | Case list, findings with evidence highlight, evidence with bbox provenance, undertakings, rehearsals, transitions, appeals, grants, reports, admin policy console, audit, monitoring |
 | Docker Compose | **Run here** | Full stack starts, migrates, seeds and serves; `make smoke` exercises it end to end |
 | Production-shaped deployment | **Implemented** | Multi-stage non-root images, `docker-compose.prod.yml`, nginx prod build, required secrets, fail-fast production config |
 | API hardening | **Implemented** | JSON logs, request ids, security headers, bounded pagination, upload signature checks, typed error envelope |
