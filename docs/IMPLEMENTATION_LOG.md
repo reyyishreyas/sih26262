@@ -29,6 +29,8 @@
 | IMPL-0063 Update | 2026-10-28 | Update | Phase 7.2 EVC mode and reason-code metrics detail | Implemented | Phase 7.2; PRD §12 | Codex |
 | DEC-0027 | 2026-10-28 | Decision | Export all seven PRD report families in scoped PDF/CSV | Accepted | Phase 7.3; PRD §12 | Codex |
 | IMPL-0064 | 2026-10-28 | Implementation | Phase 7.3 scope-aware PDF and CSV report exports | Tested | Phase 7.3; PRD §12 | Codex |
+| DEC-0028 | 2026-10-28 | Decision | Validate report scope and dashboard totals against scoped rows | Accepted | Phase 7.4; PRD §12 | Codex |
+| IMPL-0065 | 2026-10-28 | Implementation | Phase 7.4 per-role region scoping and reconciliation checks | Tested | Phase 7.4; PRD §12 | Codex |
 | DEC-0023 | 2026-10-28 | Decision | Chapter II grant list, Council ratification and EoA publication scoped to verified APH clauses | Accepted for prototype workflow; role delegation remains an app ACL | Phase 6 6.8; FR-31/32 | Project lead scope + Codex source check |
 | IMPL-0059 | 2026-10-28 | Implementation | Phase 6.8: consolidated approved-intake grant list, Council ratification and institution EoA publication | Tested | Phase 6 6.8 (FR-31/32) | Codex |
 | IMPL-0059 Update | 2026-10-28 | Update | Phase 6.8 commit and push recorded | Pushed `ce4fa6a` to `origin/master`; tree clean except six pre-existing untracked user documents/images listed in status | Phase 6 6.8 | Codex |
@@ -148,6 +150,25 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0028 — Report scope and dashboard reconciliation acceptance
+- Date / owner: 2026-10-28 / Codex.
+- Status: Accepted as an access-control and consistency contract; it does not set regulatory policy.
+- Decision: For each monitoring role, exported case rows must be a subset of the caller's application list; cycle/region groups must account for exactly that list; every report region must exist in the caller's region report. Dashboard displayed totals must equal their own scoped drill-down rows, including all Phase 7.2 metric groups.
+- Rationale: Report scoping must use server-derived effective access and every published aggregate must reconcile to rows.
+- Related: IMPL-0065.
+
+### IMPL-0065 — Phase 7.4 report scope and dashboard reconciliation
+- Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: AGENT-09, Phase 7.4 and Phase 7 exit check, PRD §12.
+- What changed: Added an acceptance test for Scrutiny, Regional, Supervisory and Administrator monitoring roles. It reconciles exported pendency totals and region/cycle application IDs with each role's scoped application list; checks EVC, deficiency/compliance, appeal/hearing, deposit and overdue row IDs; and ensures report region rows stay within visible regions. Existing dashboard acceptance coverage checks counts against drill-down arrays for Institution, Scrutiny, Regional and Regulation Bureau roles and all Phase 7.2 metrics.
+- Files changed: `backend/tests/test_report_scope_reconcile.py`, `md/6_IMPLEMENTATION_PLAN.md`, `CONTEXT.md`, this log.
+- API/schema/config: no changes.
+- Permission and audit effects: tests exercise current server-side `scope_filter` behavior and existing `MONITORING_READ` / `DASHBOARD_READ` boundaries; no new authority or state writes.
+- Verification: `make lint` → Ruff clean; `make test` → **833 passed, 2 upstream Starlette deprecation warnings in 116.30s**; focused export/scope tests → **4 passed, 1 upstream warning**; frontend build passed. No migration changed.
+- Limitations: seeded synthetic role/scope fixtures verify configured role scopes; no live institutional data or external AICTE portal used.
+- Related: DEC-0028 / BUG-0073.
+- Next: Phase 8 / subsequent implementation plan tasks.
 
 ### DEC-0027 — PDF and CSV export contract for PRD §12 reports
 - Date / owner: 2026-10-28 / Codex.

@@ -1,6 +1,7 @@
 # docs/BUG_LOG.md
 
 | BUG-0074 | 2026-10-28 | S3 | authorization matrix | New reports export route was missing from the exhaustive permission matrix | Fixed | IMPL-0064 |
+| BUG-0073 | 2026-10-28 | S4 | lint | New monitoring-role scope test helper captured a loop variable | Fixed | IMPL-0065 |
 | BUG-0072 | 2026-10-28 | S4 | PDF export verification | PDF heading assertion expected sentence case while renderer emits title case | Fixed | IMPL-0064 |
 | BUG-0071 | 2026-10-28 | S4 | lint | New report endpoint and export-test imports failed Ruff ordering | Fixed | IMPL-0064 |
 | BUG-0065 | 2026-10-28 | S1 | regulatory gate safety | Unverified rule versions blocked transitions and required officer dispositions | Fixed | IMPL-0060 / DEC-0024 |
@@ -14,6 +15,21 @@
 | BUG-0059 | 2026-10-28 | S3 | lint | Ruff rejected generated migration import order | Fixed | IMPL-0058 |
 | BUG-0062 | 2026-10-28 | S4 | test fixture | Reopening transition test expected generic transition authorization | Fixed | IMPL-0058 |
 | BUG-0061 | 2026-10-28 | S3 | authorization matrix | New reopening routes and Competent Authority role were absent from the matrix | Fixed | IMPL-0058 |
+
+### BUG-0073 — Ruff rejected a closure in the monitoring-role scope test
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S4 / lint.
+- Status: **Fixed**.
+- Expected: the role-scoping acceptance test passes repository lint.
+- Actual: Ruff B023 warned that the helper closed over the current loop's CSV `rows` value.
+- Reproduction: `make lint` after adding `test_report_scope_reconcile.py`.
+- Environment: repository Ruff configuration.
+- Hypotheses tried: the loop calls the helper synchronously, but lint correctly flags a late-bound closure regardless.
+- Root cause: helper was nested inside the loop and referenced a loop-local variable.
+- Solution applied: move the helper to module scope and pass `rows` explicitly.
+- Verification: `make lint` and the focused scope test passed after correction; full suite subsequently passed.
+- Regression test: `test_region_scoping_and_case_totals_reconcile_for_each_monitoring_role`.
+- Related: IMPL-0065.
 
 ### BUG-0072 — PDF export test expected a different section-heading case
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
