@@ -13,6 +13,11 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0076 | 2026-10-28 | Update | EoA change-options rows and final verification | Tested | AGENT-04/11; FR-38–FR-40, FR-48 | Codex |
+| BUG-0086 | 2026-10-28 | Bug | EoA change-options aggregate was omitted on actual scan | Fixed | IMPL-0076 |
+| IMPL-0075 | 2026-10-28 | Implementation | Scanned EoA report extraction and upload support | Tested | AGENT-04/11; FR-38–FR-40, FR-48 | Codex |
+| BUG-0084 | 2026-10-28 | Bug | Scanned EoA report had no selectable document type and lease-only fallback | Fixed | IMPL-0075 |
+| BUG-0085 | 2026-10-28 | Bug | EoA extractor runtime check referenced state from the wrong parser | Fixed | IMPL-0075 |
 | IMPL-0074 | 2026-10-28 | Implementation | Hybrid PDF OCR, evidence retrieval and field search improvements | Tested | OCR/evidence UX; FR-38–FR-40, FR-48 | Codex |
 | DEC-0032 | 2026-10-28 | Decision | Uploaded-document extraction stays on configured local OCR path | Accepted | OCR safety; FR-39 | Codex |
 | BUG-0083 | 2026-10-28 | Bug | Normalised lease expiry evidence cited a parser label | Fixed | IMPL-0074 |
@@ -173,6 +178,35 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0076 — EoA change-options rows and final verification
+- Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.
+- Amends: IMPL-0075 verification and change-options description; supersedes its claim that the aggregate was extracted as free text.
+- Task and PRD IDs: AGENT-04 OCR adapter + AGENT-11 frontend integration; FR-38–FR-40, FR-48.
+- What existed: the repository EoA integration test initially exposed that its change-options field was still missing. Tesseract had OCR'd the option rows, but page text split the first course heading across columns/lines, so a text boundary search did not find the expected heading.
+- What changed: build `change_options` from the same visually bounded option-table rows used by individual `eoa_change_option_XX` fields, retaining OCR source words and page box evidence. This records the scanned table's read values without relying on a guessed text boundary.
+- Files changed: `backend/app/adapters/ocr/real.py`, `docs/IMPLEMENTATION_LOG.md`, `docs/BUG_LOG.md`, `CONTEXT.md`.
+- Existing code reused: `_eoa_change_rows`, OCR word geometry, and `_add_word_candidate` provenance.
+- API/schema/config/migrations: no contract, schema, or migration changes; aggregate is an OCR candidate.
+- Permission/audit effects: none; OCR candidates remain unverified.
+- Verification: focused EoA and scanned-lease regression tests → **3 passed, 1 upstream warning**; `make lint` → **All checks passed**; `make test` → **858 passed, 2 upstream warnings, 0 skipped in 160.15s**; `cd frontend && npm run build` → **passed, 63 modules**; `git diff --check` → **passed**.
+- Limitations: scanned values can contain OCR errors and require human review; source is not made authoritative by extraction.
+- Related bugs/decision: BUG-0086; IMPL-0075 / BUG-0084 / DEC-0032.
+- Next: deploy/restart API and frontend processes to load the pushed OCR and upload-type changes; manually review extracted EoA values.
+
+### IMPL-0075 — Scanned EoA report extraction and upload support
+- Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: AGENT-04 OCR adapter + AGENT-11 frontend integration; FR-38–FR-40, FR-48.
+- What existed: `EOA Report_2019-20.pdf` is a three-page scan with no text layer. The OCR reader got page text, but the EoA parser only recognized a small set of generic labels; the upload panel did not offer `eoa_letter`. A legacy lease facade returned a text-layer-only warning and contained a key-triggered external model path.
+- What changed: OCR now uses Tesseract page segmentation suited to dense document blocks and retains word positions/confidences for table cells. EoA extraction reads institution/trust identity and addresses, institution type/region, application number, academic year, approval date, letter reference, change-options text, and per-course programme/intake rows. The EvidencePanel offers AICTE EoA as an upload type. The legacy lease facade delegates to local OCR and no longer invokes external services or reports a text-layer-only failure for scans.
+- Files changed: `backend/app/adapters/ocr/real.py`, `backend/app/services/grounded_lease_extractor.py`, `backend/tests/test_document_extraction.py`, `backend/tests/test_field_provenance.py`, `frontend/src/components/EvidencePanel.tsx`, `frontend/src/labels.ts`, `md/6_IMPLEMENTATION_PLAN.md`, `CONTEXT.md`, `docs/IMPLEMENTATION_LOG.md`, `docs/BUG_LOG.md`.
+- Existing code reused: pypdf page reader, pypdfium2 renderer, Tesseract word boxes, `ExtractedFieldCandidate` provenance, existing upload persistence and review controls.
+- API/schema/config/migrations: no schema, route, dependency, or migration changes. `eoa_letter` uses the existing document upload endpoint.
+- Permission/audit effects: no permission or audit changes. OCR fields stay unverified. Legacy extractor behavior is now local-only in line with DEC-0032.
+- Verification: `make lint` → **All checks passed**; repository scan API upload test → passed (three pages, 11 per-course rows, identity/metadata fields persisted, all unverified); legacy scanned-lease facade test → passed; focused extraction/classifier/Phase-5 suite → **46 passed, 1 upstream warning**; `make test` → **858 passed, 2 upstream warnings, 0 skipped in 157.76s**; `cd frontend && npm run build` → passed (63 modules); `git diff --check` → passed.
+- Limitations: source is a low-quality scanned report; OCR text and addresses can contain noise and must be reviewed by a human. The whole report is not an authoritative master record, and no OCR output makes a compliance or approval decision. The original PDF was not modified or added to tests; the existing tracked file is read by the integration test.
+- Related bugs/decision: BUG-0084, BUG-0085; DEC-0032.
+- Next: user can select AICTE EoA and upload the report; review each unverified field before confirming any value.
 
 ### IMPL-0074 — Hybrid PDF OCR, evidence retrieval and field search improvements
 - Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.

@@ -182,22 +182,16 @@ def test_the_mock_admits_it_is_the_mock():
         assert field.bbox is None  # it never read a page, so it has no box
 
 
-def test_the_grounded_lease_parser_names_itself_and_has_no_box(
-    monkeypatch,
-):
-    # No API key: the deterministic local grounded parser runs (the default
-    # on this machine — external calls are off by default per the essentials).
-    monkeypatch.delenv("SIH_GEMINI_API_KEY", raising=False)
-    monkeypatch.delenv("GEMINI_API_KEY", raising=False)
+def test_legacy_grounded_lease_facade_uses_local_ocr(monkeypatch):
+    # The compatibility facade remains local regardless of API-key presence.
+    monkeypatch.setenv("GEMINI_API_KEY", "test-only-not-used")
     result = GroundedLeaseExtractor().extract(
         content=lease_deed_pdf(), file_name="lease.pdf"
     )
     assert result.fields, "the lease fixture must yield fields"
-    for field in result.fields:
-        assert field.engine == "grounded_lease"
-        assert field.engine_version is None
-        assert field.bbox is None  # this reader cites quotes, not geometry
-        assert field.method in ("grounded_ai", "gemini_grounded_ai")
+    assert all(field.engine == "pypdf" for field in result.fields)
+    assert all(field.bbox is not None for field in result.fields)
+    assert result.warnings == []
 
 
 # ------------------------------------------------------------- the API

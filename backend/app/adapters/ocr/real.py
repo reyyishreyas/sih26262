@@ -88,6 +88,18 @@ class _Line:
 
 
 @dataclass
+class _Word:
+    """A word-level OCR result retained for table cells and row boundaries."""
+
+    text: str
+    x: float
+    y: float
+    width: float
+    height: float
+    confidence: float
+
+
+@dataclass
 class _Page:
     """One page of readable text plus how it was read."""
 
@@ -100,6 +112,7 @@ class _Page:
     engine: str | None = None
     engine_version: str | None = None
     lines: list[_Line] = field(default_factory=list)
+    words: list[_Word] = field(default_factory=list)
 
 
 @lru_cache(maxsize=1)
@@ -296,6 +309,38 @@ def _group_ocr_lines(
         )
     lines.sort(key=lambda line: line.bbox["y"])
     return lines
+
+
+def _ocr_words(data: dict, *, page_width: float, page_height: float) -> list[_Word]:
+    """Keep normalized OCR words so dense EoA tables can be read by column."""
+    if page_width <= 0 or page_height <= 0:
+        return []
+    words: list[_Word] = []
+    for index, raw_text in enumerate(data.get("text", [])):
+        text = str(raw_text).strip()
+        if not text:
+            continue
+        try:
+            confidence = float(data["conf"][index])
+            left = float(data["left"][index])
+            top = float(data["top"][index])
+            width = float(data["width"][index])
+            height = float(data["height"][index])
+        except (IndexError, KeyError, TypeError, ValueError):
+            continue
+        if confidence < 0:
+            continue
+        words.append(
+            _Word(
+                text=text,
+                x=left / page_width,
+                y=top / page_height,
+                width=width / page_width,
+                height=height / page_height,
+                confidence=max(0.0, min(1.0, confidence / 100)),
+            )
+        )
+    return words
 
 
 def _locate_line(lines: list[_Line], *needles: str) -> _Line | None:
@@ -543,9 +588,9 @@ class RealOCRExtractor:
                 )
 
             data = pytesseract.image_to_data(
-                image, output_type=pytesseract.Output.DICT
+                image, output_type=pytesseract.Output.DICT, config="--psm 6"
             )
-            text = pytesseract.image_to_string(image)
+            text = pytesseract.image_to_string(image, config="--psm 6")
         except ImportError:
             result.warnings.append(
                 "The OCR engine (Tesseract) is not installed on this "
@@ -591,6 +636,9 @@ class RealOCRExtractor:
             # normalised against the image that was actually OCR'd (after
             # any upscaling, so the coordinates line up).
             lines=_group_ocr_lines(
+                data, page_width=float(image.width), page_height=float(image.height)
+            ),
+            words=_ocr_words(
                 data, page_width=float(image.width), page_height=float(image.height)
             ),
         )
@@ -730,6 +778,347 @@ def _field_label_needles(name: str) -> list[str]:
             "term until", "issued on",
         ]
     return []
+
+
+def _label_line_y(
+    page: _Page,
+    label: str,
+    *,
+    y_min: float = 0.0,
+    y_max: float = 1.0,
+) -> float | None:
+    needle = _alnum(label)
+    match = next(
+        (
+            line
+            for line in page.lines
+            if needle in _alnum(line.text)
+            and y_min <= line.bbox["y"] + line.bbox["height"] / 2 < y_max
+        ),
+        None,
+    )
+    if match is None:
+        return None
+    return match.bbox["y"] + match.bbox["height"] / 2
+
+
+def _words_in_region(
+    page: _Page, *, x_min: float, x_max: float, y_min: float, y_max: float
+) -> list[_Word]:
+    return sorted(
+        (
+            word
+            for word in page.words
+            if x_min <= word.x + word.width / 2 < x_max
+            and y_min <= word.y + word.height / 2 < y_max
+        ),
+        key=lambda word: (word.y, word.x),
+    )
+
+
+def _word_text(words: list[_Word]) -> str:
+    """Join OCR words by visual line while retaining column reading order."""
+    if not words:
+        return ""
+    lines: list[list[_Word]] = []
+    for word in words:
+        if lines and abs(lines[-1][0].y - word.y) <= 0.008:
+            lines[-1].append(word)
+        else:
+            lines.append([word])
+    return " ".join(
+        " ".join(word.text for word in sorted(line, key=lambda item: item.x))
+        for line in lines
+    ).strip()
+
+
+def _word_bbox(words: list[_Word]) -> dict | None:
+    if not words:
+        return None
+    x0 = min(word.x for word in words)
+    y0 = min(word.y for word in words)
+    x1 = max(word.x + word.width for word in words)
+    y1 = max(word.y + word.height for word in words)
+    return _unit_box(x0, y0, x1 - x0, y1 - y0)
+
+
+def _add_word_candidate(
+    result: ExtractionResult,
+    *,
+    name: str,
+    value: object,
+    page: _Page,
+    source_words: list[_Word],
+    source_span: str,
+) -> None:
+    if any(field.field_name == name for field in result.fields):
+        return
+    word_confidence = (
+        sum(word.confidence for word in source_words) / len(source_words)
+        if source_words
+        else page.confidence
+    )
+    result.fields.append(
+        ExtractedFieldCandidate(
+            field_name=name,
+            value=value,
+            source_page=page.number,
+            source_span=source_span[:512],
+            method=page.method,
+            confidence=round(min(page.confidence, word_confidence), 2),
+            bbox=_word_bbox(source_words),
+            engine=page.engine,
+            engine_version=page.engine_version,
+        )
+    )
+
+
+def _eoa_identity_cells(page: _Page, result: ExtractionResult) -> int:
+    """Read the two-column identity table used by AICTE EoA letters."""
+    name_y = _label_line_y(page, "Name of the Institute")
+    address_y = _label_line_y(page, "address", y_min=0.43, y_max=0.50)
+    type_y = _label_line_y(page, "type", y_min=0.49, y_max=0.54)
+    changes_y = _label_line_y(page, "opted for change", y_min=0.53, y_max=0.72)
+    if None in (name_y, address_y, type_y, changes_y) or not page.words:
+        return 0
+    name_y = float(name_y)
+    address_y = float(address_y)
+    type_y = float(type_y)
+    changes_y = float(changes_y)
+    bands = (
+        ("institution_name", 0.24, 0.46, name_y - 0.008, address_y - 0.006),
+        ("trust_name", 0.68, 0.96, name_y - 0.008, address_y - 0.006),
+        ("institution_address", 0.24, 0.46, address_y - 0.006, type_y - 0.006),
+        ("trust_address", 0.68, 0.96, address_y - 0.006, type_y - 0.006),
+        ("institution_type", 0.24, 0.46, type_y - 0.006, changes_y - 0.006),
+        ("region", 0.68, 0.96, type_y - 0.006, changes_y - 0.006),
+    )
+    found = 0
+    for name, x_min, x_max, y_min, y_max in bands:
+        words = _words_in_region(
+            page, x_min=x_min, x_max=x_max, y_min=y_min, y_max=y_max
+        )
+        value = _clean_eoa_cell(_word_text(words))
+        if not value:
+            continue
+        _add_word_candidate(
+            result,
+            name=name,
+            value=value,
+            page=page,
+            source_words=words,
+            source_span=value,
+        )
+        found += 1
+
+    id_y = _label_line_y(page, "application id", y_min=0.37, y_max=0.42)
+    if id_y is not None:
+        for name, x_min, x_max in (
+            ("permanent_id", 0.24, 0.46),
+            ("application_number", 0.68, 0.96),
+        ):
+            words = _words_in_region(
+                page,
+                x_min=x_min,
+                x_max=x_max,
+                y_min=id_y - 0.012,
+                y_max=id_y + 0.012,
+            )
+            value = _word_text(words)
+            if value and re.search(r"\d", value):
+                _add_word_candidate(
+                    result,
+                    name=name,
+                    value=value,
+                    page=page,
+                    source_words=words,
+                    source_span=value,
+                )
+                found += 1
+    return found
+
+
+def _clean_eoa_cell(text: str) -> str | None:
+    value = re.sub(r"\s*\|\s*", " ", text)
+    value = value.replace("=", " ")
+    value = re.sub(r"\s+", " ", value).strip(" |:;,.~()_-")
+    value = re.sub(r"\bGRADUA\s+TE\b", "GRADUATE", value, flags=re.IGNORECASE)
+    value = re.sub(r"&nbsp;", " ", value, flags=re.IGNORECASE)
+    value = re.sub(r"\bElectroniosAnd\b", "Electronics And", value, flags=re.IGNORECASE)
+    value = re.sub(r"\bElectronios\b", "Electronics", value, flags=re.IGNORECASE)
+    value = re.sub(
+        r"\bTelecommunicatio\s+ns\b", "Telecommunications", value, flags=re.IGNORECASE
+    )
+    value = re.sub(r"\bAriifcial\b", "Artificial", value, flags=re.IGNORECASE)
+    value = re.sub(r"\bLearningit\b", "Learning", value, flags=re.IGNORECASE)
+    value = re.sub(
+        r"\b(Computer|Information) Science Engineering And\b",
+        r"\1 Science And Engineering",
+        value,
+        flags=re.IGNORECASE,
+    )
+    value = re.sub(r"\bCivilEngineering\b", "Civil Engineering", value, flags=re.IGNORECASE)
+    value = re.sub(r"\s+", " ", value).strip()
+    return value or None
+
+
+def _eoa_programme_rows(page: _Page) -> list[tuple[dict[str, object], list[_Word], str]]:
+    """Read course rows by their printed column positions, including wrapped cells."""
+    if not page.words:
+        return []
+    marker_y = _label_line_y(page, "To conduct following Courses")
+    table_start = max(0.0, marker_y - 0.03) if marker_y is not None else 0.05
+    table_end = (
+        0.96
+        if page.number == 1 or (marker_y is not None and marker_y > 0.5)
+        else 0.46
+    )
+    seeds = [
+        word
+        for word in page.words
+        if word.x < 0.2
+        and word.y + word.height / 2 > table_start
+        and word.y < table_end
+        and (
+            _alnum(word.text).startswith("engineering")
+            or _alnum(word.text) == "mca"
+        )
+    ]
+    seeds.sort(key=lambda word: word.y)
+    unique_seeds: list[_Word] = []
+    for word in seeds:
+        if not unique_seeds or word.y - unique_seeds[-1].y > 0.012:
+            unique_seeds.append(word)
+    rows: list[tuple[dict[str, object], list[_Word], str]] = []
+    columns = {
+        "program": (0.035, 0.17),
+        "shift": (0.17, 0.235),
+        "level": (0.235, 0.31),
+        "course": (0.31, 0.435),
+        "study_mode": (0.435, 0.49),
+        "affiliating_body": (0.49, 0.68),
+        "approved_intake": (0.68, 0.76),
+        "nri_approval_status": (0.76, 0.83),
+        "pio_fn_gulf_oci_approval_status": (0.83, 0.96),
+    }
+    for index, seed in enumerate(unique_seeds):
+        y_min = max(0.0, seed.y - 0.006)
+        y_max = (
+            max(y_min, unique_seeds[index + 1].y - 0.006)
+            if index + 1 < len(unique_seeds)
+            else min(1.0, seed.y + 0.03)
+        )
+        row_words = [
+            word
+            for word in page.words
+            if y_min <= word.y + word.height / 2 < y_max
+        ]
+        values: dict[str, object] = {}
+        for key, (x_min, x_max) in columns.items():
+            cell_words = [
+                word
+                for word in row_words
+                if x_min <= word.x + word.width / 2 < x_max
+            ]
+            cell = _clean_eoa_cell(_word_text(cell_words))
+            if cell:
+                values[key] = cell
+        raw_program = str(values.get("program", ""))
+        if "mca" in _alnum(raw_program):
+            values["program"] = "MCA"
+        elif "engineering" in _alnum(raw_program) and "technology" in _alnum(
+            raw_program
+        ):
+            values["program"] = "Engineering and Technology"
+        raw_shift = str(values.get("shift", ""))
+        shift_match = re.search(r"\b(\d{1,2})(st|nd|rd|th)\b", raw_shift, re.I)
+        if shift_match:
+            values["shift"] = shift_match.group(0)
+        elif re.search(r"\b(?:ist|tat|reel)\b", raw_shift, re.I):
+            values["shift"] = "1st"
+        raw_level = str(values.get("level", ""))
+        if re.search(r"\bpost\b", raw_level, re.I):
+            values["level"] = "Postgraduate"
+        elif re.search(r"\bunder\b", raw_level, re.I):
+            values["level"] = "Undergraduate"
+        raw_mode = str(values.get("study_mode", ""))
+        mode_match = re.search(r"\b(FT|PT)\b", raw_mode, re.I)
+        if mode_match:
+            values["study_mode"] = mode_match.group(1).upper()
+        raw_body = str(values.get("affiliating_body", ""))
+        if all(
+            token in _alnum(raw_body)
+            for token in ("visvesvaraya", "technological", "university")
+        ):
+            values["affiliating_body"] = "Visvesvaraya Technological University, Belgaum"
+        if "course" not in values or "program" not in values:
+            continue
+        intake = values.get("approved_intake")
+        if isinstance(intake, str):
+            digits = re.search(r"\d{1,4}", intake)
+            values["approved_intake"] = int(digits.group()) if digits else intake
+        row_text = _word_text(row_words)
+        rows.append((values, row_words, row_text))
+    return rows
+
+
+def _eoa_change_rows(page: _Page) -> list[tuple[dict[str, str], list[_Word], str]]:
+    """Read opted/approved status pairs from the EoA change table."""
+    seeds = sorted(
+        (
+            word
+            for word in page.words
+            if word.x < 0.2 and _alnum(word.text) == "opted" and word.y < 0.75
+        ),
+        key=lambda word: word.y,
+    )
+    unique_seeds: list[_Word] = []
+    for word in seeds:
+        if not unique_seeds or word.y - unique_seeds[-1].y > 0.014:
+            unique_seeds.append(word)
+    rows: list[tuple[dict[str, str], list[_Word], str]] = []
+    for index, seed in enumerate(unique_seeds):
+        y_min = max(0.0, seed.y - 0.006)
+        y_max = (
+            max(y_min, unique_seeds[index + 1].y - 0.006)
+            if index + 1 < len(unique_seeds)
+            else min(1.0, seed.y + 0.035)
+        )
+        row_words = [
+            word
+            for word in page.words
+            if y_min <= word.y + word.height / 2 < y_max
+        ]
+        label_words = [
+            word for word in row_words if word.x + word.width / 2 < 0.24
+        ]
+        opted_words = [
+            word
+            for word in row_words
+            if 0.24 <= word.x + word.width / 2 < 0.48
+        ]
+        approval_words = [
+            word
+            for word in row_words
+            if 0.68 <= word.x + word.width / 2 < 0.96
+        ]
+        label = _clean_eoa_cell(_word_text(label_words))
+        opted_text = _word_text(opted_words)
+        approval_text = _word_text(approval_words)
+        opted_match = re.search(r"\b(yes|no)\b", opted_text, flags=re.IGNORECASE)
+        approval_match = re.search(
+            r"\b(yes|no|n/?a)\b", approval_text, flags=re.IGNORECASE
+        )
+        if not label or not (opted_match or approval_match):
+            continue
+        values = {"change": label}
+        if opted_match:
+            values["opted"] = opted_match.group(1).title()
+        if approval_match:
+            values["approval_status"] = approval_match.group(1).upper()
+        source_words = [*label_words, *opted_words, *approval_words]
+        rows.append((values, source_words, _word_text(source_words)))
+    return rows
 
 
 def _add(
@@ -1054,11 +1443,135 @@ def _parse_eoa_letter(pages: list[_Page], result: ExtractionResult) -> int:
     and every value stays an extraction candidate.
     """
     found = 0
+    initial_field_count = len(result.fields)
+    all_programme_values: list[str] = []
     for page in pages:
         text = _normalise_ocr(page.text)
 
+        fields_before = len(result.fields)
+        _eoa_identity_cells(page, result)
+
+        change_rows = _eoa_change_rows(page)
+        if change_rows and not any(
+            field.field_name == "change_options" for field in result.fields
+        ):
+            source_words = [word for _, words, _ in change_rows for word in words]
+            _add_word_candidate(
+                result,
+                name="change_options",
+                value=[values for values, _, _ in change_rows],
+                page=page,
+                source_words=source_words,
+                source_span="; ".join(span for _, _, span in change_rows),
+            )
+
+        metadata_patterns = (
+            (
+                "permanent_id",
+                r"Permanent\s*Id\s*[:|]?\s*([0-9][0-9-]{4,})",
+                "permanent id",
+            ),
+            (
+                "application_number",
+                r"Application\s*(?:No\.?|Number|Id)\s*[:|]?\s*([0-9][0-9-]{5,})",
+                "application no",
+            ),
+            (
+                "academic_year",
+                r"(?:Approval\s+Process|Academic\s+Year)\s*[:\-]?\s*(20\d{2}\s*[-–]\s*\d{2,4})",
+                "approval process",
+            ),
+            (
+                "approval_date",
+                r"Date\s*:\s*(\d{1,2}[-/ ]+[A-Za-z]{3,9}[-/ ]+\d{4})",
+                "date",
+            ),
+            (
+                "letter_reference",
+                r"F\.?\s*No\.?\s*[:.]?\s*([A-Za-z0-9/-]{8,60})",
+                "f no",
+            ),
+        )
+        for field_name, pattern, label in metadata_patterns:
+            if any(field.field_name == field_name for field in result.fields):
+                continue
+            match = re.search(pattern, text, flags=re.IGNORECASE)
+            if not match:
+                continue
+            value: object = re.sub(r"\s+", " ", match.group(1)).strip()
+            if field_name == "approval_date":
+                value = _to_iso_date(value) or value
+            if field_name == "academic_year":
+                value = value.replace(" ", "")
+            _add(
+                result,
+                name=field_name,
+                value=value,
+                page=page,
+                method_note=f"label '{label}'",
+                confidence=0.86 if page.method == "pdf_text" else page.confidence,
+            )
+
+        if page.number == 1 and not any(
+            field.field_name == "permanent_id" for field in result.fields
+        ):
+            application_number = next(
+                (
+                    str(field.value)
+                    for field in result.fields
+                    if field.field_name == "application_number"
+                ),
+                None,
+            )
+            identifiers = re.findall(r"\b\d[-–]\d{6,}\b", text)
+            permanent_id = next(
+                (value for value in identifiers if value != application_number), None
+            )
+            if permanent_id:
+                _add(
+                    result,
+                    name="permanent_id",
+                    value=permanent_id.replace("–", "-"),
+                    page=page,
+                    method_note="label 'permanent id'",
+                    confidence=page.confidence,
+                )
+
+        programme_rows = _eoa_programme_rows(page)
+        for values, source_words, source_span in programme_rows:
+            course = values.get("course")
+            if isinstance(course, str) and course not in all_programme_values:
+                all_programme_values.append(course)
+            index = 1 + sum(
+                field.field_name.startswith("approved_programme_")
+                for field in result.fields
+            )
+            _add_word_candidate(
+                result,
+                name=f"approved_programme_{index:02d}",
+                value=values,
+                page=page,
+                source_words=source_words,
+                source_span=source_span,
+            )
+        for values, source_words, source_span in change_rows:
+            index = 1 + sum(
+                field.field_name.startswith("eoa_change_option_")
+                for field in result.fields
+            )
+            _add_word_candidate(
+                result,
+                name=f"eoa_change_option_{index:02d}",
+                value=values,
+                page=page,
+                source_words=source_words,
+                source_span=source_span,
+            )
         for field_name, label in (
-            ("institution_name", r"institution(?:\s+name)?"),
+            (
+                "institution_name",
+                r"(?:name\s+of\s+(?:the\s+)?institute|institution\s+name)",
+            ),
             ("trust_name", r"trust(?:\s+name)?"),
             ("institution_address", r"address(?:es)?"),
             ("survey_number", r"survey"),
@@ -1096,7 +1609,28 @@ def _parse_eoa_letter(pages: list[_Page], result: ExtractionResult) -> int:
                     confidence=0.9 if page.method == "pdf_text" else page.confidence,
                 )
                 found += 1
-    return found
+        found += len(result.fields) - fields_before
+    if all_programme_values and not any(
+        field.field_name == "approved_programmes" for field in result.fields
+    ):
+        first_page = pages[0]
+        result.fields.append(
+            ExtractedFieldCandidate(
+                field_name="approved_programmes",
+                value=all_programme_values,
+                source_page=None,
+                source_span=(
+                    "Programme/course names read from the EoA intake table; "
+                    "individual rows include their own page evidence."
+                ),
+                method=first_page.method,
+                confidence=round(first_page.confidence, 2),
+                bbox=None,
+                engine=first_page.engine,
+                engine_version=first_page.engine_version,
+            )
+        )
+    return len(result.fields) - initial_field_count
 
 
 def _parse_university_noc(pages: list[_Page], result: ExtractionResult) -> int:

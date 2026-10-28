@@ -41,7 +41,8 @@ import {
 } from "../labels";
 
 const DOC_TYPES = [
-  ["lease_agreement", "Lease agreement (AI Copilot Grounded)"],
+  ["lease_agreement", "Lease agreement"],
+  ["eoa_letter", "AICTE Extension of Approval (EoA)"],
   ["lease_deed", "Lease document"],
   ["ownership_record", "Ownership record"],
   ["affidavit", "Affidavit (signed declaration)"],

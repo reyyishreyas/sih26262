@@ -1,6 +1,9 @@
 # docs/BUG_LOG.md
 
+| BUG-0086 | 2026-10-28 | S3 | scanned EoA option table | Aggregate change-options field was omitted because OCR split the next-table heading | Fixed | IMPL-0076 |
 | BUG-0082 | 2026-10-28 | S4 | migration trigger verification | First direct-SQL immutability check removed its fixture row before testing delete | Fixed | IMPL-0072 |
+| BUG-0084 | 2026-10-28 | S2 | scanned EoA OCR/upload | Scanned EoA reports used a lease-only path and the UI lacked an EoA choice | Fixed | IMPL-0075 |
+| BUG-0085 | 2026-10-28 | S4 | EoA parser runtime | A direct scan read raised `NameError` because aggregation state sat in the lease parser | Fixed | IMPL-0075 |
 | BUG-0083 | 2026-10-28 | S3 | OCR evidence retrieval | Normalised lease expiry evidence cited a parser label | Fixed | IMPL-0074 |
 | BUG-0080 | 2026-10-28 | S4 | lint | New Phase 9.4 API/model/migration import blocks were unsorted | Fixed | IMPL-0072 |
 | BUG-0081 | 2026-10-28 | S4 | test assertion | Fee verification validation test expected a generic error word | Fixed | IMPL-0072 |
@@ -26,6 +29,36 @@
 | BUG-0059 | 2026-10-28 | S3 | lint | Ruff rejected generated migration import order | Fixed | IMPL-0058 |
 | BUG-0062 | 2026-10-28 | S4 | test fixture | Reopening transition test expected generic transition authorization | Fixed | IMPL-0058 |
 | BUG-0061 | 2026-10-28 | S3 | authorization matrix | New reopening routes and Competent Authority role were absent from the matrix | Fixed | IMPL-0058 |
+
+### BUG-0085 — EoA parser runtime check referenced state from the wrong parser
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / area: S4 / OCR parser runtime.
+- Status: **Fixed**.
+- Expected: direct EoA extraction returns its parsed fields without raising.
+- Actual: an integration command raised `NameError` for the aggregate programme list.
+- Reproduction: invoke `RealOCRExtractor.extract(doc_type="eoa_letter", ...)` on the scanned repository report during initial parser implementation.
+- Environment: local Python 3.13, Tesseract 5.5.3.
+- Hypotheses tried: the OCR reader had returned all pages; inspection found the aggregation variables declared in `_parse_lease_deed` instead of `_parse_eoa_letter` after an overly broad patch anchor.
+- Root cause: declarations landed in the first parser's `found = 0` block rather than the EoA parser.
+- Solution applied: moved the state into `_parse_eoa_letter`; the parser is now exercised by the actual EoA upload regression.
+- Verification: repository EoA upload test passes; focused suite **46 passed, 1 upstream warning**; full `make test` → **858 passed, 2 upstream warnings, 0 skipped**.
+- Regression test: `test_scanned_eoa_pdf_in_repository_upload_populates_identity_and_course_fields`.
+- Related: IMPL-0075.
+
+### BUG-0084 — Scanned EoA report had no selectable document type and lease-only fallback
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / area: S2 / scanned EoA document extraction and upload.
+- Status: **Fixed**.
+- Expected: an EoA scan is selectable as `eoa_letter`, all pages are OCR'd, and recognized fields are available for human review.
+- Actual: the upload UI offered no EoA type and the legacy lease facade required a readable text layer; the EoA parser returned only a few generic values from the scanned report and omitted the table rows.
+- Reproduction: run `RealOCRExtractor` on `EOA Report_2019-20.pdf`; the file has three image-only pages and initially yielded only three fields. The legacy facade emitted the lease-specific text-layer warning for scans.
+- Environment: local Python 3.13, pypdfium2 and Tesseract 5.5.3.
+- Hypotheses tried: checked PDF metadata/text layer (zero pypdf text on each page), page rendering and OCR availability. OCR successfully read all three pages, proving extraction/parsing rather than PDF corruption was the issue.
+- Root cause: EoA layout/table schema was not supported by the parser, the upload type was absent from the frontend list, and the legacy facade did not invoke the shared local OCR reader.
+- Solution applied: added OCR word geometry and EoA identity/metadata/change-options/course-row extraction, added the EoA upload choice, switched dense-page OCR to Tesseract PSM 6, and made the legacy facade delegate locally. No external service is called.
+- Verification: end-to-end upload test against the repository scan confirms three-page OCR, required identity/metadata fields, at least nine per-course rows, page boxes, unverified statuses, and no lease text-layer warning. Focused suite **46 passed, 1 upstream warning**; full `make test` → **858 passed, 2 upstream warnings, 0 skipped**.
+- Regression test: `test_scanned_eoa_pdf_in_repository_upload_populates_identity_and_course_fields` and `test_legacy_lease_facade_ocr_falls_back_for_a_scanned_pdf`.
+- Related: IMPL-0075 / DEC-0032.
 
 ### BUG-0083 — Normalised lease expiry evidence cited a parser label
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
@@ -1559,6 +1592,21 @@
 - Update history: 2026-10-26 — verified on a Tesseract-equipped machine: 0 skipped, status stays `Workaround` (skip path still exists for other hosts). 2026-10-27 (Phase 5.2, IMPL-0039): a **third** `requires_ocr` test added (`test_field_provenance.py`); re-verified on this machine — Tesseract 5.5.3 present since **24 Oct** (symlink date, i.e. before this task, not installed by it), `make test` → **704 passed, 0 skipped**; CONTEXT's "Tesseract is not installed here, so the 2 OCR tests skip" note (added `604fd54` the same day) was wrong for this machine and contradicted this entry's own 2026-10-26 update — corrected in the 5.2 CONTEXT edit. Status stays `Workaround`.
 
 | BUG-0064 | 2026-10-28 | S4 | test harness and lint | Initial Phase 6.8 integration run exposed test fixture, auth matrix expectation and import-sort authoring defects | Fixed | IMPL-0059 |
+
+### BUG-0086 — EoA change-options aggregate was omitted on the actual scan
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / area: S3 / scanned EoA OCR parser.
+- Status: **Fixed**.
+- Expected: uploading the repository's scanned EoA report returns change-option evidence alongside identity and course fields.
+- Actual: the initial end-to-end assertion found no `change_options` aggregate although individual OCR'd option rows were present; a first text-boundary patch still failed because the next course heading was split/misread.
+- Reproduction: `cd backend && ../.venv/bin/pytest -q tests/test_document_extraction.py::test_scanned_eoa_pdf_in_repository_upload_populates_identity_and_course_fields`.
+- Environment: local Python 3.13, Tesseract 5.5.3, scanned three-page PDF.
+- Hypotheses tried: checked for text delimiter variants; OCR output showed the heading was damaged across line/column layout, so the expected boundary did not exist as a continuous text phrase.
+- Root cause: aggregate extraction depended on a text boundary absent from actual OCR output.
+- Solution applied: assemble aggregate from the geometry-detected option table rows; each row's source words supply page/bbox evidence.
+- Verification: focused EoA/lease regressions **3 passed, 1 upstream warning**; `make lint` clean; `make test` **858 passed, 2 upstream warnings, 0 skipped**; frontend build passed.
+- Regression test: `test_scanned_eoa_pdf_in_repository_upload_populates_identity_and_course_fields`.
+- Related: IMPL-0076 / IMPL-0075.
 
 ### BUG-0064 — Initial Phase 6.8 integration run had test authoring defects
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.

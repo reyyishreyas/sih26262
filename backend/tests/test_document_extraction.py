@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import shutil
 from io import BytesIO
+from pathlib import Path
 
 import pytest
 from pdf_factory import affidavit_pdf, lease_deed_pdf, text_pdf
@@ -198,6 +199,62 @@ def test_a_scanned_pdf_is_ocrd_page_by_page():
     assert values["valid_to"] == "2028-03-31"
     # The person is told the file was a scan, so they check extra carefully.
     assert any("read with OCR" in warning for warning in result.warnings)
+
+
+@requires_ocr
+def test_scanned_eoa_pdf_in_repository_upload_populates_identity_and_course_fields(
+    client, as_user
+):
+    eoa_path = Path(__file__).resolve().parents[2] / "EOA Report_2019-20.pdf"
+    response = client.post(
+        "/api/v1/applications/app-main-0001/documents",
+        headers=as_user("institution@demo.local"),
+        data={"doc_type": "eoa_letter"},
+        files={
+            "file": (eoa_path.name, eoa_path.read_bytes(), "application/pdf")
+        },
+    )
+    assert response.status_code == 201
+    body = response.json()
+    fields = {field["field_name"]: field for field in body["document"]["fields"]}
+    assert {
+        "institution_name",
+        "institution_address",
+        "trust_name",
+        "trust_address",
+        "institution_type",
+        "region",
+        "application_number",
+        "academic_year",
+        "approval_date",
+        "letter_reference",
+        "change_options",
+        "approved_programmes",
+    } <= fields.keys()
+    programme_fields = [
+        field
+        for name, field in fields.items()
+        if name.startswith("approved_programme_")
+    ]
+    assert len(programme_fields) >= 9
+    assert all(isinstance(field["value"], dict) for field in programme_fields)
+    assert all(field["source_page"] in {1, 2} and field["bbox"] for field in programme_fields)
+    assert all(field["verification_status"] == "unverified" for field in fields.values())
+    warnings = body["extraction"]["warnings"]
+    assert "Could not extract readable text layer" not in " ".join(warnings)
+    assert any("read with OCR" in warning for warning in warnings)
+
+
+@requires_ocr
+def test_legacy_lease_facade_ocr_falls_back_for_a_scanned_pdf():
+    from app.services.grounded_lease_extractor import GroundedLeaseExtractor
+
+    result = GroundedLeaseExtractor().extract(
+        content=_scan_pdf(LEASE_LINES), file_name="scanned-lease.pdf"
+    )
+    assert result.page_texts
+    assert any(field.field_name == "lessee_name" for field in result.fields)
+    assert "Could not extract readable text layer" not in " ".join(result.warnings)
 
 
 @requires_ocr

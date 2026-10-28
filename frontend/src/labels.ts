@@ -226,6 +226,7 @@ export function plainBlocked(item: string): string {
 const DOC_TYPE_LABELS: Record<string, string> = {
   lease_deed: "Lease document",
   lease_agreement: "Lease agreement",
+  eoa_letter: "AICTE Extension of Approval (EoA)",
   ownership_record: "Ownership record",
   affidavit: "Affidavit (signed declaration)",
   fire_safety_certificate: "Fire safety certificate",
