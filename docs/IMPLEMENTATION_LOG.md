@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0083 | 2026-10-28 | Verification | Phase 11.2 Scenario B rehearsed: unauthenticated/other-institution/off-role denials and authorised pass, exactly as the RBAC matrix | Tested | Phase 11.2 | MiMo (OpenCode agent) |
 | IMPL-0082 | 2026-10-28 | Verification | Phase 11.1 Scenario A rehearsed end to end on the Compose stack | Tested | Phase 11.1 | MiMo (OpenCode agent) |
 | IMPL-0081 | 2026-10-28 | Documentation | Phase 10.5: CONTEXT build order and README status table updated through Phase 10 | Tested | Phase 10.5 | MiMo (OpenCode agent) |
 | IMPL-0080 | 2026-10-28 | Verification | Phase 10.4: demo script rehearsed end to end on the Compose stack (twice, from fresh seeds) | Tested | Phase 10.4 | MiMo (OpenCode agent) |
@@ -184,6 +185,20 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0083 — Phase 11.2 Scenario B rehearsed (access control)
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
+- Task and PRD IDs: Phase 11.2 (plan line 136) — Scenario B on the Compose stack (fresh seed).
+- Observed (B1–B6, ad hoc curl with the script's accounts):
+  1. **Unauthenticated** `GET /applications` → 401 ("missing bearer token").
+  2. **Unrelated institution** reading `app-second-0002` → **404** "application not found in your scope" — existence not confirmed to an out-of-scope caller.
+  3. **Committee member** `evc@demo.local` reading `app-main-0001` → 200, and `GET /applications` returns exactly that one case — this is the *seeded committee's* own case, pinned by `test_rbac.py::test_committee_member_sees_only_committee_cases`; not a leak (my first hypothesis said "denied" and was corrected by consulting the committed test before logging anything).
+  4. **Role without CASE_READ** (`council@demo.local`, `sac@demo.local`) reading the same case → **403 forbidden** (they hold no general case read; matches Phase 6.6's `test_council_and_sac_roles_have_no_general_document_access`).
+  5. **Unauthorised action**: the EVC member's `schedule_evc` transition → HTTP 200 with `accepted: false`, reasons "missing permission 'case.transition'" — refusal audited.
+  6. **Authorised officer** reading the assigned case → 200 with live state; institution calling the admin sweep → 403 naming the missing permission.
+- Code/config changes: none; every result confirms the committed RBAC matrix rather than introducing behavior.
+- Related: IMPL-0082, IMPL-0080.
+- Next: Phase 11.3 — Scenario C (processing failure).
 
 ### IMPL-0082 — Phase 11.1 Scenario A rehearsed end to end (submission → correction)
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
