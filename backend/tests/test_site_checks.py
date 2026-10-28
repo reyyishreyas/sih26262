@@ -40,6 +40,34 @@ def test_site01_reports_configured_phrase_and_programme_discrepancies_as_review(
     assert site01["advisory_only"] is True
 
 
+def test_site01_reads_the_visual_comma_list_the_parser_stores():
+    """The real Format-2/3 parser keeps the printed comma list so its bbox
+    can be placed; the comparison must read that shape exactly like the
+    fixture's list shape (both are documented in `_programme_names`)."""
+    site01 = next(
+        item
+        for item in site_checks.evaluate(
+            _snapshot(
+                {
+                    "documents": {
+                        "format_3_resolution": {
+                            "resolution_text": "The resolution addresses relocation.",
+                            "programmes_covered": "AI, Civil",
+                        },
+                        "eoa_letter": {
+                            "approved_programmes": "AI, Civil, Mechanical"
+                        },
+                    }
+                }
+            )
+        )
+        if item["rule_id"] == "RULE-SITE-01"
+    )
+    assert site01["programme_comparison"] == "some_not_listed"
+    assert site01["missing_programmes"] == ["mechanical"]
+    assert site01["diagnostic"] == "potential_partial_coverage"
+
+
 def test_site01_missing_lists_or_text_remain_insufficient_evidence():
     site01 = next(
         item

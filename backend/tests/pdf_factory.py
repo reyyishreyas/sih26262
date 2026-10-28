@@ -110,3 +110,87 @@ def affidavit_pdf(
             [f"Sworn on {sworn_on}"],
         ]
     )
+
+
+def eoa_letter_pdf(
+    *,
+    institution: str = "Example Institute of Technology",
+    trust: str = "Demo Education Trust",
+    address: str = "10 Example Road, Sample City",
+    survey: str = "SYN-100",
+    pid: str = "SYNTHETIC-PID-001",
+    institution_type: str = "Technical Institution",
+    programmes: tuple[str, ...] = ("Computer Engineering", "Civil Engineering"),
+) -> bytes:
+    """Synthetic EoA-letter text layer for the Phase 5 demo walk.
+
+    Every value here is fictional test data. The Phase 5.10 fixture
+    contract (IMPL-0049) keeps the real public EoA letter out of this
+    repository; this builder only needs lines that carry the labelled
+    fields the placeholder cross-check paths read.
+    """
+    return text_pdf(
+        [
+            [
+                "EOA LETTER - EXTENSION OF APPROVAL",
+                f"Institution Name: {institution}",
+                f"Trust Name: {trust}",
+                f"Address: {address}",
+                f"Survey No: {survey}",
+                f"PID: {pid}",
+                f"Institution Type: {institution_type}",
+                "Approved Programmes: " + ", ".join(programmes),
+            ]
+        ]
+    )
+
+
+def format_2_noc_pdf(
+    *,
+    institution: str = "Example Institute of Technology",
+    trust: str = "Demo Education Trust",
+    old_address: str = "99 Changed Road, Sample City",
+    survey: str = "SYN-200",
+    pid: str = "SYNTHETIC-PID-001",
+    institution_type: str = "Technical Institution",
+    university: str = "North University",
+    region: str = "Samplestate",
+) -> bytes:
+    """Synthetic Format-2 NOC whose address and survey differ from the EoA
+    letter above — the mismatch the Phase 5 exit check must surface."""
+    return text_pdf(
+        [
+            [
+                "FORMAT 2 - NO OBJECTION CERTIFICATE FOR CHANGE OF SITE",
+                f"Institution Name: {institution}",
+                f"Trust Name: {trust}",
+                f"Old Address: {old_address}",
+                f"Survey No: {survey}",
+                f"PID: {pid}",
+                f"Institution Type: {institution_type}",
+                f"Affiliating University: {university}",
+                f"New Region: {region}",
+            ]
+        ]
+    )
+
+
+def format_3_resolution_pdf(
+    *,
+    resolution: str = (
+        "The move to the new site involves partial shifting of one programme "
+        "while it continues at 12 Legacy Lane."
+    ),
+    programmes: tuple[str, ...] = ("Computer Engineering",),
+) -> bytes:
+    """Synthetic Format-3 resolution naming only one programme and carrying
+    the PRD's "partial shifting" phrase (FR-44)."""
+    return text_pdf(
+        [
+            [
+                "FORMAT 3 - CHANGE OF SITE BY RESOLUTION",
+                f"Board Resolution: {resolution}",
+                "Covered Programmes: " + ", ".join(programmes),
+            ]
+        ]
+    )

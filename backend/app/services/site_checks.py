@@ -32,11 +32,23 @@ def _path_value(snapshot: Snapshot, path: str) -> object:
 
 
 def _programme_names(value: object) -> set[str] | None:
-    if not isinstance(value, list) or not value:
+    """Approved/covered programme names from a stored value.
+
+    Two shapes arrive at the paths (both documented in the site policy):
+    a list of names (the synthetic Phase 5.10 fixtures) and the visual
+    comma list the real Format-2/3 parser stores (so its bbox can be
+    placed on the printed line). Anything else — a blank list, anything
+    but names — is honestly unreadable, not an empty set.
+    """
+    if isinstance(value, str) and value.strip():
+        names = [name.strip() for name in value.split(",") if name.strip()]
+    elif isinstance(value, list) and value:
+        names = value
+    else:
         return None
-    if any(not isinstance(item, str) or not item.strip() for item in value):
+    if any(not isinstance(name, str) or not name.strip() for name in names):
         return None
-    return {_normalise_text(item) for item in value}
+    return {_normalise_text(name) for name in names}
 
 
 def _site01(snapshot: Snapshot, policy: dict[str, Any]) -> dict[str, Any]:

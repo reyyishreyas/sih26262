@@ -976,10 +976,139 @@ def _parse_fire_safety_certificate(
     return found
 
 
+def _parse_eoa_letter(pages: list[_Page], result: ExtractionResult) -> int:
+    """The EoA letter is the demo's master-record stand-in (PRD §8 step 1).
+
+    The field names are the labelled placeholder paths the advisory
+    crosschecks read (``rules/evidence_crosschecks.json``). No field is an
+    official APH mapping — the letter template is unverified (PRD §19 Q13)
+    and every value stays an extraction candidate.
+    """
+    found = 0
+    for page in pages:
+        text = _normalise_ocr(page.text)
+
+        for field_name, label in (
+            ("institution_name", r"institution(?:\s+name)?"),
+            ("trust_name", r"trust(?:\s+name)?"),
+            ("institution_address", r"address(?:es)?"),
+            ("survey_number", r"survey"),
+            ("pid", r"pid"),
+            ("institution_type", r"institution\s+type"),
+        ):
+            if any(f.field_name == field_name for f in result.fields):
+                continue
+            value = _text_after(label, text)
+            if not value:
+                continue
+            _add(
+                result,
+                name=field_name,
+                value=value,
+                page=page,
+                method_note=f"label '{field_name.replace('_', ' ')}'",
+                confidence=0.9 if page.method == "pdf_text" else page.confidence,
+            )
+            found += 1
+
+        if not any(f.field_name == "approved_programmes" for f in result.fields):
+            programmes = _text_after(r"approved\s+programmes", text)
+            if programmes:
+                # The value stays the visual line's comma list: the site
+                # check splits names off it (see _programme_names), and a
+                # plain string gives `_locate` a needle it can actually
+                # place — a box for the highlight, never an invented one.
+                _add(
+                    result,
+                    name="approved_programmes",
+                    value=programmes,
+                    page=page,
+                    method_note="label 'approved programmes'",
+                    confidence=0.9 if page.method == "pdf_text" else page.confidence,
+                )
+                found += 1
+    return found
+
+
+def _parse_university_noc(pages: list[_Page], result: ExtractionResult) -> int:
+    """Format-2 NOC fields (FR-42's compared side). Same placeholder caveat
+    as ``_parse_eoa_letter``: labels follow the synthetic fixture shape."""
+    found = 0
+    for page in pages:
+        text = _normalise_ocr(page.text)
+
+        for field_name, label in (
+            ("institution_name", r"institution(?:\s+name)?"),
+            ("trust_name", r"trust(?:\s+name)?"),
+            ("old_address", r"old\s+address(?:es)?"),
+            ("survey_number", r"survey"),
+            ("pid", r"pid"),
+            ("institution_type", r"institution\s+type"),
+            ("affiliating_university", r"affiliating\s+university"),
+            ("new_region", r"new\s+region"),
+        ):
+            if any(f.field_name == field_name for f in result.fields):
+                continue
+            value = _text_after(label, text)
+            if not value:
+                continue
+            _add(
+                result,
+                name=field_name,
+                value=value,
+                page=page,
+                method_note=f"label '{field_name.replace('_', ' ')}'",
+                confidence=0.9 if page.method == "pdf_text" else page.confidence,
+            )
+            found += 1
+    return found
+
+
+def _parse_format_3_resolution(pages: list[_Page], result: ExtractionResult) -> int:
+    """Format-3 resolution fields (FR-44's compared side).
+
+    ``resolution_text`` keeps the board's wording verbatim so the
+    partial-shifting phrase check can find its configured phrase inside it.
+    """
+    found = 0
+    for page in pages:
+        text = _normalise_ocr(page.text)
+
+        if not any(f.field_name == "resolution_text" for f in result.fields):
+            value = _text_after(r"board\s+resolution", text)
+            if value:
+                _add(
+                    result,
+                    name="resolution_text",
+                    value=value,
+                    page=page,
+                    method_note="label 'board resolution'",
+                    confidence=0.9 if page.method == "pdf_text" else page.confidence,
+                )
+                found += 1
+
+        if not any(f.field_name == "programmes_covered" for f in result.fields):
+            programmes = _text_after(r"covered\s+programmes", text)
+            if programmes:
+                _add(
+                    result,
+                    name="programmes_covered",
+                    value=programmes,
+                    page=page,
+                    method_note="label 'covered programmes'",
+                    confidence=0.9 if page.method == "pdf_text" else page.confidence,
+                )
+                found += 1
+    return found
+
+
 _PARSERS = {
     "lease_deed": _parse_lease_deed,
     "ownership_record": _parse_ownership_record,
     "affidavit": _parse_affidavit,
     "faculty_list": _parse_faculty_list,
     "fire_safety_certificate": _parse_fire_safety_certificate,
+    "eoa_letter": _parse_eoa_letter,
+    "university_noc": _parse_university_noc,
+    "format_3_resolution": _parse_format_3_resolution,
 }
