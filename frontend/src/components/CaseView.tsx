@@ -4,6 +4,7 @@ import type {
   AuditEvent,
   CaseDetail,
   ComplianceBatch,
+  ReasonCodesResponse,
   SessionUser,
   TransitionOption,
 } from "../types";
@@ -75,6 +76,9 @@ export function CaseView({
   const [auditNote, setAuditNote] = useState("");
   const [chainOk, setChainOk] = useState<boolean | null>(null);
   const [reason, setReason] = useState("");
+  const [reasonCodes, setReasonCodes] = useState<ReasonCodesResponse | null>(null);
+  const [returnCode, setReturnCode] = useState("");
+  const [revertCode, setRevertCode] = useState("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -99,6 +103,34 @@ export function CaseView({
   // holds application.submit but never case.transition — gating on the latter
   // is what previously showed them a wall of locked officer buttons.
   const isCollege = user.roles.includes("institution_representative");
+
+  // FR-28's vocabulary is configuration, loaded once per case view, best
+  // effort (like deficiencies): if it cannot load the officer still sees the
+  // requirement in the refusal, never a broken page.
+  useEffect(() => {
+    let cancelled = false;
+    api
+      .reasonCodes()
+      .then((codes) => {
+        if (!cancelled) setReasonCodes(codes);
+      })
+      .catch(() => null);
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  // Which actions must carry a code comes from the served config — never
+  // hardcoded policy; the backend validates against the same key.
+  const returnCodeActions = reasonCodes?.required_for_actions ?? [];
+  const returnCodeOptions = useMemo(
+    () => (reasonCodes?.codes ?? []).filter((code) => code.applies_to.includes("return")),
+    [reasonCodes],
+  );
+  const revertCodeOptions = useMemo(
+    () => (reasonCodes?.codes ?? []).filter((code) => code.applies_to.includes("revert")),
+    [reasonCodes],
+  );
 
   const load = useCallback(async () => {
     setError(null);
@@ -137,6 +169,8 @@ export function CaseView({
     setDetail(null);
     setBatch(null);
     setReason("");
+    setReturnCode("");
+    setRevertCode("");
     setMessage(null);
     setStep(defaultStep);
     void load();
@@ -168,17 +202,32 @@ export function CaseView({
       setError(`Please type a short reason before you press “${plainAction(option.action)}”.`);
       return;
     }
+    // FR-28: actions the config mandates a code on cannot move without one —
+    // the backend refuses otherwise; this just reads friendlier.
+    const codeRequired = returnCodeActions.includes(option.action);
+    if (codeRequired && returnCode.trim() === "") {
+      setError(
+        `Pick a reason code before you press “${plainAction(option.action)}” — the record saves what kind of reason this is.`,
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
-      const decision = await api.transition(applicationId, option.action, reason);
+      const decision = await api.transition(
+        applicationId,
+        option.action,
+        reason,
+        codeRequired ? returnCode : undefined,
+      );
       setMessage(
         decision.accepted
           ? `Done! The case is now “${plainState(decision.to_state)}”.`
           : `That was not allowed: ${decision.reasons.join("; ")}`,
       );
       setReason("");
+      setReturnCode("");
       await load();
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "That action failed");
@@ -192,11 +241,17 @@ export function CaseView({
       setError("Please type a short reason for the undo — it is saved in the records.");
       return;
     }
+    if (revertCode.trim() === "") {
+      setError(
+        "Pick a reason code for the undo — the record saves what kind of reason it is (PRD FR-28).",
+      );
+      return;
+    }
     setBusy(true);
     setError(null);
     setMessage(null);
     try {
-      const decision = await api.revert(applicationId, reason);
+      const decision = await api.revert(applicationId, reason, revertCode);
       setMessage(
         decision.accepted
           ? `Undone. The case is back at “${plainState(decision.to_state)}”.` +
@@ -204,6 +259,7 @@ export function CaseView({
           : `That was not allowed: ${decision.reasons.join("; ")}`,
       );
       setReason("");
+      setRevertCode("");
       await load();
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "The undo failed");
@@ -634,6 +690,34 @@ export function CaseView({
             />
           </label>
 
+          {/* FR-28: a return/revert also saves a structured reason code. The
+              action kinds that demand one come from the served config, and
+              the options are the codes valid for that kind. */}
+          {detail?.available_transitions.some(
+            (option) => option.available && returnCodeActions.includes(option.action),
+          ) && (
+            <label className="field">
+              <span>What kind of reason is this? (saved with the record — PRD FR-28)</span>
+              <select
+                value={returnCode}
+                onChange={(event) => setReturnCode(event.target.value)}
+              >
+                <option value="">Pick a reason code…</option>
+                {returnCodeOptions.map((code) => (
+                  <option key={code.id} value={code.id}>
+                    {code.id} — {code.label}
+                  </option>
+                ))}
+              </select>
+              {reasonCodes?.placeholder && (
+                <p className="muted tiny">
+                  The code list is a labelled placeholder until AICTE confirms the
+                  official vocabulary.
+                </p>
+              )}
+            </label>
+          )}
+
           <div className="decision-list">
             {available_transitions.length === 0 && (
               <p className="muted">There is nothing you can do with this case right now.</p>
@@ -698,10 +782,24 @@ export function CaseView({
               The undo is written into this case&apos;s History like any other step,
               so nothing disappears quietly.
             </p>
+            <label className="field">
+              <span>What kind of reason is the undo? (saved with the record — PRD FR-28)</span>
+              <select
+                value={revertCode}
+                onChange={(event) => setRevertCode(event.target.value)}
+              >
+                <option value="">Pick a reason code…</option>
+                {revertCodeOptions.map((code) => (
+                  <option key={code.id} value={code.id}>
+                    {code.id} — {code.label}
+                  </option>
+                ))}
+              </select>
+            </label>
             <button
               type="button"
               className="secondary"
-              disabled={busy || reason.trim() === ""}
+              disabled={busy || reason.trim() === "" || revertCode.trim() === ""}
               onClick={() => void undoLastStep()}
             >
               <Icon name="undo" size={16} /> Undo the last step

@@ -151,6 +151,26 @@ export interface TransitionOption {
   blocked_by: string[];
 }
 
+/** One FR-28 vocabulary entry from `rules/reason_codes.json`. Fields beyond
+ * these three (per-code source notes) are display-only and unused here. */
+export interface ReasonCode {
+  id: string;
+  label: string;
+  applies_to: string[];
+}
+
+/** GET /workflow/reason-codes — the clearly-labelled placeholder vocabulary
+ * and the actions the backend mandates a code on (`required_for_actions`),
+ * so the decision UI scopes the FR-28 rule from config rather than
+ * hardcoding the policy a second time. */
+export interface ReasonCodesResponse {
+  status: string;
+  placeholder: boolean;
+  source: string;
+  codes: ReasonCode[];
+  required_for_actions: string[];
+}
+
 export interface CaseDetail {
   application: ApplicationSummary;
   institution: { id: string; name: string; aicte_id: string } | null;

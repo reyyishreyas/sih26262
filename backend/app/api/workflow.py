@@ -81,6 +81,10 @@ def list_reason_codes(access: EffectiveAccess = Depends(get_access)) -> dict:
         "placeholder": config.get("placeholder", False),
         "source": config.get("source"),
         "codes": config.get("codes", []),
+        # Which action kinds MUST carry a code (the service validates against
+        # this same key). Served so a client can scope the FR-28 mandate from
+        # config instead of hardcoding the vocabulary policy a second time.
+        "required_for_actions": config.get("required_for_actions", []),
     }
 
 

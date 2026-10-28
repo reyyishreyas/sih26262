@@ -324,6 +324,21 @@ def test_the_vocabulary_endpoint_needs_a_token(client):
     assert client.get("/api/v1/workflow/reason-codes").status_code == 401
 
 
+def test_the_vocabulary_endpoint_serves_the_mandated_actions(client, as_user):
+    """The UI scopes the FR-28 mandate from config, never hardcoded policy.
+
+    `required_for_actions` is the same key the service validates against, so
+    a decision panel that filters on it stays in lockstep with the backend
+    (and with any future AICTE decision to mandate codes elsewhere).
+    """
+    body = client.get(
+        "/api/v1/workflow/reason-codes", headers=as_user("scrutiny@demo.local")
+    )
+    assert body.status_code == 200
+    payload = body.json()
+    assert payload["required_for_actions"] == list(_config()["required_for_actions"])
+
+
 def test_the_transition_api_carries_the_code(client, as_user):
     headers = as_user("scrutiny@demo.local")
     code = _code_for("return")

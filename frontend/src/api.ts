@@ -25,6 +25,7 @@ import type {
   OfficerDashboard,
   PolicyConfigBundle,
   PolicyConfigVersion,
+  ReasonCodesResponse,
   RehearsalReport,
   ReopeningRecord,
   RouteScoreboard,
@@ -444,7 +445,10 @@ export const api = {
       method: "POST",
       body: JSON.stringify({ overrides }),
     }),
-  transition: (id: string, action: string, reason: string) =>
+  /** FR-28's structured reason-code vocabulary, plus which actions the
+   * backend mandates a code on (`required_for_actions`). */
+  reasonCodes: () => request<ReasonCodesResponse>("/workflow/reason-codes"),
+  transition: (id: string, action: string, reason: string, reasonCode?: string) =>
     request<{
       accepted: boolean;
       from_state: string;
@@ -454,10 +458,10 @@ export const api = {
       transition_id?: string;
     }>(`/applications/${id}/transitions`, {
       method: "POST",
-      body: JSON.stringify({ action, reason }),
+      body: JSON.stringify({ action, reason, reason_code: reasonCode ?? null }),
     }),
   /** Undo the last step on a case. The undo is itself a recorded step. */
-  revert: (id: string, reason: string) =>
+  revert: (id: string, reason: string, reasonCode?: string) =>
     request<{
       accepted: boolean;
       action: string;
@@ -467,7 +471,7 @@ export const api = {
       notes: string[];
     }>(`/applications/${id}/revert`, {
       method: "POST",
-      body: JSON.stringify({ reason }),
+      body: JSON.stringify({ reason, reason_code: reasonCode ?? null }),
     }),
   audit: (id: string) =>
     request<{ application_id: string; note: string; events: AuditEvent[] }>(
