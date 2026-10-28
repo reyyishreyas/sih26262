@@ -1,5 +1,6 @@
 # docs/BUG_LOG.md
 
+| BUG-0075 | 2026-10-28 | S4 | lint | Parser registry dict body was lost while inserting new EoA/NOC/Format-3 parsers | Fixed | IMPL-0067 |
 | BUG-0074 | 2026-10-28 | S3 | authorization matrix | New reports export route was missing from the exhaustive permission matrix | Fixed | IMPL-0064 |
 | BUG-0073 | 2026-10-28 | S4 | lint | New monitoring-role scope test helper captured a loop variable | Fixed | IMPL-0065 |
 | BUG-0072 | 2026-10-28 | S4 | PDF export verification | PDF heading assertion expected sentence case while renderer emits title case | Fixed | IMPL-0064 |
@@ -60,6 +61,21 @@
 - Verification: targeted Ruff check passed; then `make lint` passed before focused pytest.
 - Regression test: lint.
 - Related: IMPL-0064.
+
+### BUG-0075 — Parser registry dict body was lost while inserting new parsers
+- Date found / found by / branch / commit: 2026-10-28 / MiMo / master / da23713 (parent).
+- Severity / Area: S4 / accidental code edit during Phase 5 exit check (not an intentional TDD red baseline).
+- Status: **Fixed**.
+- Expected: `_PARSERS` in `app/adapters/ocr/real.py` keeps all existing parsers plus the new `eoa_letter` / `university_noc` / `format_3_resolution` entries.
+- Actual: `pytest tests/test_phase5_exit_check.py` died at collection: `SyntaxError: '{' was never closed` at `_PARSERS = {` (line 1105) — the dict body was dropped when the new parser functions were inserted above it.
+- Reproduction: `cd backend && ../.venv/bin/python -m pytest tests/test_phase5_exit_check.py -q` (at the time of the edit); `../.venv/bin/python -c "import app.adapters.ocr.real"`.
+- Environment: Python 3.13, ruff, pytest, SQLite, my working checkout.
+- Hypotheses tried: import cycle (no), SyntaxError pointed at the registry itself; the replacement text of the edit ended with `_PARSERS = {` without re-including the dict body.
+- Root cause: edit tooling mistake — the newString ended with an unclosed dict literal, and the old dict body had already been consumed by the earlier, correct rename edit (field `covered_programmes` → `programmes_covered`).
+- Solution applied: restored the complete `_PARSERS` dict body (five existing parsers plus the three new ones) as one replacement.
+- Verification: `../.venv/bin/python -c "import app.adapters.ocr.real"` succeeds; `ruff check app tests migrations scripts` clean; full suite **836 passed** (2026-10-28).
+- Regression test: the whole module imports in every suite run; `test_phase5_exit_check.py` exercises the three new parsers directly.
+- Related: IMPL-0067.
 
 ### BUG-0074 — Reports export route was missing from the exhaustive permission matrix
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.

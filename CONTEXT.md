@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 829 passing (2026-10-28 verification)
+make test      # pytest — 836 passing (2026-10-28 verification)
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -651,11 +651,16 @@ tamper-evidence).
   config-honesty of queued states).
 - Gates to run before you push: **`make lint && make test && make build`**.
   CI (`.github/workflows/ci.yml`) runs the same. Keep all three green — the
-  repo is currently green at `72c7ed6` (**753 passed**, one upstream
-  Starlette deprecation warning, zero skips) after the human's merge of
-  Phase 6.1 (`425e211`), Phase 8 (`bb847a4`/`1862b23`) and Phase 5.4
-  (code in `bb847a4`, logs in the docs commit recording this line — see
-  IMPL-0043 and DEC-0005; Phase 5 continues at 5.5).
+  repo is currently green at `da23713` (**836 passed**, two upstream
+  Starlette deprecation warnings, zero skips) after Phase 5 exit check
+  (`da23713`, IMPL-0067), the programmed Phase 6 wave and Phase 7
+  (Codex, IMPL-0060–0065), and the cross-review of the Phase 5+6 body
+  (IMPL-0066, no violations found). Phase 5 line 90 stays Partial: the
+  public EoA letter as master record is not copied into the repo until a
+  human supplies it (IMPL-0049/DEC-0013). Next per plan: Phase 6 exit
+  check (line 103), Phase 7 exit check (line 110), Phase 8 exit check
+  (line 116).
+- **28 Oct 2026 — Phase 5 exit check (FR-38–FR-48):** the change-of-site demo walk now runs through the real upload pipeline: labelled extraction parsers for the EoA letter, Format-2 NOC and Format-3 resolution (fictional values; provenance page/engine/bbox on every auto-filled field), a reason-gated claim edit that never touches the Extraction Value, E02 address/survey mismatch and SITE-01 partial-shifting advisory findings carrying the DEFICIENCY CANDIDATE label (advisory flags confirmed non-actionable), a real bbox for the evidence highlight, and confirm-one/dismiss-one on the operational findings (refusals audited). `make test` **836 passed**, ruff clean (IMPL-0067; BUG-0075).
 - **27 Oct 2026 — Phase 5.5 (FR-42):** E01–E03 advisory cross-checks compare configured latest-document Extraction Values only. Their field paths are labelled placeholders; the rules remain Unverified and every formal result is `REVIEW REQUIRED`. Claim Value edits do not affect the diagnostic. Verification: `make lint` clean, `make test` **758 passed**, frontend build clean (IMPL-0044 / DEC-0008); Phase 5 continues at 5.6.
 - **27 Oct 2026 — Phase 5.6 (FR-43/FR-44):** SITE-01 phrase/programme-list and SITE-02 jurisdiction diagnostics added with labelled placeholders and a synthetic-only jurisdiction fixture; neither can conclude compliance or jurisdiction. All formal outcomes remain `REVIEW REQUIRED`. `make lint` clean, `make test` **764 passed**, frontend build clean (IMPL-0045 / DEC-0009); Phase 5 continues at 5.7.
 - **27 Oct 2026 — Phase 5.7 (FR-46):** compliance response now includes an advisory aggregate label. Unverified/missing checks require review; a discrepancy may be marked candidate but never creates a deficiency or changes workflow. A pass requires every mapping Verified. `blocking`, `creates_deficiency`, and `automatic_workflow_action` are always false. `make lint` clean, `make test` **769 passed**, frontend build clean (IMPL-0046 / DEC-0010); Phase 5 continues at 5.8.
