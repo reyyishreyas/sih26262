@@ -26,7 +26,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from app.models import Application, AuditEvent, Undertaking
+from app.models import Application, AuditEvent, Document, Undertaking
 from app.services import security_deposit as sd
 from app.services.policy import RULES_DIR, security_deposit_policy
 
@@ -155,20 +155,37 @@ def test_an_approved_case_reports_the_proof_deadline(db):
     application = _approve(db, EXISTING)
     assert application.current_state == "approved"
     snapshot = sd.sd_snapshot(db, application, NOW)
-    assert snapshot["status"] == "open"
-    # The 15-day window runs from the decision day (2026-10-22 → 2026-11-06).
-    assert snapshot["proof_deadline"] == "2026-11-06"
+    assert snapshot["status"] == "awaiting_intimation"
+    assert snapshot["proof_deadline"] is None
+    assert snapshot["intimation_date"] is None
+    assert snapshot["penalty"] is None
     assert snapshot["proof_window_days"] == 15
     assert snapshot["placeholder"] is True
     assert snapshot["advisory_only"] is True
 
 
+def _record_notice_for_test(db, application):
+    notice_document = db.scalars(
+        select(Document).where(Document.application_id == application.id)
+    ).first()
+    assert notice_document is not None
+    undertaking, created = sd.ensure_proof_undertaking(
+        db,
+        application,
+        intimation_date=date(2026, 10, 22),
+        intimation_document_id=notice_document.id,
+    )
+    assert created is True
+    db.commit()
+    return undertaking
+
+
 def test_the_snapshot_reports_the_penalty_band_for_today(db):
-    """Today (2026-10-22) is past 31 July → the withdrawal marker is set."""
+    """No penalty marker appears until a linked notice starts the clock."""
     application = _approve(db, EXISTING)
     snapshot = sd.sd_snapshot(db, application, NOW)
-    assert snapshot["withdrawal_flagged"] is True
-    assert snapshot["penalty"]["penalty_percent"] is None
+    assert snapshot["withdrawal_flagged"] is False
+    assert snapshot["penalty"] is None
 
 
 def test_the_snapshot_is_advisory_and_writes_nothing(db):
@@ -186,17 +203,17 @@ def test_the_snapshot_is_advisory_and_writes_nothing(db):
 
 
 def test_the_snapshot_reflects_the_undertaking_status(db):
-    """When the SD proof undertaking exists, its status rides the snapshot."""
+    """The deposit undertaking's status rides the snapshot after a notice."""
     application = _approve(db, EXISTING)
-    db.add(
-        Undertaking(
-            application_id=EXISTING,
-            obligation_key=sd.OBLIGATION_KEY,
-            title="Security Deposit proof + Affidavit 3",
-            due_at=datetime(2026, 11, 6, 23, 59, 59, tzinfo=UTC),
-            status="submitted",
+    _record_notice_for_test(db, application)
+    db.expire_all()
+    undertaking = db.scalars(
+        select(Undertaking).where(
+            Undertaking.application_id == EXISTING,
+            Undertaking.obligation_key == sd.OBLIGATION_KEY,
         )
-    )
+    ).one()
+    undertaking.status = "submitted"
     db.commit()
     snapshot = sd.sd_snapshot(db, application, NOW)
     assert snapshot["undertaking_status"] == "submitted"
@@ -238,7 +255,8 @@ def test_the_security_deposit_endpoint_respects_application_scope(client, as_use
 
 
 def test_the_endpoint_reports_an_open_window_for_an_approved_case(client, as_user, db):
-    _approve(db, EXISTING)
+    application = _approve(db, EXISTING)
+    _record_notice_for_test(db, application)
     body = client.get(
         f"/api/v1/applications/{EXISTING}/security-deposit",
         headers=as_user(SCRUTINY_EMAIL),
@@ -247,4 +265,6 @@ def test_the_endpoint_reports_an_open_window_for_an_approved_case(client, as_use
     payload = body.json()
     assert payload["status"] == "open"
     assert payload["proof_deadline"] == "2026-11-06"
+    assert payload["intimation_date"] == "2026-10-22"
+    assert payload["source_document_id"]
     assert payload["withdrawal_flagged"] is True

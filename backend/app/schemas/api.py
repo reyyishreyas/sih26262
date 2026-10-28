@@ -130,6 +130,7 @@ class RehearsalRequest(BaseModel):
 
 class UndertakingSubmitRequest(BaseModel):
     evidence_note: str = ""
+    evidence_document_ids: list[str] = Field(default_factory=list, max_length=20)
 
 
 class AssignmentCreate(BaseModel):

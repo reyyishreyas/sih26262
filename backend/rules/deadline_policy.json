@@ -1,5 +1,5 @@
 {
-  "note": "Illustrative deadline policy. Offsets are days relative to the obligation due date; an alert is eligible once now >= due_at + offset_days. Negative offsets are advance warnings. EVC visit reminders (Phase 6.2, FR-20) use the plan's 7/2/1-day cadence; these lead times are Unverified operational placeholders, not AICTE deadlines. The 'appeal' ladder (Phase 3.5, FR-27) drives the day-3 / day-6 reminders as offsets from the window close date and is Unverified placeholder configuration until AICTE confirms the appeal cadence (see appeal_policy.json). The 'compliance' ladder (Phase 4.4, FR-15) drives the PRD s11 deficiency-issued cadence '7d, 2d, due date' (line 281) as offsets from the compliance window close date; the window LENGTH is a labelled placeholder (compliance_policy.json, PRD s19 Q1 open).",
+  "note": "Illustrative deadline policy. Offsets are days relative to the obligation due date; an alert is eligible once now >= due_at + offset_days. Negative offsets are advance warnings. EVC visit reminders (Phase 6.2, FR-20) use the plan's 7/2/1-day cadence; these lead times are Unverified operational placeholders, not AICTE deadlines. The 'appeal' ladder (Phase 3.5, FR-27) drives the day-3 / day-6 reminders as offsets from the window close date and is Unverified placeholder configuration until AICTE confirms the appeal cadence (see appeal_policy.json). The 'compliance' ladder (Phase 4.4, FR-15) drives the PRD s11 deficiency-issued cadence '7d, 2d, due date' (line 281) as offsets from the compliance window close date; the window LENGTH is a labelled placeholder (compliance_policy.json, PRD s19 Q1 open). The 'security_deposit' ladder (Phase 9.2, FR-33) is the PRD §11 day-1/10/14 cadence for the deposit-proof undertaking and applies only after an officer records a linked notice; its window remains placeholder/advisory.",
   "undertaking": [
     { "level": "reminder_30", "offset_days": -30, "severity": "info" },
     { "level": "reminder_7", "offset_days": -7, "severity": "warning" },
@@ -32,5 +32,10 @@
     { "level": "compliance_7d", "offset_days": -7, "severity": "info" },
     { "level": "compliance_2d", "offset_days": -2, "severity": "warning" },
     { "level": "compliance_due", "offset_days": 0, "severity": "critical" }
+  ],
+  "security_deposit": [
+    { "level": "sd_day_1", "offset_days": -14, "severity": "info", "note": "PRD §11 line 289 — day 1 of the configured 15-day window from the linked notice date; placeholder and advisory." },
+    { "level": "sd_day_10", "offset_days": -5, "severity": "warning", "note": "PRD §11 line 289 — day 10 of the configured window; placeholder and advisory." },
+    { "level": "sd_day_14", "offset_days": -1, "severity": "critical", "note": "PRD §11 line 289 — day 14 of the configured window; placeholder and advisory." }
   ]
 }

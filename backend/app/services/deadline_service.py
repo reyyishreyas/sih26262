@@ -19,6 +19,7 @@ from ..core.clock import get_clock, iso, to_utc
 from ..core.config import get_settings
 from ..models import Alert, Application, Document, EvcVisit, ExtractedField, Undertaking
 from . import alert_service, policy
+from .security_deposit import OBLIGATION_KEY
 
 TERMINAL_STATES = ("approved", "rejected", "draft")
 
@@ -74,11 +75,20 @@ def collect_items(db: Session, now: datetime) -> list[DeadlineItem]:
         due_at = to_utc(undertaking.due_at)
         if due_at is None:
             continue
+        # The deposit proof obligation has its own PRD-sourced cadence
+        # (§11 line 289: day 1, 10, 14) instead of the generic ladder, so
+        # the same idempotent sweep can carry both timings without a
+        # second clock. The ladder values stay in deadline_policy.json.
+        alert_type = (
+            "security_deposit_due"
+            if undertaking.obligation_key == OBLIGATION_KEY
+            else "undertaking_due"
+        )
         items.append(
             DeadlineItem(
                 entity_type="undertaking",
                 entity_id=undertaking.id,
-                alert_type="undertaking_due",
+                alert_type=alert_type,
                 due_at=due_at,
                 cycle_key=due_at.date().isoformat(),
                 application_id=undertaking.application_id,
@@ -225,6 +235,7 @@ def eligible_thresholds(alert_type: str, due_at: datetime, now: datetime):
         "evc_visit": "evc_visit",
         "appeal_window": "appeal",
         "compliance_window": "compliance",
+        "security_deposit_due": "security_deposit",
     }[alert_type]
     for threshold in policy.thresholds(kind):
         if now >= due_at + timedelta(days=threshold.offset_days):

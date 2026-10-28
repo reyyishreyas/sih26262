@@ -716,6 +716,7 @@ export function CaseView({
           canSubmit={canSubmitUndertaking}
           canVerify={canVerify}
           canImpose={canScheduleVisit}
+          isApproved={detail?.application.current_state === "approved"}
           onChanged={() => void load()}
         />
       )}

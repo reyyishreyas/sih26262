@@ -15,7 +15,7 @@ from ..core.permissions import (
     UNDERTAKING_READ,
     UNDERTAKING_SUBMIT,
 )
-from ..models import Undertaking
+from ..models import Document, Undertaking
 from ..schemas.api import UndertakingSubmitRequest
 from ..services.audit_service import AuditService
 from ..services.authorization_service import (
@@ -36,8 +36,10 @@ class UndertakingCreateRequest(BaseModel):
     title: str = Field(min_length=3, max_length=255)
     condition_text: str = ""
     evidence_required: str = ""
-    due_at: date
+    due_at: date | None = None
     obligation_key: str = ""
+    source_received_on: date | None = None
+    source_document_id: str | None = None
 
 
 class UndertakingWaiveRequest(BaseModel):
@@ -60,6 +62,11 @@ def _serialise(item: Undertaking) -> dict:
         "submitted_at": iso(item.submitted_at),
         "verified_at": iso(item.verified_at),
         "reminder_policy": item.reminder_policy,
+        "source_received_on": (
+            item.source_received_on.isoformat() if item.source_received_on else None
+        ),
+        "source_document_id": item.source_document_id,
+        "evidence_document_ids": item.evidence_document_ids or [],
     }
 
 
@@ -94,12 +101,6 @@ def create_undertaking(
     application = require_application(db, access, application_id)
     require_permission(access, CASE_TRANSITION)
 
-    if payload.due_at <= get_clock().now().date():
-        raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_CONTENT,
-            "the due date must be in the future when the condition is created",
-        )
-
     obligation_key = payload.obligation_key.strip() or _key_from_title(payload.title)
     existing = db.scalars(
         select(Undertaking).where(
@@ -113,19 +114,70 @@ def create_undertaking(
             f"this case already has a condition with the key {obligation_key!r}",
         )
 
-    item = Undertaking(
-        application_id=application.id,
-        obligation_key=obligation_key,
-        title=payload.title.strip(),
-        condition_text=payload.condition_text.strip(),
-        evidence_required=payload.evidence_required.strip(),
-        # Deadlines are end-of-day in the business timezone, like every other
-        # deadline in the system (see deadline_service).
-        due_at=datetime.combine(payload.due_at, time(23, 59, 59), tzinfo=UTC),
-        status="pending",
-        reminder_policy={"profile": "undertaking_default"},
-    )
-    db.add(item)
+    if obligation_key == "security_deposit_proof":
+        if payload.source_received_on is None or not payload.source_document_id:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "record the notice date and link the uploaded notice document",
+            )
+        if application.current_state != "approved":
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "a Security Deposit notice can only be recorded for an approved case",
+            )
+        if payload.source_received_on > get_clock().now().date():
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "the recorded notice date cannot be in the future",
+            )
+        source_document = db.get(Document, payload.source_document_id)
+        if (
+            source_document is None
+            or source_document.application_id != application.id
+            or source_document.status == "rejected"
+        ):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "the notice document must be an available document on this case",
+            )
+        from ..services import security_deposit
+
+        try:
+            item, _created = security_deposit.ensure_proof_undertaking(
+                db,
+                application,
+                intimation_date=payload.source_received_on,
+                intimation_document_id=source_document.id,
+            )
+        except ValueError as exc:
+            raise HTTPException(status.HTTP_422_UNPROCESSABLE_CONTENT, str(exc)) from exc
+        item.condition_text = payload.condition_text.strip() or item.condition_text
+        item.evidence_required = payload.evidence_required.strip() or item.evidence_required
+        item.title = payload.title.strip() or item.title
+    else:
+        if payload.source_received_on is not None or payload.source_document_id is not None:
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "notice source fields are only valid for the Security Deposit obligation",
+            )
+        if payload.due_at is None or payload.due_at <= get_clock().now().date():
+            raise HTTPException(
+                status.HTTP_422_UNPROCESSABLE_CONTENT,
+                "the due date must be in the future when the condition is created",
+            )
+        item = Undertaking(
+            application_id=application.id,
+            obligation_key=obligation_key,
+            title=payload.title.strip(),
+            condition_text=payload.condition_text.strip(),
+            evidence_required=payload.evidence_required.strip(),
+            # Deadlines are end-of-day in the business timezone, like every other
+            # deadline in the system (see deadline_service).
+            due_at=datetime.combine(payload.due_at, time(23, 59, 59), tzinfo=UTC),
+            status="pending",
+            reminder_policy={"profile": "undertaking_default"},
+        )
+        db.add(item)
     # The id default runs at insert time; flush so the audit event can name
     # the row it is about.
     db.flush()
@@ -137,13 +189,19 @@ def create_undertaking(
         outcome="accepted",
         actor_id=access.user_id,
         actor_role=access.primary_role,
-        reason=payload.condition_text.strip(),
+        reason=item.condition_text,
         after={
             "title": item.title,
             "obligation_key": item.obligation_key,
             "due_at": iso(item.due_at),
             "status": "pending",
             "application_id": application.id,
+            "source_received_on": (
+                item.source_received_on.isoformat() if item.source_received_on else None
+            ),
+            "source_document_id": item.source_document_id,
+            "placeholder": bool(item.reminder_policy.get("placeholder", False)),
+            "advisory_only": bool(item.reminder_policy.get("advisory_only", True)),
         },
     )
     db.commit()
@@ -221,6 +279,26 @@ def submit_undertaking(
         raise HTTPException(status.HTTP_409_CONFLICT, f"undertaking is {item.status}")
 
     before = {"status": item.status}
+    evidence_ids = sorted(set(payload.evidence_document_ids))
+    if item.obligation_key == "security_deposit_proof" and not evidence_ids:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_CONTENT,
+            "link the uploaded deposit proof and Affidavit 3 documents before submission",
+        )
+    if evidence_ids:
+        linked_documents = db.scalars(
+            select(Document).where(
+                Document.application_id == application.id,
+                Document.id.in_(evidence_ids),
+                Document.status != "rejected",
+            )
+        ).all()
+        if {document.id for document in linked_documents} != set(evidence_ids):
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "evidence documents must be available on this case",
+            )
+    item.evidence_document_ids = evidence_ids
     item.status = "submitted"
     item.submitted_at = get_clock().now()
     application.baseline_version += 1
@@ -233,7 +311,7 @@ def submit_undertaking(
         actor_role=access.primary_role,
         reason=payload.evidence_note,
         before=before,
-        after={"status": "submitted"},
+        after={"status": "submitted", "evidence_document_ids": evidence_ids},
     )
     db.commit()
     return _serialise(item)

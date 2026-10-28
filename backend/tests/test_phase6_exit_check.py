@@ -288,8 +288,9 @@ def test_phase6_single_case_journey_through_grant_and_advisory_deposit(
         headers=institution_headers,
     )
     assert deposit.status_code == 200, deposit.text
-    assert deposit.json()["status"] == "open"
+    assert deposit.json()["status"] == "awaiting_intimation"
     assert deposit.json()["advisory_only"] is True
     assert deposit.json()["placeholder"] is True
-    assert deposit.json()["withdrawal_flagged"] is True
+    assert deposit.json()["proof_deadline"] is None
+    assert deposit.json()["withdrawal_flagged"] is False
     assert db.get(Application, application_id).current_state == "approved"

@@ -2,16 +2,19 @@
 
 from __future__ import annotations
 
+from datetime import date as calendar_date
 from datetime import datetime
 
 from sqlalchemy import (
     JSON,
     Boolean,
+    Date,
     DateTime,
     ForeignKey,
     Integer,
     String,
     UniqueConstraint,
+    text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -29,6 +32,15 @@ class Undertaking(Base):
     title: Mapped[str] = mapped_column(String(255))
     condition_text: Mapped[str] = mapped_column(String(2048), default="")
     evidence_required: Mapped[str] = mapped_column(String(255), default="")
+    # Security Deposit proof clocks begin from an officer-recorded notice,
+    # never from approval time. Other undertaking kinds leave these NULL.
+    source_received_on: Mapped[calendar_date | None] = mapped_column(Date, nullable=True)
+    source_document_id: Mapped[str | None] = mapped_column(
+        ForeignKey("documents.id", ondelete="RESTRICT"), nullable=True
+    )
+    evidence_document_ids: Mapped[list[str]] = mapped_column(
+        JSON, default=list, server_default=text("'[]'")
+    )
     due_at: Mapped[datetime] = mapped_column(DateTime(timezone=True))
     status: Mapped[str] = mapped_column(String(32), default="pending", index=True)
     submitted_at: Mapped[datetime | None] = mapped_column(

@@ -37,13 +37,14 @@ not relative to an entry instant.
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import UTC, date, datetime, time, timedelta
 from typing import Any
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from ..core.clock import to_utc
+from ..core.config import get_settings
 from ..models import Application, Undertaking
 from .policy import security_deposit_policy
 
@@ -119,23 +120,11 @@ def penalty_for_date(on: date) -> PenaltyBand:
     return PenaltyBand(band_id=None, penalty_percent=None, withdrawal_flagged=flagged)
 
 
-def proof_deadline(application: Application) -> date | None:
-    """The configured proof-window deadline for a case, or None.
-
-    The 15-day window runs from the grant/list date (the instant the case was
-    approved). Until a first-class grant event exists to anchor it, the
-    decision state's start (``current_state_since``) is the honest proxy, the
-    same way the appeal clock (Phase 3.5) anchors on it. None means the case
-    is not approved yet — there is no deposit to prove.
-    """
-    if application.current_state != "approved":
+def proof_deadline(intimation_date: date | None) -> date | None:
+    """Configured placeholder deadline from the date on a recorded notice."""
+    if intimation_date is None:
         return None
-    decision_at = to_utc(application.current_state_since)
-    if decision_at is None:
-        return None
-    from datetime import timedelta
-
-    return (decision_at.date() + timedelta(days=proof_window_days()))
+    return intimation_date + timedelta(days=proof_window_days())
 
 
 def _deposit_undertaking(db: Session, application_id: str) -> Undertaking | None:
@@ -145,6 +134,60 @@ def _deposit_undertaking(db: Session, application_id: str) -> Undertaking | None
             Undertaking.obligation_key == OBLIGATION_KEY,
         )
     ).first()
+
+
+def ensure_proof_undertaking(
+    db: Session,
+    application: Application,
+    *,
+    intimation_date: date,
+    intimation_document_id: str,
+) -> tuple[Undertaking, bool]:
+    """Create the proof undertaking from a notice an officer explicitly records.
+
+    This is never called from an approval transition. The supplied date and
+    linked document preserve the separate intimation event that the Phase 6
+    exit check requires. Timing stays placeholder/advisory configuration.
+    """
+    obligation = config().get("obligation", {})
+    existing = _deposit_undertaking(db, application.id)
+    if existing is not None:
+        return existing, False
+
+    if application.current_state != "approved":
+        raise ValueError("a Security Deposit notice can only be recorded for an approved case")
+    deadline = proof_deadline(intimation_date)
+    if deadline is None:
+        raise ValueError("a notice date is required to calculate the advisory window")
+
+    window = proof_window_days()
+    business_tz = ZoneInfo(get_settings().business_timezone)
+    item = Undertaking(
+        application_id=application.id,
+        obligation_key=OBLIGATION_KEY,
+        title=str(obligation.get("label", "Security Deposit proof")),
+        condition_text=(
+            f"Submit {obligation.get('label', 'Security Deposit proof')} and the "
+            f"Affidavit 3 within the configured {window}-day window measured "
+            "from the date recorded on the linked AICTE notice. An officer "
+            "must review the source; dates and reminders remain advisory "
+            "placeholder configuration."
+        ),
+        evidence_required=str(obligation.get("evidence_required", "")),
+        source_received_on=intimation_date,
+        source_document_id=intimation_document_id,
+        due_at=datetime.combine(deadline, time(23, 59, 59), tzinfo=business_tz).astimezone(UTC),
+        status="pending",
+        reminder_policy={
+            "profile": "security_deposit",
+            "placeholder": bool(config().get("placeholder", True)),
+            "advisory_only": bool(config().get("advisory_only", True)),
+        },
+    )
+    db.add(item)
+    db.flush()
+    return item, True
+
 
 
 def sd_snapshot(db: Session, application: Application, now: datetime) -> dict[str, Any]:
@@ -158,8 +201,7 @@ def sd_snapshot(db: Session, application: Application, now: datetime) -> dict[st
     ``status: "not_applicable"`` rather than inventing a window.
     """
     config_data = config()
-    proof_deadline_date = proof_deadline(application)
-    if proof_deadline_date is None:
+    if application.current_state != "approved":
         return {
             "application_id": application.id,
             "status": "not_applicable",
@@ -173,15 +215,38 @@ def sd_snapshot(db: Session, application: Application, now: datetime) -> dict[st
             "withdrawal_flagged": False,
         }
 
+    undertaking = _deposit_undertaking(db, application.id)
+    proof_deadline_date = proof_deadline(
+        undertaking.source_received_on if undertaking else None
+    )
+    if undertaking is None or proof_deadline_date is None:
+        return {
+            "application_id": application.id,
+            "status": "awaiting_intimation",
+            "decision_state": application.current_state,
+            "proof_window_days": proof_window_days(),
+            "proof_deadline": None,
+            "intimation_date": None,
+            "source_document_id": None,
+            "undertaking_status": None,
+            "placeholder": config_data.get("placeholder", False),
+            "advisory_only": config_data.get("advisory_only", True),
+            "source": config_data.get("source"),
+            "obligation": config_data.get("obligation"),
+            "penalty": None,
+            "withdrawal_flagged": False,
+        }
+
     today = now.date()
     band = penalty_for_date(today)
-    undertaking = _deposit_undertaking(db, application.id)
     return {
         "application_id": application.id,
         "status": "open",
         "decision_state": application.current_state,
         "proof_window_days": proof_window_days(),
         "proof_deadline": proof_deadline_date.isoformat(),
+        "intimation_date": undertaking.source_received_on.isoformat(),
+        "source_document_id": undertaking.source_document_id,
         "undertaking_status": undertaking.status if undertaking else None,
         "placeholder": config_data.get("placeholder", False),
         "advisory_only": config_data.get("advisory_only", True),

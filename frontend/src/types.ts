@@ -800,6 +800,9 @@ export interface Undertaking {
   submitted_at: string | null;
   verified_at: string | null;
   reminder_policy: Record<string, unknown>;
+  source_received_on?: string | null;
+  source_document_id?: string | null;
+  evidence_document_ids?: string[];
 }
 
 export interface EvcVisit {

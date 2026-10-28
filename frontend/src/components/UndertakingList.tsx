@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState } from "react";
 import type { FormEvent } from "react";
 import { api, ApiError } from "../api";
-import type { Undertaking } from "../types";
+import type { DocumentRow, Undertaking } from "../types";
 import { Icon } from "./Icon";
 import {
   daysUntil,
@@ -40,6 +40,7 @@ export function UndertakingList({
   canSubmit,
   canVerify,
   canImpose,
+  isApproved,
   onChanged,
 }: {
   applicationId: string;
@@ -47,9 +48,12 @@ export function UndertakingList({
   canVerify: boolean;
   /** Officers with case.transition may add a condition or let one go. */
   canImpose: boolean;
+  isApproved: boolean;
   onChanged: () => void;
 }) {
   const [items, setItems] = useState<Undertaking[]>([]);
+  const [documents, setDocuments] = useState<DocumentRow[]>([]);
+  const [selectedEvidence, setSelectedEvidence] = useState<Record<string, string[]>>({});
   const [notes, setNotes] = useState<Record<string, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -61,11 +65,15 @@ export function UndertakingList({
   const [newCondition, setNewCondition] = useState("");
   const [newEvidence, setNewEvidence] = useState("");
   const [newDue, setNewDue] = useState("");
+  const [newObligation, setNewObligation] = useState("standard");
+  const [noticeDate, setNoticeDate] = useState("");
+  const [noticeDocumentId, setNoticeDocumentId] = useState("");
   const [waiveReasons, setWaiveReasons] = useState<Record<string, string>>({});
 
   const load = useCallback(async () => {
     try {
       setItems(await api.undertakings(applicationId));
+      setDocuments(await api.documents(applicationId));
     } catch (cause) {
       setError(cause instanceof ApiError ? cause.message : "Could not load the tasks");
     }
@@ -84,7 +92,12 @@ export function UndertakingList({
     setMessage(null);
     try {
       if (action === "submit") {
-        await api.submitUndertaking(applicationId, item.id, notes[item.id] ?? "");
+        await api.submitUndertaking(
+          applicationId,
+          item.id,
+          notes[item.id] ?? "",
+          selectedEvidence[item.id] ?? [],
+        );
       } else {
         await api.verifyUndertaking(applicationId, item.id);
       }
@@ -104,7 +117,8 @@ export function UndertakingList({
 
   async function addCondition(event: FormEvent) {
     event.preventDefault();
-    if (newTitle.trim() === "" || newDue === "") {
+    const deposit = newObligation === "security_deposit_proof";
+    if (newTitle.trim() === "" || (!deposit && newDue === "")) {
       setError("Please give the promise a short title and a due date.");
       return;
     }
@@ -116,13 +130,22 @@ export function UndertakingList({
         title: newTitle.trim(),
         condition_text: newCondition.trim(),
         evidence_required: newEvidence.trim(),
-        due_at: newDue,
+        ...(deposit
+          ? {
+              obligation_key: "security_deposit_proof",
+              source_received_on: noticeDate,
+              source_document_id: noticeDocumentId,
+            }
+          : { due_at: newDue }),
       });
       setMessage(`“${newTitle.trim()}” is now a promise on this case.`);
       setNewTitle("");
       setNewCondition("");
       setNewEvidence("");
       setNewDue("");
+      setNoticeDate("");
+      setNoticeDocumentId("");
+      setNewObligation("standard");
       setAdding(false);
       await load();
       onChanged();
@@ -213,6 +236,20 @@ export function UndertakingList({
             />
           </label>
           <label className="field">
+            <span>Task type</span>
+            <select value={newObligation} onChange={(event) => setNewObligation(event.target.value)}>
+              <option value="standard">Follow-up promise</option>
+              {isApproved && <option value="security_deposit_proof">Security Deposit proof and Affidavit 3</option>}
+            </select>
+          </label>
+          {newObligation === "security_deposit_proof" ? (
+            <>
+              <p className="muted">Record the date shown on the AICTE notice and link its uploaded document. The configured proof window and reminders are placeholders and advisory.</p>
+              <label className="field"><span>Notice date</span><input type="date" value={noticeDate} onChange={(event) => setNoticeDate(event.target.value)} /></label>
+              <label className="field"><span>Uploaded AICTE notice</span><select value={noticeDocumentId} onChange={(event) => setNoticeDocumentId(event.target.value)}><option value="">Choose a document</option>{documents.filter((document) => document.status !== "rejected").map((document) => <option key={document.id} value={document.id}>{document.file_name}</option>)}</select></label>
+            </>
+          ) : (
+          <label className="field">
             <span>By when?</span>
             <input
               type="date"
@@ -220,6 +257,7 @@ export function UndertakingList({
               onChange={(event) => setNewDue(event.target.value)}
             />
           </label>
+          )}
           <div className="task-actions">
             <button type="submit" disabled={busy}>
               <Icon name="checkCircle" size={16} /> Add it
@@ -258,6 +296,9 @@ export function UndertakingList({
 
             {canSubmit && ["pending", "submitted"].includes(item.status) && (
               <div className="task-actions">
+                {item.obligation_key === "security_deposit_proof" && (
+                  <label className="field"><span>Proof and Affidavit 3 documents</span><select multiple value={selectedEvidence[item.id] ?? item.evidence_document_ids ?? []} onChange={(event) => setSelectedEvidence((current) => ({ ...current, [item.id]: Array.from(event.target.selectedOptions, (option) => option.value) }))}>{documents.filter((document) => document.status !== "rejected").map((document) => <option key={document.id} value={document.id}>{document.file_name}</option>)}</select></label>
+                )}
                 <input
                   value={notes[item.id] ?? ""}
                   onChange={(event) =>

@@ -13,6 +13,11 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| DEC-0029 | 2026-10-28 | Decision | Deposit proof clock requires officer-recorded linked notice; configured timing remains advisory | Accepted | Phase 9.2; FR-33; Phase 6 deposit seam | Codex |
+| IMPL-0070 | 2026-10-28 | Implementation | Phase 9.2 Security Deposit undertaking with linked notice/evidence and reminder flow | Tested | Phase 9.2; FR-33 | Codex |
+| BUG-0077 | 2026-10-28 | Bug | Default local Alembic database was behind current head during revision generation | Workaround | IMPL-0070 |
+| BUG-0078 | 2026-10-28 | Bug | Ruff rejected Phase 9.2 import blocks | Fixed | IMPL-0070 |
+| BUG-0079 | 2026-10-28 | Bug | Deadline test expected UTC instead of configured business timezone | Fixed | IMPL-0070 |
 | IMPL-0069 | 2026-10-28 | Implementation | Phase 9.1 lease thin slice: composed expiry-alert coverage (FR-45) | Tested | Phase 9.1; FR-45 | MiMo |
 | IMPL-0068 | 2026-10-28 | Implementation | Phase 8 exit check met for implemented flows; appeal audit coverage confirmed | Tested | Phase 8.1 + Phase 8 exit check; FR-50 (audit) | MiMo |
 | IMPL-0067 | 2026-10-28 | Implementation | Phase 5 exit check: demo walk wired end to end | Tested | Phase 5 exit check (plan line 92); FR-38–FR-48 | MiMo |
@@ -157,6 +162,30 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0029 — Deposit proof clock requires a separately recorded linked notice
+- Date / owner: 2026-10-28 / Codex.
+- Task / PRD IDs: Phase 9.2; FR-33; Phase 6 deposit-intimation seam.
+- Decision: Approval alone never creates or dates the Security Deposit proof undertaking. An authorized officer must record the notice date and link an available same-case notice document. The 15-day window and day 1/10/14 reminders remain placeholder/advisory configuration until officially verified.
+- Why: The repo's Phase 6 exit check records that approval/EoA publication is not proof of the separate deposit intimation event. Deriving the date from approval would fabricate a clock anchor.
+- Permission and audit effects: Uses existing `case.transition` officer permission; creates an audited undertaking with notice source/date; submission links same-case evidence document IDs and is audited; verification remains the existing human officer action.
+- Related: IMPL-0070; BUG-0077–BUG-0079.
+
+### IMPL-0070 — Phase 9.2 Security Deposit undertaking thin slice (FR-33)
+- Date / author / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: Phase 9.2; FR-33.
+- What existed before: Security Deposit policy and deadline ladder existed, but approval automatically created an undertaking from approval time, evidence existed only in free-text notes, and the model had no linked notice/evidence IDs.
+- What changed: Removed approval-triggered provisioning. Added officer-recorded notice date/document, persisted source and evidence links, same-case availability checks, evidence-linked submission and existing officer verification. Deposit reminder ladder runs only against an explicitly created undertaking. Advisory snapshot waits for notice and reports the linked source. UI lets officers select a notice document/date and institutions link uploaded proof/Affidavit 3 documents.
+- Files changed: `backend/app/api/undertakings.py`, `backend/app/models/compliance.py`, `backend/app/schemas/api.py`, `backend/app/services/deadline_service.py`, `backend/app/services/security_deposit.py`, `backend/rules/deadline_policy.json`, `backend/migrations/versions/cc1bb511be0d_add_undertaking_notice_and_evidence_.py`, `backend/tests/test_phase6_exit_check.py`, `backend/tests/test_phase9_deposit_undertaking.py`, `backend/tests/test_security_deposit.py`, `frontend/src/api.ts`, `frontend/src/components/CaseView.tsx`, `frontend/src/components/UndertakingList.tsx`, `frontend/src/types.ts`.
+- Migration / API / config: Alembic adds nullable notice date, restrictive FK to source document, and JSON evidence ID list with empty-array default. Create undertaking accepts `obligation_key`, notice date and source document for this obligation; submit accepts up to 20 evidence document IDs. Deadline and reminder values remain labelled placeholder/advisory.
+- Decisions: DEC-0029.
+- Permission and audit effects: Existing permissions retained; officer creation, institution submission, and officer verification remain distinct. Notice source/date and evidence document IDs are serialized and included in audit records. No AI/OCR decision or automatic withdrawal is added.
+- Verification: `make lint` passed; `make test` **843 passed, 2 upstream warnings**; `frontend && npm run build` passed; temporary SQLite `alembic upgrade head` passed; `alembic check` reported no upgrade operations. Focused test had one timezone expectation failure before correction; full suite includes the corrected test. `make smoke` not run.
+- Status per requirement: notice record, linked evidence upload, human verification, reminder sweep/dedupe — Tested. Full Phase 9 remains incomplete.
+- Limitations / assumptions / manual steps: the date is officer-entered from the linked notice and not OCR-derived; official applicability/exemptions, deadline and penalties remain unresolved and advisory. Existing six untracked user files under `md/` were not changed.
+- Related bugs: BUG-0076 (initial focused command filename typo), BUG-0077–BUG-0079.
+- Open questions: none for this slice; official policy verification remains outstanding.
+- Next: Phase 9.3 fee table/engine; do not activate fees or blocks without verified values and human approval.
 
 ### IMPL-0069 — Phase 9.1 lease thin slice: composed expiry-alert coverage (FR-45)
 - Date / agent / branch / commit: 2026-10-28 / MiMo / master / pending (test + docs commit).

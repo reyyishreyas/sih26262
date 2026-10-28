@@ -1,5 +1,10 @@
 # docs/BUG_LOG.md
 
+| BUG-0077 | 2026-10-28 | S3 | migration generation | Default local Alembic database was behind current head | Workaround | IMPL-0070 |
+| BUG-0078 | 2026-10-28 | S4 | lint | New Phase 9.2 imports were unsorted and had unused imports | Fixed | IMPL-0070 |
+| BUG-0079 | 2026-10-28 | S4 | deadline test | Deadline assertion assumed UTC instead of configured business timezone | Fixed | IMPL-0070 |
+
+| BUG-0076 | 2026-10-28 | S4 | verification command | Focused undertaking command named a nonexistent test file | Fixed | IMPL-0070 |
 | BUG-0075 | 2026-10-28 | S4 | lint | Parser registry dict body was lost while inserting new EoA/NOC/Format-3 parsers | Fixed | IMPL-0067 |
 | BUG-0074 | 2026-10-28 | S3 | authorization matrix | New reports export route was missing from the exhaustive permission matrix | Fixed | IMPL-0064 |
 | BUG-0073 | 2026-10-28 | S4 | lint | New monitoring-role scope test helper captured a loop variable | Fixed | IMPL-0065 |
@@ -16,6 +21,66 @@
 | BUG-0059 | 2026-10-28 | S3 | lint | Ruff rejected generated migration import order | Fixed | IMPL-0058 |
 | BUG-0062 | 2026-10-28 | S4 | test fixture | Reopening transition test expected generic transition authorization | Fixed | IMPL-0058 |
 | BUG-0061 | 2026-10-28 | S3 | authorization matrix | New reopening routes and Competent Authority role were absent from the matrix | Fixed | IMPL-0058 |
+
+### BUG-0077 — Local Alembic database was behind current head
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S3 / migration generation environment.
+- Status: **Workaround**.
+- Expected: autogenerate the undertaking migration against a database at current head.
+- Actual: Alembic refused revision generation because its configured development database was behind head.
+- Reproduction: `cd backend && ../.venv/bin/alembic revision --autogenerate -m 'add undertaking notice and evidence links'`.
+- Environment: local development database, current migration chain ends at `e3a8c2b1d740`.
+- Hypotheses tried: no code/schema failure was indicated; Alembic explicitly reported stale target state.
+- Root cause: local development DB had not applied the latest migration.
+- Solution applied: upgraded a fresh temporary SQLite DB to head, generated the revision there, then upgraded and checked that DB.
+- Verification: temporary SQLite upgrade to head succeeded; final `alembic check` reported no new upgrade operations.
+- Regression test: migration upgrade and schema check.
+- Related: IMPL-0070.
+
+### BUG-0078 — Ruff rejected Phase 9.2 import blocks
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S4 / lint.
+- Status: **Fixed**.
+- Expected: touched backend files pass Ruff.
+- Actual: Ruff found import ordering issues and unused imports in the model, service, generated migration and test.
+- Reproduction: `cd backend && ../.venv/bin/ruff check app tests migrations scripts`.
+- Environment: repository Ruff configuration.
+- Hypotheses tried: none; Ruff identified the exact blocks.
+- Root cause: newly added imports were not sorted; two imports were unused.
+- Solution applied: ran Ruff fix on the four touched files.
+- Verification: subsequent `make lint` passed.
+- Regression test: lint.
+- Related: IMPL-0070.
+
+### BUG-0079 — Deposit deadline test expected the wrong timezone
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S4 / deadline assertion.
+- Status: **Fixed**.
+- Expected: test compares the persisted deadline to the configured end-of-day instant.
+- Actual: it expected 23:59:59 UTC, while the service stores 23:59:59 Asia/Kolkata (18:29:59 UTC).
+- Reproduction: focused Phase 9.2 pytest run failed `test_officer_records_notice_and_window_uses_its_date`.
+- Environment: fixed-clock backend tests, configured business timezone Asia/Kolkata.
+- Hypotheses tried: date arithmetic was correct; inspecting `security_deposit.ensure_proof_undertaking` showed conversion from business timezone to UTC.
+- Root cause: test expectation treated the configured local end-of-day as UTC.
+- Solution applied: compute expected UTC instant from `ZoneInfo("Asia/Kolkata")`.
+- Verification: full suite is being rerun; focused test will also be rerun.
+- Regression test: notice date → proof deadline assertion.
+- Related: IMPL-0070.
+
+### BUG-0076 — Focused undertaking command named a nonexistent test path
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S4 / verification command.
+- Status: **Fixed**.
+- Expected: run the targeted deposit, security-deposit and undertaking tests.
+- Actual: the first command stopped before test collection because `tests/test_undertaking_and_gate.py` does not exist.
+- Reproduction: `cd backend && ../.venv/bin/pytest -q tests/test_phase9_deposit_undertaking.py tests/test_security_deposit.py tests/test_undertaking_and_gate.py`.
+- Environment: repo backend tests on Python 3.13.
+- Hypotheses tried: none; `rg --files backend/tests` showed the actual file is `test_undertakings_and_gate.py`.
+- Root cause: test filename typo in the command.
+- Solution applied: rerun with the existing `test_undertakings_and_gate.py` path.
+- Verification: corrected focused run **36 passed, 1 upstream warning**.
+- Regression test: existing deposit/undertaking tests.
+- Related: IMPL-0070.
 
 ### BUG-0073 — Ruff rejected a closure in the monitoring-role scope test
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.

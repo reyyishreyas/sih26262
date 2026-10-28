@@ -377,12 +377,17 @@ export const api = {
     ),
   undertakings: (id: string) =>
     request<Undertaking[]>(`/applications/${id}/undertakings`),
-  submitUndertaking: (id: string, undertakingId: string, evidenceNote: string) =>
+  submitUndertaking: (
+    id: string,
+    undertakingId: string,
+    evidenceNote: string,
+    evidenceDocumentIds: string[] = [],
+  ) =>
     request<Undertaking>(
       `/applications/${id}/undertakings/${undertakingId}/submit`,
       {
         method: "POST",
-        body: JSON.stringify({ evidence_note: evidenceNote }),
+        body: JSON.stringify({ evidence_note: evidenceNote, evidence_document_ids: evidenceDocumentIds }),
       },
     ),
   verifyUndertaking: (id: string, undertakingId: string) =>
@@ -397,7 +402,10 @@ export const api = {
       title: string;
       condition_text?: string;
       evidence_required?: string;
-      due_at: string;
+      due_at?: string;
+      obligation_key?: string;
+      source_received_on?: string;
+      source_document_id?: string;
     },
   ) =>
     request<Undertaking>(`/applications/${id}/undertakings`, {
