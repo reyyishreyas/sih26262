@@ -13,6 +13,9 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0065 Update | 2026-10-28 | Update | Phase 7.4 scope checks pushed | Pushed `94f9fee` to `origin/master` | Phase 7.4; PRD §12 | Codex |
+| IMPL-0064 Update | 2026-10-28 | Update | Phase 7.3 PDF/CSV exports pushed | Pushed `6b8bbff` to `origin/master` | Phase 7.3; PRD §12 | Codex |
+| IMPL-0063 Push Update | 2026-10-28 | Update | Phase 7.2 dashboard metrics pushed | Pushed `3734485` to `origin/master` | Phase 7.2; PRD §12 | Codex |
 | DEC-0024 | 2026-10-28 | Decision | Regulatory verification is independent of approval lifecycle; unverified rules remain advisory | Accepted | Safety correction for workflow/compliance gates; Essentials 11 | Codex |
 | IMPL-0060 | 2026-10-28 | Implementation | Unverified rule findings no longer gate workflow/disposition; status exposed in API/UI | Tested | Phase 6 safety prerequisite; FR-46/47, FR-18/20 | Codex |
 | BUG-0065 | 2026-10-28 | Bug | Clause-pending rules could block transitions and disposition gates | Fixed | IMPL-0060 / DEC-0024 |
@@ -150,6 +153,18 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0065 Update — Phase 7.4 pushed
+- Date: 2026-10-28. **Amends:** IMPL-0065 above.
+- Commit `94f9fee` pushed to `origin/master`; post-commit status contained only the six pre-existing untracked user files under `md/` (brochure, screenshot and four images). No tracked changes remain.
+
+### IMPL-0064 Update — Phase 7.3 pushed
+- Date: 2026-10-28. **Amends:** IMPL-0064 above.
+- Commit `6b8bbff` pushed to `origin/master`; Phase 7.3 export route, services, UI, tests and documentation are included.
+
+### IMPL-0063 Push Update — Phase 7.2 pushed
+- Date: 2026-10-28. **Amends:** IMPL-0063 above.
+- Commit `3734485` pushed to `origin/master`; Phase 7.2 metric implementation, tests and documentation are included.
 
 ### DEC-0028 — Report scope and dashboard reconciliation acceptance
 - Date / owner: 2026-10-28 / Codex.
