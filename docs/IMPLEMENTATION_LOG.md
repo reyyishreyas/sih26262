@@ -27,6 +27,8 @@
 | DEC-0026 | 2026-10-28 | Decision | Phase 7.2 metrics use scoped live records and an eight-week throughput view | Accepted | Phase 7.2; PRD §12 | Codex |
 | IMPL-0063 | 2026-10-28 | Implementation | Ageing, throughput, deadline, EVC and compliance dashboard metrics | Tested | Phase 7.2; PRD §12 | Codex |
 | IMPL-0063 Update | 2026-10-28 | Update | Phase 7.2 EVC mode and reason-code metrics detail | Implemented | Phase 7.2; PRD §12 | Codex |
+| DEC-0027 | 2026-10-28 | Decision | Export all seven PRD report families in scoped PDF/CSV | Accepted | Phase 7.3; PRD §12 | Codex |
+| IMPL-0064 | 2026-10-28 | Implementation | Phase 7.3 scope-aware PDF and CSV report exports | Tested | Phase 7.3; PRD §12 | Codex |
 | DEC-0023 | 2026-10-28 | Decision | Chapter II grant list, Council ratification and EoA publication scoped to verified APH clauses | Accepted for prototype workflow; role delegation remains an app ACL | Phase 6 6.8; FR-31/32 | Project lead scope + Codex source check |
 | IMPL-0059 | 2026-10-28 | Implementation | Phase 6.8: consolidated approved-intake grant list, Council ratification and institution EoA publication | Tested | Phase 6 6.8 (FR-31/32) | Codex |
 | IMPL-0059 Update | 2026-10-28 | Update | Phase 6.8 commit and push recorded | Pushed `ce4fa6a` to `origin/master`; tree clean except six pre-existing untracked user documents/images listed in status | Phase 6 6.8 | Codex |
@@ -146,6 +148,27 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0027 — PDF and CSV export contract for PRD §12 reports
+- Date / owner: 2026-10-28 / Codex.
+- Status: Accepted as internal presentation behavior, not an AICTE policy interpretation.
+- Decision: Export seven named report families—pendency, EVC status, deficiency/compliance, appeal/hearing, Security Deposit status, overdue/escalation and region performance grouped by recorded application cycle. Both formats use the caller's effective monitoring scope. CSV is UTF-8 with BOM and JSON-valued record cells; PDF is searchable, text-based and labels placeholder/advisory values.
+- Rationale: Reuse live scoped records with no dependencies, no AI-generated content and no inference of official deadlines or academic-year mappings.
+- Related: IMPL-0064.
+
+### IMPL-0064 — Phase 7.3 report exports
+- Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: AGENT-09, Phase 7.3, PRD §12.
+- What existed: seven scope-filtered JSON sections and a Reports page, with no PDF or spreadsheet download.
+- What changed: Added `GET /reports/export?format=pdf|csv` under `MONITORING_READ`; the bundle contains seven PRD report families derived from scoped application records. PDF rendering uses a dependency-free searchable text PDF; CSV uses UTF-8 BOM and preserves each report record as JSON for lossless nested fields. The UI provides authenticated download buttons.
+- Report detail: compliance summaries exclude officer drafts and mark the window placeholder advisory; deposit rows are only for approved cases and retain placeholder/advisory labels; appeal exports include recorded workflow status and hearing timing, but omit appeal grounds, representative identity documents and meeting URLs; region performance groups by the case's recorded cycle and does not infer an academic-year label.
+- Files changed: `backend/app/api/reports.py`, `backend/app/services/reporting_service.py`, new `backend/app/services/report_export_service.py`, `backend/tests/test_report_exports.py`, `backend/tests/test_authz_matrix.py`, `frontend/src/api.ts`, `frontend/src/components/ReportsView.tsx`, `docs/BUG_LOG.md`, this log.
+- API/schema/config: one read-only export route; no migration, schema or dependency changes.
+- Permission and audit effects: export is guarded by existing `MONITORING_READ` and effective scoped application queries; no state change or new decision authority.
+- Verification: `make lint` → Ruff clean; `make test` → **833 passed, 2 upstream Starlette deprecation warnings in 116.30s**; focused report/export/scope tests → **4 passed, 1 upstream warning**; frontend `npm run build` → TypeScript and Vite passed. PDF parsed with pypdf in its regression test; no migration changed.
+- Limitations: the CSV stores structured record details in a `data_json` column; PDF's built-in Helvetica output replaces non-ASCII characters; Security Deposit and compliance durations remain clearly marked placeholders/advisory; actual Appeal/SHC and document evidence contents are not exported.
+- Related: DEC-0027 / BUG-0071 / BUG-0072 / BUG-0074.
+- Next: Phase 7.4 scope and dashboard-report reconciliation checks.
 
 ### IMPL-0063 Update — Record final Phase 7.2 metric coverage
 - Date: 2026-10-28. **Amends:** IMPL-0063 above.

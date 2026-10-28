@@ -1,5 +1,8 @@
 # docs/BUG_LOG.md
 
+| BUG-0074 | 2026-10-28 | S3 | authorization matrix | New reports export route was missing from the exhaustive permission matrix | Fixed | IMPL-0064 |
+| BUG-0072 | 2026-10-28 | S4 | PDF export verification | PDF heading assertion expected sentence case while renderer emits title case | Fixed | IMPL-0064 |
+| BUG-0071 | 2026-10-28 | S4 | lint | New report endpoint and export-test imports failed Ruff ordering | Fixed | IMPL-0064 |
 | BUG-0065 | 2026-10-28 | S1 | regulatory gate safety | Unverified rule versions blocked transitions and required officer dispositions | Fixed | IMPL-0060 / DEC-0024 |
 | BUG-0066 | 2026-10-28 | S3 | migration compatibility | Historical trigger referenced the new column before its migration | Fixed | IMPL-0060 |
 | BUG-0067 | 2026-10-28 | S4 | verification command | Focused pytest command used two nonexistent test filenames | Fixed | IMPL-0060 |
@@ -11,6 +14,51 @@
 | BUG-0059 | 2026-10-28 | S3 | lint | Ruff rejected generated migration import order | Fixed | IMPL-0058 |
 | BUG-0062 | 2026-10-28 | S4 | test fixture | Reopening transition test expected generic transition authorization | Fixed | IMPL-0058 |
 | BUG-0061 | 2026-10-28 | S3 | authorization matrix | New reopening routes and Competent Authority role were absent from the matrix | Fixed | IMPL-0058 |
+
+### BUG-0072 — PDF export test expected a different section-heading case
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S4 / export verification.
+- Status: **Fixed**.
+- Expected: PDF text extraction confirms the region-by-cycle section is present.
+- Actual: assertion searched lowercase text while renderer title-cases section labels.
+- Reproduction: `pytest tests/test_report_exports.py::test_pdf_export_is_readable_and_describes_advisory_values`.
+- Environment: Python 3.13, pypdf, built-in report PDF renderer.
+- Hypotheses tried: section omitted or PDF text not extractable; extraction showed the expected title-cased heading.
+- Root cause: assertion was case-sensitive and did not match presentation formatting.
+- Solution applied: align the regression assertion with the rendered title-cased heading.
+- Verification: focused report export suite rerun after correction.
+- Regression test: `test_pdf_export_is_readable_and_describes_advisory_values`.
+- Related: IMPL-0064.
+
+### BUG-0071 — Ruff rejected report export import ordering
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S4 / lint.
+- Status: **Fixed**.
+- Expected: new report API/test files pass the repository Ruff configuration.
+- Actual: first `make lint` reported I001 for imports in `backend/app/api/reports.py` and `backend/tests/test_report_exports.py`; pytest did not run in that command.
+- Reproduction: `make lint` immediately after adding report exports.
+- Environment: repository Ruff settings.
+- Hypotheses tried: grouping from adjacent relative imports and test imports was inconsistent.
+- Root cause: added imports were not sorted by configured Ruff isort rules.
+- Solution applied: Ruff `--fix` on the two touched files.
+- Verification: targeted Ruff check passed; then `make lint` passed before focused pytest.
+- Regression test: lint.
+- Related: IMPL-0064.
+
+### BUG-0074 — Reports export route was missing from the exhaustive permission matrix
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / Area: S3 / authorization regression coverage.
+- Status: **Fixed**.
+- Expected: every permission-gated API route appears in `test_authz_matrix.py` with its required permission.
+- Actual: full pytest failed `test_matrix_lists_every_permission_gated_route`; it reported `GET /api/v1/reports/export` missing.
+- Reproduction: `cd backend && ../.venv/bin/pytest -x -q` after adding the export route.
+- Environment: Python 3.13, SQLite, FastAPI tests.
+- Hypotheses tried: export route has the same monitoring guard as sibling report endpoints; the matrix is an explicit separate contract.
+- Root cause: new route was not added to the exhaustive endpoint/permission matrix.
+- Solution applied: add the export endpoint with `MONITORING_READ` to the matrix.
+- Verification: full suite will be rerun with the matrix update.
+- Regression test: `test_matrix_lists_every_permission_gated_route`.
+- Related: IMPL-0064.
 
 ### BUG-0062 — Reopening bypass test assumed Competent Authority had generic transition access
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.

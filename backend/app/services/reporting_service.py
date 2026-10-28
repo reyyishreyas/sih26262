@@ -25,7 +25,9 @@ from sqlalchemy.orm import Session
 from ..core.clock import get_clock, iso, to_utc
 from ..models import (
     Alert,
+    Appeal,
     Application,
+    Deficiency,
     Document,
     EvcVisit,
     ExtractedField,
@@ -34,6 +36,7 @@ from ..models import (
     Undertaking,
     User,
 )
+from . import compliance, security_deposit
 from .authorization_service import EffectiveAccess, scope_filter
 from .policy import stage_sla_days
 
@@ -564,4 +567,134 @@ def full_report(db: Session, access: EffectiveAccess) -> dict[str, Any]:
         "documents": document_report(db, access),
         "overdue": overdue_report(db, access),
         "workload": officer_workload(db, access),
+    }
+
+
+def phase7_report_bundle(db: Session, access: EffectiveAccess) -> dict[str, Any]:
+    """Build the seven named PRD §12 reports from scoped, recorded data."""
+    now = get_clock().now()
+    applications = db.scalars(_scoped(db, access, Application)).all()
+    application_ids = {application.id for application in applications}
+    applications_by_id = {application.id: application for application in applications}
+    institutions = {
+        institution.id: institution
+        for institution in db.scalars(select(Institution)).all()
+    }
+    regions = {region.id: region for region in db.scalars(select(Region)).all()}
+
+    deficiency_rows: list[dict[str, Any]] = []
+    compliance_rows: list[dict[str, Any]] = []
+    for application in applications:
+        institution = institutions.get(application.institution_id)
+        report = compliance.report_view(db, application, now, include_drafts=False)
+        if report["status"] != "not_issued":
+            compliance_rows.append(
+                {
+                    "application_id": application.id,
+                    "institution": institution.name if institution else None,
+                    "status": report["status"],
+                    "window_status": report["window_status"],
+                    "issued_at": report["issued_at"],
+                    "closes_at": report["closes_at"],
+                    "counts": report["counts"],
+                    "placeholder": report["placeholder"],
+                    "advisory_only": report["advisory_only"],
+                }
+            )
+        for deficiency in db.scalars(
+            select(Deficiency).where(
+                Deficiency.application_id == application.id,
+                Deficiency.status != "draft",
+            )
+        ).all():
+            deficiency_rows.append(
+                {
+                    "application_id": application.id,
+                    "institution": institution.name if institution else None,
+                    "category": deficiency.category,
+                    "rule_key": deficiency.rule_key,
+                    "status": deficiency.status,
+                    "created_at": iso(deficiency.created_at),
+                    "resolved_at": iso(deficiency.resolved_at),
+                }
+            )
+
+    appeal_rows = []
+    for appeal in db.scalars(select(Appeal).order_by(Appeal.submitted_at)).all():
+        if appeal.application_id not in application_ids:
+            continue
+        app = applications_by_id.get(appeal.application_id)
+        institution = institutions.get(app.institution_id) if app else None
+        appeal_rows.append(
+            {
+                "application_id": appeal.application_id,
+                "institution": institution.name if institution else None,
+                "status": appeal.status,
+                "submitted_at": iso(appeal.submitted_at),
+                "appeal_deadline": iso(appeal.appeal_deadline),
+                "hearing_at": iso(appeal.hearing_at),
+                "hearing_scheduled": appeal.hearing_at is not None,
+                "sac_recommendation_recorded": appeal.sac_recommendation_at is not None,
+                "council_outcome": appeal.council_outcome,
+                "council_decided_at": iso(appeal.council_decided_at),
+            }
+        )
+
+    deposit_rows = [
+        {
+            "institution": institutions.get(application.institution_id).name
+            if institutions.get(application.institution_id)
+            else None,
+            **security_deposit.sd_snapshot(db, application, now),
+        }
+        for application in applications
+        if application.current_state == "approved"
+    ]
+
+    region_performance: dict[tuple[str, str], dict[str, Any]] = {}
+    for application in applications:
+        institution = institutions.get(application.institution_id)
+        region = regions.get(institution.region_id) if institution else None
+        region_code = region.code if region else "unassigned"
+        key = (application.cycle, region_code)
+        row = region_performance.setdefault(
+            key,
+            {"cycle": application.cycle, "region_code": region_code,
+                "region_name": region.name if region else None, "cases": 0, "overdue": 0,
+                "application_ids": []},
+        )
+        row["cases"] += 1
+        row["application_ids"].append(application.id)
+        since = to_utc(application.current_state_since) or now
+        age = max(0, (now - since).days)
+        sla = stage_sla_days(application.route_key, application.current_state)
+        if sla is not None and age > sla:
+            row["overdue"] += 1
+
+    return {
+        "generated_at": iso(now),
+        "scope": {
+            "type": "global" if access.global_scope else "scoped",
+            "regions": sorted(access.regions),
+            "institutions": sorted(access.institutions),
+        },
+        "notes": {
+            "security_deposit": "Placeholder policy; advisory only. No withdrawal decision is made.",
+            "compliance_window": "Configured placeholder; advisory only.",
+            "region_performance": "Grouped by the application cycle recorded in the case.",
+        },
+        "reports": {
+            "pendency": pendency_report(db, access),
+            "evc_status": evc_report(db, access),
+            "deficiency_compliance": {
+                "deficiencies": deficiency_rows,
+                "compliance": compliance_rows,
+            },
+            "appeal_hearing": {"rows": appeal_rows},
+            "security_deposit": {"rows": deposit_rows},
+            "overdue_escalation": overdue_report(db, access),
+            "region_performance_by_cycle": {
+                "rows": [region_performance[key] for key in sorted(region_performance)]
+            },
+        },
     }

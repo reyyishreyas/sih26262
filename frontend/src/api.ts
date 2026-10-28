@@ -52,6 +52,29 @@ export class ApiError extends Error {
   }
 }
 
+async function download(path: string): Promise<Blob> {
+  const headers = new Headers();
+  const token = storedToken();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${BASE}${path}`, { headers });
+  if (!response.ok) {
+    const text = await response.text();
+    let message = response.statusText;
+    try {
+      const body = JSON.parse(text) as { detail?: unknown };
+      if (body.detail !== undefined) message = String(body.detail);
+    } catch {
+      // Keep the HTTP status text when the server did not return JSON.
+    }
+    if (response.status === 401 && token) {
+      clearSession();
+      window.dispatchEvent(new Event(SESSION_EXPIRED_EVENT));
+    }
+    throw new ApiError(message, response.status);
+  }
+  return response.blob();
+}
+
 export function storedToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -470,6 +493,7 @@ export const api = {
 
   // --- Reports (all sections, one round trip) ---
   reports: () => request<FullReport>("/reports"),
+  exportReports: (format: "csv" | "pdf") => download(`/reports/export?format=${format}`),
 
   // --- Expert Visit Committee scheduling ---
   evcCommittees: () => request<EvcCommittee[]>("/evc/committees"),

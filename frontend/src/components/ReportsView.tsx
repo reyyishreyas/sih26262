@@ -34,6 +34,7 @@ export function ReportsView() {
   const [report, setReport] = useState<FullReport | null>(null);
   const [calendar, setCalendar] = useState<EvcRegionCalendar | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,6 +66,23 @@ export function ReportsView() {
 
   const { pendency, regions, evc, undertakings, documents, overdue, workload } = report;
 
+  async function exportReport(format: "csv" | "pdf") {
+    setExporting(format);
+    try {
+      const file = await api.exportReports(format);
+      const url = URL.createObjectURL(file);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `aicte-reports.${format}`;
+      link.click();
+      URL.revokeObjectURL(url);
+    } catch (cause) {
+      setError(cause instanceof ApiError ? cause.message : "Could not export reports");
+    } finally {
+      setExporting(null);
+    }
+  }
+
   return (
     <div className="reports">
       <section className="panel">
@@ -79,6 +97,14 @@ export function ReportsView() {
             </p>
           </div>
           <span className="pill">As of {formatDate(report.generated_at)}</span>
+          <div className="row wrap">
+            <button className="button secondary" disabled={exporting !== null} onClick={() => void exportReport("pdf")}>
+              {exporting === "pdf" ? "Preparing PDF…" : "Download PDF"}
+            </button>
+            <button className="button secondary" disabled={exporting !== null} onClick={() => void exportReport("csv")}>
+              {exporting === "csv" ? "Preparing CSV…" : "Download CSV"}
+            </button>
+          </div>
         </header>
 
         <div className="summary-tiles">

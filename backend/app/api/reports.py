@@ -7,12 +7,12 @@ the headline numbers by construction.
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from sqlalchemy.orm import Session
 
 from ..core.db import get_db
 from ..core.permissions import MONITORING_READ
-from ..services import reporting_service
+from ..services import report_export_service, reporting_service
 from ..services.authorization_service import EffectiveAccess
 from .deps import require
 
@@ -26,6 +26,29 @@ def all_reports(
 ) -> dict:
     """Every report section in one round trip (what the Reports page loads)."""
     return reporting_service.full_report(db, access)
+
+
+@router.get("/export")
+def export_reports(
+    format: str = Query(pattern="^(csv|pdf)$"),
+    access: EffectiveAccess = Depends(require(MONITORING_READ)),
+    db: Session = Depends(get_db),
+) -> Response:
+    """Export the seven PRD §12 report families inside the caller's scope."""
+    report = reporting_service.phase7_report_bundle(db, access)
+    if format == "csv":
+        content = report_export_service.as_csv(report)
+        media_type = "text/csv; charset=utf-8"
+    elif format == "pdf":
+        content = report_export_service.as_pdf(report)
+        media_type = "application/pdf"
+    else:  # Query validation is the public guard; keep direct invocation safe.
+        raise HTTPException(status_code=422, detail="format must be csv or pdf")
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="aicte-reports.{format}"'},
+    )
 
 
 @router.get("/pendency")

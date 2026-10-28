@@ -330,6 +330,7 @@ MATRIX: dict[tuple[str, str], frozenset[str]] = {
     ("GET", "/api/v1/evc/calendar"): frozenset({MONITORING_READ}),
     # reports
     ("GET", "/api/v1/reports"): frozenset({MONITORING_READ}),
+    ("GET", "/api/v1/reports/export"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/reports/pendency"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/reports/regions"): frozenset({MONITORING_READ}),
     ("GET", "/api/v1/reports/evc"): frozenset({MONITORING_READ}),
