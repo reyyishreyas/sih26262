@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0089 | 2026-10-28 | Implementation | Compose runtime images install Tesseract so the committed OCR path runs in deployment | Tested | OCR/FR-39; BUG-0090 | MiMo (OpenCode agent) |
 | IMPL-0088 | 2026-10-28 | Implementation | FR-28 decision UI gap closed: reason-code select on return/revert, code served with `required_for_actions` | Tested | FR-28; BUG-0089 | MiMo (OpenCode agent) |
 | IMPL-0087 | 2026-10-28 | Verification | Phase 11.6/11.7: evidence-only evaluation matrix in TRACEABILITY.md; 18-box Appendix F walk in DEFERRALS.md; authz count corrected (BUG-0088) | Tested | Phase 11.6/11.7; AGENT-12 | MiMo (OpenCode agent) |
 | IMPL-0086 | 2026-10-28 | Measurement | Phase 11.5 measured records: synthetic-set extraction P/R 100%, per-page OCR 2.7s, API 6–25ms, 146-entry authz matrix, findings-evidence tracing | Measured | Phase 11.5; FR-39/FR-48 | MiMo (OpenCode agent) |
@@ -191,6 +192,16 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0089 — Compose runtime images ship Tesseract; the committed OCR path actually runs in deployment
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (fix commit).
+- Task and PRD IDs: OCR (AGENT-04 era, FR-39); BUG-0090; found while driving the whole demo pipeline from the UI (the scanned EoA leg).
+- Found during the demo-video recording: uploading the repo's scanned `EOA Report_2019-20.pdf` through the Composed UI returned the honest degradation message ("a checker will read it by hand") with `OCR failed on page 1 (TesseractNotFoundError) … page 3 (TesseractNotFoundError)`. The degradation path is by design (DEC-0006: Tesseract optional in the **app**), but the **runtime image** never installed the binary — so in every Compose deployment the OCR feature is dead on arrival and no scanned document is ever read, contradicted only by local gate runs on the dev host (where Tesseract exists).
+- Change: `backend/Dockerfile` runtime stage adds `tesseract-ocr` + `tesseract-ocr-eng` to the apt install list (the single backend image serves the api/worker/migrate Compose services). No app code, rules or schema changes; no migration.
+- Verification (exact counts): `make lint` clean; `make test` → **859 passed, 2 warnings**; frontend untouched (`npm run build` not re-run). Live check after the image rebuild: upload of the same scanned EoA PDF through the UI now reports the read fields (recorded in BUG-0090's update). `docker compose exec` probe of `tesseract --version` inside the fresh api container is the direct evidence for the binary being present.
+- Limitations: image is larger (~tens of MB for the Tesseract binary + eng data) — accepted, the OCR capability is a core PRD function, not an optional nicety; the skip-if-absent behaviour in the app is unchanged (other hosts degrade honestly).
+- Related: BUG-0090, IMPL-0086 (measured OCR records on the dev host), IMPL-0074/0076 (OCR + scanned EoA), DEC-0006, D-0006 note in BUG-0001.
+- Update history: —
 
 ### IMPL-0088 — FR-28 decision-UI gap closed: a return/revert reason code can now be picked from the UI
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / `c247ea9`.

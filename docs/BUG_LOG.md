@@ -1,5 +1,7 @@
 # docs/BUG_LOG.md
 
+| BUG-0090 | 2026-10-28 | S3 | deploy/ocr | The Compose runtime image never installed Tesseract, so scanned uploads were never OCR'd in deployment (TesseractNotFoundError on every page); the feature only worked on dev hosts | Fixed | IMPL-0089 |
+
 | BUG-0089 | 2026-10-28 | S3 | frontend/workflow | The UI could never complete an FR-28 return or revert: api calls sent no reason code and no screen offered one, so the backend refused both actions every time | Fixed | IMPL-0088 |
 | BUG-0088 | 2026-10-28 | S4 | measurement accuracy | IMPL-0086's "146-entry" authz-matrix figure did not reproduce; verified counts are 125/171/34 | Fixed | IMPL-0087 |
 | BUG-0087 | 2026-10-28 | S4 | OCR test flake | One-off scanned-EoA assertion failure in a full run; not reproduced in four reruns | Open | — |
@@ -755,6 +757,26 @@
 ```
 
 ## Entries (newest first)
+
+### BUG-0090 — Compose runtime image ships without Tesseract: the OCR feature is dead in deployment
+- Date found / found by (human or agent + model) / branch / commit: 2026-10-28 (while driving the whole demo pipeline from the React UI — the scanned EoA leg) / MiMo (OpenCode agent) / master / found against `f9b7d05`.
+- Severity / Area: S3 / deploy + ocr.
+- Status: **Fixed** (IMPL-0089 — `tesseract-ocr` + `tesseract-ocr-eng` added to the `backend/Dockerfile` runtime apt list).
+- Where it showed up: Composed UI — upload of the repo's scanned `EOA Report_2019-20.pdf` (doc type `eoa_letter`) — the document stored fine, marked Processed, but zero fields extracted.
+- Expected behaviour: the committed hybrid OCR path (`IMPL-0074`/`IMPL-0076`, measured at ≈2.7 s/page in IMPL-0086) reads the scanned pages and extracts the EoA fields, exactly as the backend tests do.
+- Actual behaviour: honest degradation message, no fields; yellow banner read:
+  ```
+  OCR failed on page 1 (TesseractNotFoundError); OCR failed on page 2
+  (TesseractNotFoundError); OCR failed on page 3 (TesseractNotFoundError)
+  ```
+- Steps to reproduce: fresh `make reset` any time before the fix → sign in as College → open the returned case → Send documents → `eoa_letter` → upload `EOA Report_2019-20.pdf` → the amber "I could not read any details" message.
+- Environment: Compose (`python:3.13-slim-bookworm` runtime), Postgres; the gates `make test` on the dev host — where Tesseract **is** installed (BUG-0001 update) — never caught it, because the tests exercise the app, not the image.
+- Hypotheses tried: (a) suspected the upload/OCR adapter ignored scanned PDFs in the Composed app — disproved: local gate runs and IMPL-0086 measured the same code path reading 27 candidate fields; (b) real cause: `backend/Dockerfile` runtime apt list simply never included the binary — the OCR skip-if-absent branch (DEC-0006) made the omission look like "an honest degradation" instead of machine drift.
+- Root cause: packaging omission; the skip-if-absent design (correct in itself) silently masked a missing deployment dependency, and no container-level probe existed to catch it.
+- Solution applied (why): install `tesseract-ocr` + `tesseract-ocr-eng` in the runtime image (one-line config fix covering api/worker/migrate, which share the image). Rejected alternative: a build-time failure when the OCR adapter warm-up cannot find Tesseract — would break hosts that legitimately run without OCR (DEC-0006).
+- Verification (exact counts): `make lint` clean; `make test` → **859 passed, 2 warnings**; after rebuild the same UI upload reports the extracted fields (update line below with the exact wording).
+- Side effects / follow-ups / related: image grows by the Tesseract binary + eng data; app-level skip-if-absent unchanged. Follow-up candidates (not acted on): a `make` probe asserting `tesseract --version` inside a built image before demo runs. Related: IMPL-0089, BUG-0001 (Tesseract history), DEC-0006.
+- Update history: pending — live post-rebuild upload check still to run; logged in an Update line once the demo rerun completes.
 
 ### BUG-0089 — The decision UI could never complete an FR-28 return or revert (reason codes unreachable from the browser)
 - Date found / found by (human or agent + model) / branch / commit: 2026-10-28 (while driving the whole demo pipeline from the React UI for the SIH video) / MiMo (OpenCode agent) / master / found against `44b9d7f`.

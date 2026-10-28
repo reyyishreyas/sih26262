@@ -26,6 +26,8 @@ RUN apt-get update \
         curl \
         postgresql-client \
         procps \
+        tesseract-ocr \
+        tesseract-ocr-eng \
         tini \
     && rm -rf /var/lib/apt/lists/* \
     && groupadd --gid 10001 appuser \
