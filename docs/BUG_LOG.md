@@ -1,5 +1,6 @@
 # docs/BUG_LOG.md
 
+| BUG-0091 | 2026-10-28 | S2 | db/ocr | Uploading the real scanned EoA PDF 500'd: OCR `source_span` values (intake-table rows) exceeded the 255-char column, so the `extracted_fields` insert failed with `StringDataRightTruncation` | Fixed | IMPL-0090 |
 | BUG-0090 | 2026-10-28 | S3 | deploy/ocr | The Compose runtime image never installed Tesseract, so scanned uploads were never OCR'd in deployment (TesseractNotFoundError on every page); the feature only worked on dev hosts | Fixed | IMPL-0089 |
 
 | BUG-0089 | 2026-10-28 | S3 | frontend/workflow | The UI could never complete an FR-28 return or revert: api calls sent no reason code and no screen offered one, so the backend refused both actions every time | Fixed | IMPL-0088 |
@@ -757,6 +758,30 @@
 ```
 
 ## Entries (newest first)
+
+### BUG-0091 — Real scanned EoA upload 500s: OCR `source_span` overflows `varchar(255)`
+- Date found / found by (human or agent + model) / branch / commit: 2026-10-28 (while driving the whole demo pipeline from the React UI — the scanned EoA leg) / MiMo (OpenCode agent) / master / found against `c9c2df5` (post-BUG-0090 image).
+- Severity / Area: S2 / db + ocr (blocks real-document OCR in deployment, but does not corrupt state — the whole upload transaction aborts honestly).
+- Status: **Fixed** (IMPL-0090 — column widened to 512 + migration `25a2a6957f36`).
+- Where it showed up: Composed UI — upload of the repo's real scanned `EOA Report_2019-20.pdf` (doc type `eoa_letter`); the lease upload on the same screen succeeded moments earlier, so auth/route were fine.
+- Expected behaviour: OCR (now live after BUG-0090, `tesseract 5.3.0` in the api container) extracts the EoA fields and the document's fields are stored; the 201 response carries them.
+- Actual behaviour (trimmed, redacted): `POST …/documents` → **500**, 9.7 s in:
+  ```
+  psycopg.errors.StringDataRightTruncation: value too long for type
+  character varying(255)
+  [SQL: INSERT INTO extracted_fields (… source_span …)]
+  # parameters show 28 tesseract candidates, e.g. source_span
+  # '— Engineering And | ist __ UNDER | CivilEngineering | FT |
+  #  Visvesvaraya …' (~130+ chars) and longer intake-table rows
+  ```
+- Steps to reproduce: `make reset` at `c9c2df5` → College account → new draft → upload lease scan → submit → sign in as scrutiny → open review → Send back for changes (RC-DOC-MISSING) → College reopens → Send documents → `eoa_letter` → upload `EOA Report_2019-20.pdf` → "Upload failed".
+- Environment: Compose (Postgres — where the length is enforced), api serving the OCR synchronously during upload; gate runs `make test` (SQLite) never enforce varchar length, hence 859 passing tests alongside a broken deployment path.
+- Hypotheses tried: (a) suspected the freshly installed Tesseract itself crashing the worker/handler — disproved: `docker compose logs api` shows OCR completed with 28 candidates and `engine_version 5.3.0`, then the DB insert failed; (b) suspected multipart/file-name handling (space in name) — disproved: the error is a DB write, not parsing; (c) root cause: length mismatch — the adapter caps spans at 512 (`real.py:866`, `:1148`) and joined intake-table rows can sit in between (>255, ≤512 quite legally after that cap), while the column was only 255.
+- Root cause: `String(255)` column ≠ `[:512]` adapter contract; invisible to SQLite-based tests.
+- Solution applied (why): widen the column to 512 so it accepts exactly what the adapter writes; no truncation added, nothing invented (IMPL-0090). Alternative considered — truncating spans to 255 at the adapter — rejected: it would silently cut measured evidence.
+- Verification (exact counts): regression test added first and seen failing; after fix `make lint` clean; `make test` → **860 passed, 2 warnings**; `alembic check` clean on a scratch DB; live Compose upload of the same PDF verified in the update line below.
+- Side effects / follow-ups / related: none on permissions/audit; downgrade of `25a2a6957f36` would re-truncate (not used in the demo path). Related: IMPL-0090, BUG-0090, IMPL-0086.
+- Update history: pending — live post-fix upload still to run; logged in an Update line once the demo rerun completes.
 
 ### BUG-0090 — Compose runtime image ships without Tesseract: the OCR feature is dead in deployment
 - Date found / found by (human or agent + model) / branch / commit: 2026-10-28 (while driving the whole demo pipeline from the React UI — the scanned EoA leg) / MiMo (OpenCode agent) / master / found against `f9b7d05`.

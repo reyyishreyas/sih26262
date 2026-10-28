@@ -88,6 +88,15 @@ def test_the_extracted_field_model_carries_the_three_new_columns():
     assert {"source_page", "source_span", "method", "confidence"} <= set(columns)
 
 
+def test_the_source_span_column_holds_the_ocr_adapters_own_cap():
+    # The real OCR adapter deliberately truncates spans to 512 characters
+    # (adapters/ocr/real.py) — long intake-table rows for real scanned EoA
+    # documents exceed the old 255-char column and turned the whole upload
+    # into a 500 (BUG-0091). The column must accept what the adapter writes.
+    columns = {column.name: column for column in ExtractedField.__table__.columns}
+    assert columns["source_span"].type.length >= 512
+
+
 # ------------------------------------------------- the pypdf text-layer read
 
 

@@ -182,7 +182,9 @@ class ExtractedField(Base):
     field_name: Mapped[str] = mapped_column(String(64), index=True)
     value: Mapped[object] = mapped_column(JSON, nullable=True)
     source_page: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    source_span: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    # 512 mirrors the real OCR adapter's own span truncation (real.py); a
+    # routine intake-table row from a scanned EoA exceeds 255 characters.
+    source_span: Mapped[str | None] = mapped_column(String(512), nullable=True)
     method: Mapped[str] = mapped_column(String(64), default="mock_ocr")
     confidence: Mapped[float] = mapped_column(Float, default=0.0)
     bbox: Mapped[dict | None] = mapped_column(JSON, nullable=True)
