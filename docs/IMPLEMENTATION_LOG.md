@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0068 | 2026-10-28 | Implementation | Phase 8 exit check met for implemented flows; appeal audit coverage confirmed | Tested | Phase 8.1 + Phase 8 exit check; FR-50 (audit) | MiMo |
 | IMPL-0067 | 2026-10-28 | Implementation | Phase 5 exit check: demo walk wired end to end | Tested | Phase 5 exit check (plan line 92); FR-38–FR-48 | MiMo |
 | IMPL-0066 | 2026-10-28 | Implementation | Phase 5+6 content review and full-gate verification | Verified | Phase 5/6 review; all gates | MiMo |
 | IMPL-0065 Update | 2026-10-28 | Update | Phase 7.4 scope checks pushed | Pushed `94f9fee` to `origin/master` | Phase 7.4; PRD §12 | Codex |
@@ -155,6 +156,17 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0068 — Phase 8 exit check met for implemented flows; appeal audit coverage confirmed
+- Date / agent / branch / commit: 2026-10-28 / MiMo / master / pending (docs commit).
+- Task and PRD IDs: Phase 8.1 and the Phase 8 exit check (plan lines 113, 116); FR-50 audit completeness.
+- What existed: Phase 8.1 read "rule/configuration edits and appeals—have no mutation route yet". That was stale on the appeals half: Phase 6.6 (IMPL-0061, `app/api/appeals.py`) shipped nine appeal routes with eight audited event actions (`appeal.submitted`, `submission_rejected`, `hearing_scheduled`, `representatives_recorded`, `sac_recommendation_recorded`, `council_decision_recorded`, `council_decision_rejected`, `document_accessed`), and `tests/test_phase6_appeals.py` asserts the accepted, rejected and decision-refusal audit sets.
+- What changed (docs only): 8.1's annotation updated to mark appeals instrumented and its checkbox ticked (`Fr-36/FR-50` rule-configuration edits stay the one open source until the Phase 9.4 console adds a mutation route); exit check (line 116) ticked after rerunning both proof points.
+- Human gate: user confirmed (2026-10-28) leaving the **Phase 6 exit check Partial** — the AICTE deposit-intimation event/date and APH II §2.25(e–f) applicability stay unrepresented pending official inputs (IMPL-0061's "Next" stands); no code invented.
+- Verification: `python scripts/tamper_demo.py` on a temporary SQLite DB → "PASS: untouched chain verifies (2 events)" and "PASS: tampering is detected (broken sequence 1)" (both sides, per the plan); `pytest tests/test_phase8_audit.py tests/test_audit.py` → **15 passed**. No code, model, migration, permission or frontend changes in this step; the full-suite green at `da23713` (**836 passed**, IMPL-0067) covers the code state.
+- Limitations: audit coverage = implemented flows; rule-configuration editing events deferred to Phase 9.4 (must be instrumented there).
+- Related: IMPL-0061, IMPL-0066, IMPL-0067; DEC-0024.
+- Next: Phase 9.1 lease thin slice (FR-45) — the first implementable unchecked task.
 
 ### IMPL-0067 — Phase 5 exit check: the demo walk is wired end to end
 - Date / agent / branch / commit: 2026-10-28 / MiMo / master / `da23713`.
