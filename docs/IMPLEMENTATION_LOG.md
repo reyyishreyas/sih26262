@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0082 | 2026-10-28 | Verification | Phase 11.1 Scenario A rehearsed end to end on the Compose stack | Tested | Phase 11.1 | MiMo (OpenCode agent) |
 | IMPL-0081 | 2026-10-28 | Documentation | Phase 10.5: CONTEXT build order and README status table updated through Phase 10 | Tested | Phase 10.5 | MiMo (OpenCode agent) |
 | IMPL-0080 | 2026-10-28 | Verification | Phase 10.4: demo script rehearsed end to end on the Compose stack (twice, from fresh seeds) | Tested | Phase 10.4 | MiMo (OpenCode agent) |
 | IMPL-0079 | 2026-10-28 | Documentation | Phase 10.3 docs sync: the six core docs now match the Phase 5–9 implementation | Tested | Phase 10.3 | MiMo (OpenCode agent) |
@@ -183,6 +184,26 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0082 — Phase 11.1 Scenario A rehearsed end to end (submission → correction)
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
+- Task and PRD IDs: Phase 11.1 (plan line 135) — Scenario A on the Compose stack, dishonestly-free.
+- How: scripted the scenario against `localhost:8000` (fresh `make reset` seed) with two synthetic PDFs generated from `tests/pdf_factory.lease_deed_pdf` (v1 expiry 2028-03-31 with a later-replaced v2).
+- Observed journey (all real records, nothing faked):
+  1. Institution created a draft (`new_technical`, cycle 2027-28) → `draft`.
+  2. Uploaded lease v1 → extraction ran for real (`simulated: false`), 5 fields, `valid_to` read from the text layer.
+  3. Submitted → `submitted`.
+  4. Officer recorded a draft deficiency against the extracted `valid_to` (“Lease expires before the requested cycle end.”).
+  5. A `return_for_clarification` straight from `submitted` was **refused** and audited as `workflow.return_for_clarification -> rejected` — the guard requires `start_scrutiny` first (script sequencing fixed; the committed loop test does this in order). After `start_scrutiny`, the return was accepted → `returned`, and the deficiency became visible to the institution.
+  6. Institution uploaded corrected lease v2 → version bumped to 2, deficiency auto-marked `addressed` with the corrective-document link (never auto-closed), case stayed `returned`.
+  7. Officer re-evaluated compliance (finding batch re-run on the corrected evidence, e.g. `INSTITUTION_IDENTITY_MATCH` and `LEASE_VALID_COVERS_PERIOD` reviewing the new version, `REQUIRED_DOC_AFFIDAVIT: FAIL` still honestly failing).
+  8. Institution resubmitted → `submitted`, audited `workflow.resubmit -> accepted`.
+  9. Audit timeline displayed the whole journey: application.created, extraction started/completed, upload/replace, assignment, submit, deficiency.created, the **rejected** transition, deficiency.addressed, replaced, finding.batch_evaluated, resubmit.
+- State hygiene: `make reset` afterwards; final state the clean seed (`/health` `app_rw` ok).
+- Docs: DEMO_SCRIPT §5 gained the Scenario-A note with the ordering rule (`start_scrutiny` before `return_for_clarification`).
+- Code/config changes: none. Limitations: rehearsed through the API tracks (UI reachable; browser walkthrough from earlier phases); the officer's final decision state for a *new outcome* (approve) is intentionally not reachable on a synthetic new-technical draft without EVC, which the demo explicitly does not fake.
+- Related: IMPL-0080, IMPL-0061 (the journey test), IMPL-0056 (deficiency loop).
+- Next: Phase 11.2 — Scenario B (access-control rehearsal).
 
 ### IMPL-0081 — Phase 10.5 CONTEXT build order and README status table
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).

@@ -154,6 +154,14 @@ As scrutiny, request **schedule EVC** on the unmodified case.
 - Open the **Audit timeline**: the rejected attempt is there with
   `before: {"state": "scrutiny"}` and the actor.
 
+If you want to show the full submission → correction loop (Scenario A), the two
+state steps matter: `start_scrutiny` must be requested on a freshly submitted
+case *before* `return_for_clarification` — the guard refuses a return straight
+from `submitted`, by design. Run through it on a synthetic draft: upload a lease
+that expires early, submit, let the officer record a draft deficiency and return
+the case, watch the deficiency surface to the institution, upload the corrected
+version (auto-linked as `addressed`, never auto-closed), resubmit, and re-evaluate.
+
 Say: "Rejected actions are audited too. The refusal is committed after the business
 transaction rolls back, so it cannot be lost."
 
