@@ -158,7 +158,7 @@ The demo clock is fixed by default to **2026-10-22T09:00:00Z** in `.env.example`
 ```bash
 make lint        # ruff check app tests migrations scripts
 make test        # cd backend && ../.venv/bin/python -m pytest -q
-# 836 passed, 2 upstream warnings
+# 838 passed, 2 upstream warnings
 ```
 
 The suite covers rule semantics and immutability, workflow guards, rejected-action

@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0069 | 2026-10-28 | Implementation | Phase 9.1 lease thin slice: composed expiry-alert coverage (FR-45) | Tested | Phase 9.1; FR-45 | MiMo |
 | IMPL-0068 | 2026-10-28 | Implementation | Phase 8 exit check met for implemented flows; appeal audit coverage confirmed | Tested | Phase 8.1 + Phase 8 exit check; FR-50 (audit) | MiMo |
 | IMPL-0067 | 2026-10-28 | Implementation | Phase 5 exit check: demo walk wired end to end | Tested | Phase 5 exit check (plan line 92); FR-38–FR-48 | MiMo |
 | IMPL-0066 | 2026-10-28 | Implementation | Phase 5+6 content review and full-gate verification | Verified | Phase 5/6 review; all gates | MiMo |
@@ -156,6 +157,18 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0069 — Phase 9.1 lease thin slice: composed expiry-alert coverage (FR-45)
+- Date / agent / branch / commit: 2026-10-28 / MiMo / master / pending (test + docs commit).
+- Task and PRD IDs: Phase 9.1 (plan line 119); FR-45.
+- What existed: the slice's three FR-45 halves were each built earlier — the lease parser reads `valid_to` (Phase 2.2-era `_parse_lease_deed`, ISO-normalised), the equal/shorter finding and years computation live in `readiness.lease_check` (Phase 2.4, IMPL-0019, config-driven RULE-LEASE-01), the end date is stored as `ExtractedField` with provenance (Phase 5.2), and `deadline_service.collect_items` item 2 already walks the latest document per type for a **verified** `valid_to`/`lease_expiry` through the configured `document_expiry` ladder (`rules/deadline_policy.json`: reminder_60/reminder_30/expired/escalated). What was missing was composed proof that the lease path actually raises advance and overdue alerts end to end.
+- What changed: no product code. New `tests/test_phase9_lease_alerts.py` proves through upload + field-verification + sweep on `app-main-0001`: a verified lease expiry within the advance window raises `reminder_60` + `reminder_30` with lease payload (`doc_type`, `valid_to`); a far-past verified expiry raises all four configured levels including `expired` + `escalated` reaching `regional@demo.local`; a second sweep creates nothing (dedupe per lease); the unverified negative case was already pinned in `test_alerts.py::test_unverified_expiry_does_not_raise_alert`.
+- API/schema/config: none; the ladder values stay in `rules/deadline_policy.json`.
+- Permission and audit effects: none new; the walk uses existing `DOCUMENT_UPLOAD`/`DOCUMENT_VERIFY` and the sweep's own `alert.fired`/`alert.escalated` audits.
+- Verification: `ruff check` clean; targeted `pytest tests/test_phase9_lease_alerts.py tests/test_alerts.py tests/test_lease_check.py` → **37 passed**; full `pytest` → **838 passed, 2 upstream Starlette deprecation warnings**. No migration (no model change); no frontend change (build not run).
+- Limitations: the alert ladder is a generic document-expiry cadence; the PRD §11 table has no lease-specific row, so the cadence stays as configured placeholder values until a human records an official one.
+- Related: IMPL-0019, IMPL-0066.
+- Next: Phase 9.2 undertaking thin slice (Security Deposit proof/Affidavit 3 record).
 
 ### IMPL-0068 — Phase 8 exit check met for implemented flows; appeal audit coverage confirmed
 - Date / agent / branch / commit: 2026-10-28 / MiMo / master / pending (docs commit).

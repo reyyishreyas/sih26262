@@ -40,7 +40,7 @@ the real application.
 make setup     # once, ~5 min: venv, deps, node_modules, tesseract, DB, seed
 make dev       # API on http://localhost:8000, UI on http://localhost:5173
 make lint      # ruff (backend/app backend/tests migrations scripts)
-make test      # pytest — 836 passing (2026-10-28 verification)
+make test      # pytest — 838 passing (2026-10-28 verification)
 make build     # frontend typecheck + vite build
 make down      # stop the docker stack (only if you used make up)
 ```
@@ -660,6 +660,8 @@ tamper-evidence).
   human supplies it (IMPL-0049/DEC-0013). Next per plan: Phase 6 exit
   check (line 103), Phase 7 exit check (line 110), Phase 8 exit check
   (line 116).
+- **28 Oct 2026 — Phase 8 exit checks (FR-50):** the tamper demo proves both sides on a temporary DB (untouched chain verifies, altered chain detected) and the Phase 8 targeted tests pass (15). Audit coverage now matches every implemented mutation route — appeals (Phase 6.6) emit all eight audited actions; the only open source is rule-configuration editing, which lands with the Phase 9.4 console (IMPL-0068; Phase 6 exit stays Partial per human decision on the deposit-intimation seam).
+- **28 Oct 2026 — Phase 9.1 lease thin slice (FR-45):** integrated proof that a verified lease expiry drives the configured document_expiry ladder — advance reminders on a near expiry, all four levels with regional escalation on a far-past expiry, dedupe per lease on repeat sweeps; unverified dates still raise nothing. No product change; the ladder stays in `rules/deadline_policy.json`. `make test` **838 passed** (IMPL-0069).
 - **28 Oct 2026 — Phase 5 exit check (FR-38–FR-48):** the change-of-site demo walk now runs through the real upload pipeline: labelled extraction parsers for the EoA letter, Format-2 NOC and Format-3 resolution (fictional values; provenance page/engine/bbox on every auto-filled field), a reason-gated claim edit that never touches the Extraction Value, E02 address/survey mismatch and SITE-01 partial-shifting advisory findings carrying the DEFICIENCY CANDIDATE label (advisory flags confirmed non-actionable), a real bbox for the evidence highlight, and confirm-one/dismiss-one on the operational findings (refusals audited). `make test` **836 passed**, ruff clean (IMPL-0067; BUG-0075).
 - **27 Oct 2026 — Phase 5.5 (FR-42):** E01–E03 advisory cross-checks compare configured latest-document Extraction Values only. Their field paths are labelled placeholders; the rules remain Unverified and every formal result is `REVIEW REQUIRED`. Claim Value edits do not affect the diagnostic. Verification: `make lint` clean, `make test` **758 passed**, frontend build clean (IMPL-0044 / DEC-0008); Phase 5 continues at 5.6.
 - **27 Oct 2026 — Phase 5.6 (FR-43/FR-44):** SITE-01 phrase/programme-list and SITE-02 jurisdiction diagnostics added with labelled placeholders and a synthetic-only jurisdiction fixture; neither can conclude compliance or jurisdiction. All formal outcomes remain `REVIEW REQUIRED`. `make lint` clean, `make test` **764 passed**, frontend build clean (IMPL-0045 / DEC-0009); Phase 5 continues at 5.7.
