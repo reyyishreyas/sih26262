@@ -129,7 +129,7 @@ To be plain about it: this is an unfinished prototype, built under hackathon dea
 
 ## What this is not
 
-A prototype, not a certified government system. It has not been security-audited or load-tested, and no rule has been validated against the Approval Process Handbook by a competent authority. OCR and rules provide evidence and advisory outcomes; they do not perform statutory scrutiny or make approval decisions. The API enforces role-authorized workflow actions and audit logging, but authorized officials remain responsible for reviewing evidence and making regulatory decisions. See [docs/DEFERRALS.md](docs/DEFERRALS.md) for limitations and deferred work.
+A prototype, not a certified government system. It has not been security-audited or load-tested. OCR and rules provide evidence and advisory outcomes; they do not perform statutory scrutiny or make approval decisions. The API enforces role-authorized workflow actions and audit logging, but authorized officials remain responsible for reviewing evidence and making regulatory decisions.
 
 ## Team
 
