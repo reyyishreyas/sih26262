@@ -125,7 +125,7 @@ Do not run phases concurrently without agreed interfaces (see `4_AGENTS.md`). Ea
 - [x] 9.5 Change one deadline in the console → alert timing moves (demo step 10). Fixed-clock integration test proves the same due date and same clock instant do not produce `reminder_7` before an approved -15 day setting, then do produce it after a distinct administrator approves the version (`test_phase9_deadline_console_alerts.py`; IMPL-0073).
 
 ## Phase 10 — Hardening and handoff
-- [ ] 10.1 Postgres run: `make up`, `make smoke`, `make verify-isolation` all pass with new tables (grants updated in `roles.sql`).
+- [x] 10.1 Postgres run: `make up`, `make smoke`, `make verify-isolation` all pass with new tables (grants updated in `roles.sql`). → Verified 2026-10-28 on Compose: `migrate-1` exited 0 and all containers healthy; `make smoke` **"Smoke test passed."** (11 checks incl. real extraction `simulated=False`, compliance classes, idempotent sweep); `make verify-isolation` **all 12 checks PASS**; Postgres shows `grant_batches`, `grant_entries`, `policy_config_versions` and the `undertakings` notice/evidence columns (migration `d511be0d`). `roles.sql` needed no change — `ALTER DEFAULT PRIVILEGES FOR ROLE sih_migrator` already grants future tables (IMPL-0077).
 - [ ] 10.2 CI green; coverage not lower than baseline.
 - [ ] 10.3 Update `docs/` (ARCHITECTURE, DATA_MODEL, RULES, ACCEPTANCE_TESTS, DEMO_SCRIPT, DEFERRALS) to match what exists.
 - [ ] 10.4 Rehearse the five-minute demo script end to end on the Compose stack.

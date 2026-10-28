@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0077 | 2026-10-28 | Verification | Phase 10.1 Postgres stack: make up/smoke/verify-isolation all pass with the Phase 6.8–9.5 tables | Tested | Phase 10.1 | MiMo (OpenCode agent) |
 | IMPL-0076 | 2026-10-28 | Update | EoA change-options rows and final verification | Tested | AGENT-04/11; FR-38–FR-40, FR-48 | Codex |
 | BUG-0086 | 2026-10-28 | Bug | EoA change-options aggregate was omitted on actual scan | Fixed | IMPL-0076 |
 | IMPL-0075 | 2026-10-28 | Implementation | Scanned EoA report extraction and upload support | Tested | AGENT-04/11; FR-38–FR-40, FR-48 | Codex |
@@ -178,6 +179,21 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0077 — Phase 10.1 Postgres stack verification (10.1)
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
+- Task and PRD IDs: Phase 10.1 (plan line 128).
+- What existed: `md/6_IMPLEMENTATION_PLAN.md` line 128 unchecked ("Postgres run: `make up`, `make smoke`, `make verify-isolation` all pass with new tables (grants updated in `roles.sql`)"). The last committed Postgres-stack proofs predate Phases 6.8–9.5, so the new tables (`grant_batches`, `grant_entries` from Phase 6.8; `policy_config_versions` from Phase 9.4; the `undertakings` notice/evidence columns from Phase 9.2) had never been exercised on Postgres.
+- Roles: `backend/sql/roles.sql` already covers every future table via `ALTER DEFAULT PRIVILEGES FOR ROLE sih_migrator` (SELECT/INSERT/UPDATE/DELETE → `app_rw`; SELECT → `sim_prod_ro`), so no SQL change was needed; the migrations ran under `sih_migrator` as designed.
+- Verification (Docker Desktop 29.8.0, Compose stack):
+  - `make up` → all five containers healthy (`migrate-1` exited 0, `db`, `api`, `frontend`, `worker` started; API healthy).
+  - `make smoke` → **"Smoke test passed."** — 11 checks ok (health as `app_rw`, readiness, request-id/security headers, admin sign-in, institutions visible, draft creation, evidence upload with real extraction `simulated=False`, compliance evaluation across 7 rule classes, rehearsal, 8 alerts with simulated delivery, idempotent deadline sweep 0/0).
+  - `make verify-isolation` → **all 12 isolation checks PASS** (`sih_migrator` sim-schema completeness; `sim_prod_ro` read-only + sim-refused; `sim_results_rw` sim-only; `app_rw` rw on operational data without DDL or sim access).
+  - Table presence on Postgres: `\dt` shows `public.grant_batches`, `public.grant_entries`, `public.policy_config_versions`, `public.undertakings`; `information_schema.columns` shows `source_received_on`, `source_document_id`, `evidence_document_ids`, `evidence_required` on `undertakings` (migration `d511be0d` applied). `policy_config_versions` starts empty (no console edits yet) — expected.
+- Code/config changes: none (verification-only step; the roles SQL needed no update because default privileges already grant future tables).
+- Limitations: the stack was verified on this host only; CI (Phase 10.2) is a separate unchecked task. SQLite remains the dev default; Postgres run here is the Phase 10.1 proof.
+- Related: IMPL-0070, IMPL-0072, IMPL-0074–0076 (the work whose tables this run exercised), BUG-0087 (logged in this step).
+- Next: Phase 10.2 CI green/coverage baseline, or 10.3 docs update — re-check plan order and repo state first.
 
 ### IMPL-0076 — EoA change-options rows and final verification
 - Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.

@@ -1,5 +1,6 @@
 # docs/BUG_LOG.md
 
+| BUG-0087 | 2026-10-28 | S4 | OCR test flake | One-off scanned-EoA assertion failure in a full run; not reproduced in four reruns | Open | — |
 | BUG-0086 | 2026-10-28 | S3 | scanned EoA option table | Aggregate change-options field was omitted because OCR split the next-table heading | Fixed | IMPL-0076 |
 | BUG-0082 | 2026-10-28 | S4 | migration trigger verification | First direct-SQL immutability check removed its fixture row before testing delete | Fixed | IMPL-0072 |
 | BUG-0084 | 2026-10-28 | S2 | scanned EoA OCR/upload | Scanned EoA reports used a lease-only path and the UI lacked an EoA choice | Fixed | IMPL-0075 |
@@ -1592,6 +1593,21 @@
 - Update history: 2026-10-26 — verified on a Tesseract-equipped machine: 0 skipped, status stays `Workaround` (skip path still exists for other hosts). 2026-10-27 (Phase 5.2, IMPL-0039): a **third** `requires_ocr` test added (`test_field_provenance.py`); re-verified on this machine — Tesseract 5.5.3 present since **24 Oct** (symlink date, i.e. before this task, not installed by it), `make test` → **704 passed, 0 skipped**; CONTEXT's "Tesseract is not installed here, so the 2 OCR tests skip" note (added `604fd54` the same day) was wrong for this machine and contradicted this entry's own 2026-10-26 update — corrected in the 5.2 CONTEXT edit. Status stays `Workaround`.
 
 | BUG-0064 | 2026-10-28 | S4 | test harness and lint | Initial Phase 6.8 integration run exposed test fixture, auth matrix expectation and import-sort authoring defects | Fixed | IMPL-0059 |
+
+### BUG-0087 — One-off OCR assertion flake in the scanned-EoA regression during a full `make test`
+- Date found / found by / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / 2bffb65 (the commit under test).
+- Severity / area: S4 / OCR test nondeterminism; no production code path failed.
+- Status: Open (not reproduced in four subsequent runs; no code change made).
+- Expected: `make test` fully green (the suite had just been verified green at 858 passed by IMPL-0076).
+- Actual: one full-suite run returned **1 failed, 857 passed** — `tests/test_document_extraction.py::test_scanned_eoa_pdf_in_repository_upload_populates_identity_and_course_fields`.
+- Reproduction: full `make test` on this machine (2m36s, parallel-off, SQLite). The single test in isolation, the whole file, three mixed groupings, and **two subsequent full-suite runs** all pass (**858 passed, 2 upstream warnings** in 150.92s / 154.01s).
+- Environment: macOS, Python 3.13, Tesseract 5.5.3, this repo's scanned three-page EoA PDF.
+- Hypotheses tried: test-ordering interaction (reran after `tests/test_phase9_deposit_undertaking.py` and other suites — passed) → not an isolation bug; stale state → none found; the failure output could not be captured in the one-off run before the reruns.
+- Root cause: unverified — most consistent with sparse OCR output variance on `image_to_data` under the machine's load at that moment (the test asserts on OCR-derived values, which are inherently sampling-sensitive). Do not treat as a product regression: the same binary, PDF and assertions pass deterministically everywhere else.
+- Solution applied: none yet — flagged only. If it recurs, capture the OCR text on failure (add `--tb=long` diagnostics or dump the extracted text) before any assertion change.
+- Verification: four consecutive runs of the test or supersets, including two full `make test` runs, all **858 passed, 2 warnings**.
+- Regression test: the named test itself (has not failed since).
+- Related: IMPL-0075, IMPL-0076, BUG-0086.
 
 ### BUG-0086 — EoA change-options aggregate was omitted on the actual scan
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
