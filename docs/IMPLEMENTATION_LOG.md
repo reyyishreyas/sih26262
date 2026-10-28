@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0073 | 2026-10-28 | Implementation | Phase 9.5 console deadline change moves live alert timing | Tested | Phase 9.5; Demo step 10 | Codex |
 | DEC-0031 | 2026-10-28 | Decision | Operational policy edits are immutable snapshots requiring a different administrator; deadlines activate from DB versions | Accepted | Phase 9.4; FR-36/FR-50 | Codex |
 | IMPL-0072 | 2026-10-28 | Implementation | Phase 9.4 four-eyes policy configuration console | Tested | Phase 9.4; FR-36/FR-50 | Codex |
 | BUG-0080 | 2026-10-28 | Bug | Ruff rejected Phase 9.4 imports | Fixed | IMPL-0072 |
@@ -169,6 +170,21 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0073 — Phase 9.5 console deadline change moves live alert timing
+- Date / author / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: Phase 9.5; PRD §16 demo step 10.
+- What existed before: Phase 9.4 made approved deadline snapshots available to both preview and sweep; no composed regression proved an admin change alters alert timing.
+- What changed: added a fixed-clock integration test that creates a synthetic undertaking, confirms the seven-day reminder is absent ten days before due, creates a deadline draft through the admin API, approves it with a second administrator, then runs the same sweep at the same clock instant and confirms that reminder now fires.
+- Files changed: `backend/tests/test_phase9_deadline_console_alerts.py`, `md/6_IMPLEMENTATION_PLAN.md`, `docs/IMPLEMENTATION_LOG.md`, `CONTEXT.md`.
+- Migrations / API / config: none; exercises 9.4 policy draft/approval and existing alert sweep paths.
+- Permission and audit effects: test uses existing `admin.rules`; console creates and approves audited versions.
+- Verification: focused test **1 passed, 1 upstream warning**; `make lint` passed; full `make test` **853 passed, 2 upstream warnings**.
+- Status per requirement: deadline change → real sweep timing — Tested. Full Phase 9 still partial because 9.3's additional-fee gate awaits the official/source and institution/payment data gates recorded in IMPL-0071.
+- Limitations / assumptions / manual steps: synthetic fixed clock/case; no official deadline or fee was changed.
+- Related bugs: none.
+- Open questions: see IMPL-0071 for the remaining fee activation input.
+- Next: record full regression result; ask the project lead to confirm the specific Phase 9.3 fee/source and data-model gates.
 
 ### DEC-0031 — Policy changes use immutable snapshots and four-eyes publication
 - Date / owner: 2026-10-28 / Codex.
