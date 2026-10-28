@@ -1,5 +1,6 @@
 # docs/BUG_LOG.md
 
+| BUG-0089 | 2026-10-28 | S3 | frontend/workflow | The UI could never complete an FR-28 return or revert: api calls sent no reason code and no screen offered one, so the backend refused both actions every time | Fixed | IMPL-0088 |
 | BUG-0088 | 2026-10-28 | S4 | measurement accuracy | IMPL-0086's "146-entry" authz-matrix figure did not reproduce; verified counts are 125/171/34 | Fixed | IMPL-0087 |
 | BUG-0087 | 2026-10-28 | S4 | OCR test flake | One-off scanned-EoA assertion failure in a full run; not reproduced in four reruns | Open | — |
 | BUG-0086 | 2026-10-28 | S3 | scanned EoA option table | Aggregate change-options field was omitted because OCR split the next-table heading | Fixed | IMPL-0076 |
@@ -754,6 +755,27 @@
 ```
 
 ## Entries (newest first)
+
+### BUG-0089 — The decision UI could never complete an FR-28 return or revert (reason codes unreachable from the browser)
+- Date found / found by (human or agent + model) / branch / commit: 2026-10-28 (while driving the whole demo pipeline from the React UI for the SIH video) / MiMo (OpenCode agent) / master / found against `44b9d7f`.
+- Severity / Area: S3 / frontend + workflow (FR-28).
+- Status: **Fixed** (IMPL-0088, commit `c247ea9`).
+- Where it showed up: the Compose-stacked UI — decision panel "Send back for changes" and the "Undo the last step" button, on a scrutiny-stage case (`new_technical` route).
+- Expected behaviour: a scrutiny officer can send a case back for clarification (and undo a step), recording the FR-28 code + free text from the screen.
+- Actual behaviour: both actions were refused **every time**, with the refusal teaching the codes but no way to pick one:
+  ```
+  That was not allowed: a reason code is mandatory on return (PRD FR-28);
+  valid codes: RC-DOC-MISSING, RC-CLARIFICATION, RC-OTHER
+  (revert refuses with the analogous "mandatory on revert" message)
+  ```
+- Steps to reproduce: sign in as `scrutiny@demo.local`, open a `submitted` case, Start the review → Take a decision → type any free-text reason → press "Send back for changes" — refused. The undo panel fails the same way for any revert.
+- Environment: macOS, Compose stack (Postgres), fixed demo clock; frontend built from `44b9d7f` sources.
+- Hypotheses tried: (a) thought the typed reason needed the code embedded as text — disproved: `TransitionRequest.reason_code` is a separate structured field (`backend/app/schemas/api.py:118`), free text is parsed nowhere; (b) thought the deficiency workflow offers a return path — disproved: deficiencies "never move or block the case" by design; (c) real cause: the UI's `api.transition`/`api.revert` never sent `reason_code` and no screen offered a picker.
+- Root cause: frontend contract drift — the FR-28 mandate landed backend-side (with its tests) but the UI was never extended; `required_for_actions` was also not served on `GET /workflow/reason-codes`, so a client literally could not know which actions need a code without hardcoding policy.
+- Solution applied (why this shape): backend serves `required_for_actions` (same key the service validates against — no policy duplicated); `api.transition`/`api.revert` accept and send `reason_code`; decision/undo panels render a code select filtered by `applies_to` return/revert with the placeholder status shown inline; selections reset per action and per case; load is best-effort so a failed load still surfaces the backend refusal. Rejected alternatives: hardcoding the mandated actions in React (drifts from config) and making the code optional in the backend (would break the PRD mandate).
+- Verification (exact counts): new backend test seen failing first (`KeyError: 'required_for_actions'`), then `pytest tests/test_reason_codes.py -q` → **22 passed**; `make lint` clean; `make test` → **859 passed** (858 + the new endpoint test); `cd frontend && npm run build` clean; the full-UI demo rerun (the return → "Send again" leg actually completed from the screens) is the acceptance step and is logged below once it runs.
+- Side effects / follow-ups / related: `GET /workflow/reason-codes` response grew a key (additive, existing consumers unaffected); §11 "rejections and returns by reason code" metric can now actually be populated from the UI. Related: IMPL-0088, DEC-0003, `rules/reason_codes.json` placeholder status (Unverified until AICTE confirms the vocabulary).
+- Update history: pending — full-UI rerun of the return/resubmit leg still to be recorded against the rebuilt stack.
 
 ### BUG-0070 — Ruff rejected an unsorted dashboard permission import
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / working tree.

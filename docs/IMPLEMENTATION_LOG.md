@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0088 | 2026-10-28 | Implementation | FR-28 decision UI gap closed: reason-code select on return/revert, code served with `required_for_actions` | Tested | FR-28; BUG-0089 | MiMo (OpenCode agent) |
 | IMPL-0087 | 2026-10-28 | Verification | Phase 11.6/11.7: evidence-only evaluation matrix in TRACEABILITY.md; 18-box Appendix F walk in DEFERRALS.md; authz count corrected (BUG-0088) | Tested | Phase 11.6/11.7; AGENT-12 | MiMo (OpenCode agent) |
 | IMPL-0086 | 2026-10-28 | Measurement | Phase 11.5 measured records: synthetic-set extraction P/R 100%, per-page OCR 2.7s, API 6–25ms, 146-entry authz matrix, findings-evidence tracing | Measured | Phase 11.5; FR-39/FR-48 | MiMo (OpenCode agent) |
 | IMPL-0085 | 2026-10-28 | Verification | Phase 11.4 Scenario D rehearsed: sweep 8 → rerun 0, audited alerts, chain verification recorded | Tested | Phase 11.4 | MiMo (OpenCode agent) |
@@ -190,6 +191,19 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0088 — FR-28 decision-UI gap closed: a return/revert reason code can now be picked from the UI
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / `c247ea9`.
+- Task and PRD IDs: FR-28 (reason code + free text mandatory on return/revert); BUG-0089; work requested while recording the whole-pipeline demo video from the UI.
+- Found while driving the full UI pipeline for the demo video: the backend has always mandated a structured reason code on `return_for_clarification` and on reverts (`rules/reason_codes.json` `required_for_actions`, `_reason_code_error`), but `api.transition`/`api.revert` posted only free text and no screen offered a code — so from the shipped UI "Send back for changes" and "Undo the last step" were refused **every time** with "a reason code is mandatory on return (PRD FR-28)".
+- Changes (commit `c247ea9`):
+  - Backend: `GET /workflow/reason-codes` now also serves `required_for_actions` (the same config key the service validates against) so a client scopes the mandate from config rather than hardcoding the policy a second time (test added first, seen failing, then the field — new test `test_the_vocabulary_endpoint_serves_the_mandated_actions`).
+  - Frontend: `api.transition`/`api.revert` send `reason_code`; the decision panel and the undo panel render a code select filtered by `applies_to` return/revert, with the placeholder status shown inline ("labelled placeholder until AICTE confirms the official vocabulary"); validation reads friendlier before the request; selections reset per action and per case; vocabulary load is best-effort (a failed load leaves the backend refusal teaching the codes, never a broken page).
+- Not invented: codes and `required_for_actions` come exclusively from `rules/reason_codes.json`; the select only offers its listed codes, and the backend still refuses unknown ones.
+- Verification (gates; exact counts): `cd backend && pytest tests/test_reason_codes.py -q` → **22 passed** (new test included); `make lint` clean; `make test` → **859 passed, 2 warnings** (858 before); `cd frontend && npm run build` clean (tsc + vite).
+- Limitations: no automated UI-unit regime exists (no frontend test runner) — the decision-panel/undo-panel behaviour is verified by the backend contract tests plus the upcoming full-UI demo rerun; a failed vocabulary load leaves the officer on the backend refusal (acceptable, logged here rather than hidden).
+- Related: BUG-0089, IMPL-0071–0076 (workflow/OCR era), IMPL-0080–0087 (Phase 11 rehearsal).
+- Update history: —
 
 ### IMPL-0087 — Phase 11.6 + 11.7: evaluation matrix (evidence only) and the Appendix-F honesty walk
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
