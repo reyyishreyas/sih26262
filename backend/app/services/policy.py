@@ -89,6 +89,11 @@ def security_deposit_policy() -> dict[str, Any]:
 
 
 @lru_cache
+def fee_table_policy() -> dict[str, Any]:
+    return _load("fee_table.json")
+
+
+@lru_cache
 def assignment_policy() -> dict[str, Any]:
     return _load("assignment_policy.json")
 

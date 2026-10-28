@@ -13,6 +13,8 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| DEC-0030 | 2026-10-28 | Decision | Candidate additional-fee values remain nonblocking until named source review and institution classification exist | Accepted | Phase 9.3; FR-21/FR-25 | Codex |
+| IMPL-0071 | 2026-10-28 | Implementation | Phase 9.3 fee table and guarded lookup engine | Partial | Phase 9.3; FR-21/FR-25 | Codex |
 | DEC-0029 | 2026-10-28 | Decision | Deposit proof clock requires officer-recorded linked notice; configured timing remains advisory | Accepted | Phase 9.2; FR-33; Phase 6 deposit seam | Codex |
 | IMPL-0070 | 2026-10-28 | Implementation | Phase 9.2 Security Deposit undertaking with linked notice/evidence and reminder flow | Tested | Phase 9.2; FR-33 | Codex |
 | BUG-0077 | 2026-10-28 | Bug | Default local Alembic database was behind current head during revision generation | Workaround | IMPL-0070 |
@@ -162,6 +164,30 @@
 ```
 
 ## Entries (newest first)
+
+### DEC-0030 — Candidate additional fees remain nonblocking pending source review and institution classification
+- Date / owner: 2026-10-28 / Codex.
+- Task / PRD IDs: Phase 9.3; FR-21 and FR-25.
+- Decision: Keep candidate amounts in a versioned rule file and permit the engine to produce an amount or block only when the fee table is Verified with source ID, named reviewer, edition, clause and verification date. Current policy remains Unverified/advisory. Do not infer institution type because the application/institution schema has no such field.
+- Why: PRD §0 requires named source verification before fees become gates; the source register verifies only specific APH flows, not these clauses. API payment-gateway integration and actual payment records are out of scope.
+- Permission and audit effects: no routes or permission changes; no payment or workflow state changes.
+- Related: IMPL-0071.
+
+### IMPL-0071 — Phase 9.3 fee table and guarded lookup engine (FR-21 / FR-25)
+- Date / author / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: Phase 9.3; FR-21/FR-25.
+- What existed before: no additional-fee table or fee lookup engine; institution type and payment records are not modeled.
+- What changed: added `fee_table.json` with clearly labelled PRD candidate values for additional EVC and additional Scrutiny/SHC/SAC; added cached policy loader and an engine that resolves candidate values for known input classes/modes. Unverified policy produces `amount_inr: null`, `blocking: false`, and advisory labels. Only a future source-reviewed configuration with complete verification metadata can return a payable amount or require payment.
+- Files changed: `backend/rules/fee_table.json`, `backend/app/services/policy.py`, `backend/app/services/fee_engine.py`, `backend/tests/test_fee_engine.py`.
+- Migrations / API / config: new JSON configuration and service only; no DB migration, API route, payment gateway or payment persistence.
+- Decisions: DEC-0030.
+- Permission and audit effects: none; no user action or case state is changed.
+- Verification: `make lint` passed; focused fee tests **5 passed, 1 upstream warning**; full `make test` **848 passed, 2 upstream warnings**; JSON parse passed.
+- Status per requirement: fee table and guarded service — Tested. Automatic EVC/SHC/SAC blocks — not implemented/active pending policy verification and missing applicant classification/payment state. Phase 9.3 therefore remains Partial and unchecked.
+- Limitations / assumptions / manual steps: exact Chapter II §2.3.2(b-c) applicability and Government-category treatment require named source-register verification; the initial app has no institution-type classification or payment evidence model. The current table must not be activated.
+- Related bugs: none.
+- Open questions: confirm the official fee clauses/edition and institution classification mapping before activation.
+- Next: Phase 9.4 draft configuration console with four-eyes workflow; keep draft publication behavior isolated from unverified regulatory values.
 
 ### DEC-0029 — Deposit proof clock requires a separately recorded linked notice
 - Date / owner: 2026-10-28 / Codex.

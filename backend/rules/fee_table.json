@@ -1,0 +1,38 @@
+{
+  "version": 1,
+  "status": "unverified",
+  "placeholder": true,
+  "advisory_only": true,
+  "currency": "INR",
+  "source": "SRC-APH-2024-27; AICTE Approval Process Handbook 2024-27, Chapter II §2.3.2(b-c), printed pp. 13-14 / PDF pp. 28-29; matching PRD FR-21 and FR-25 candidate values. The fee clauses have not yet been independently verified by a named reviewer in docs/SOURCES.md.",
+  "verification": {
+    "source_id": null,
+    "reviewer": null,
+    "edition": null,
+    "clause": null,
+    "verified_at": null
+  },
+  "note": "Candidate amounts are retained for review only. Institution type is not modelled in application data. Chapter II §2.3.2(b-c) scope/applicability, including court-direction and government-institution wording, must be confirmed by a named reviewer. No amount is payable or displayed as due, and no EVC, scrutiny, SHC or SAC action is blocked while this table is Unverified.",
+  "fees": {
+    "additional_evc": {
+      "source_clause": "APH 2.3.2c (PRD reference; not independently verified)",
+      "candidate_amounts_inr": {
+        "government": {
+          "online": 25000,
+          "physical": 50000
+        },
+        "other": {
+          "online": 125000,
+          "physical": 250000
+        }
+      }
+    },
+    "additional_scrutiny_shc_sac": {
+      "source_clause": "APH 2.3.2b (PRD reference; not independently verified)",
+      "candidate_amounts_inr": {
+        "government": 15000,
+        "other": 60000
+      }
+    }
+  }
+}
