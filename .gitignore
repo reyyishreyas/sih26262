@@ -34,3 +34,16 @@ frontend/.vite/
 .DS_Store
 .idea/
 .vscode/
+
+# Working files (planning material and agent aids kept out of the repo)
+/md/
+/CONTEXT.md
+/things.md
+/AGENTS.md
+/CLAUDE.md
+/antiragging_vtu_letter.pdf
+docs/BUG_LOG.md
+docs/IMPLEMENTATION_LOG.md
+docs/DECISIONS.md
+docs/TRACEABILITY.md
+docs/SOURCES.md

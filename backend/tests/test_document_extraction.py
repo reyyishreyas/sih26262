@@ -205,7 +205,7 @@ def test_a_scanned_pdf_is_ocrd_page_by_page():
 def test_scanned_eoa_pdf_in_repository_upload_populates_identity_and_course_fields(
     client, as_user
 ):
-    eoa_path = Path(__file__).resolve().parents[2] / "EOA Report_2019-20.pdf"
+    eoa_path = Path(__file__).resolve().parents[2] / "md" / "EOA Report_2019-20.pdf"
     response = client.post(
         "/api/v1/applications/app-main-0001/documents",
         headers=as_user("institution@demo.local"),
