@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0085 | 2026-10-28 | Verification | Phase 11.4 Scenario D rehearsed: sweep 8 → rerun 0, audited alerts, chain verification recorded | Tested | Phase 11.4 | MiMo (OpenCode agent) |
 | IMPL-0084 | 2026-10-28 | Verification | Phase 11.3 Scenario C rehearsed: corrupt/unsupported/unreadable uploads fail honestly, no PASS, no contents in logs | Tested | Phase 11.3 | MiMo (OpenCode agent) |
 | IMPL-0083 | 2026-10-28 | Verification | Phase 11.2 Scenario B rehearsed: unauthenticated/other-institution/off-role denials and authorised pass, exactly as the RBAC matrix | Tested | Phase 11.2 | MiMo (OpenCode agent) |
 | IMPL-0082 | 2026-10-28 | Verification | Phase 11.1 Scenario A rehearsed end to end on the Compose stack | Tested | Phase 11.1 | MiMo (OpenCode agent) |
@@ -186,6 +187,20 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0085 — Phase 11.4 Scenario D rehearsed (deadline/audit)
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
+- Task and PRD IDs: Phase 11.4 (plan line 138) — synthetic fixed-clock dates (2026-10-22T09:00Z) on the Compose stack (fresh seed).
+- Observed:
+  1. Admin sweep → `{created: 8, scanned: 8, existing: 0}` from the seeded synthetic obligations.
+  2. Immediate rerun → `{created: 0, existing: 8}` — semantic dedupe keys, no duplicates.
+  3. The sweep wrote audited events in the scoped timeline: `alert.fired -> accepted ×N`, `alert.escalated -> accepted`.
+  4. `GET /audit/verify` → ok, read-only.
+  5. `POST /audit/verify` → records the explicit `audit.verification` event (entity `system`, outcome `accepted`) and returns `verification_event_seq: 16` with `ok: true`.
+- State hygiene: `make reset` afterwards; final state clean seed, `/health` `app_rw` ok.
+- Code/config changes: none. All five levels of the scenario match the committed alerts/audit tests (test_alerts, test_phase8_audit).
+- Related: IMPL-0080 (first full-stack rehearsal), IMPL-0084, IMPL-0083, IMPL-0082.
+- Next: Phase 11.5 — measured records (requires the team-agreed workload targets first; recording the extraction evidence exists but metric numbers need the labelled set).
 
 ### IMPL-0084 — Phase 11.3 Scenario C rehearsed (processing failure)
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
