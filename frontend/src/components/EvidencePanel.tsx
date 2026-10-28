@@ -100,6 +100,8 @@ export function EvidencePanel({
   const [busyLine, setBusyLine] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [docType, setDocType] = useState<string>("lease_agreement");
+  const [evidenceQuery, setEvidenceQuery] = useState("");
+  const [needsReviewOnly, setNeedsReviewOnly] = useState(false);
   // Deficiencies modal / form state for when marking wrong or manual deficiency
   const [rejectingField, setRejectingField] = useState<{
     doc: DocumentRow;
@@ -336,9 +338,13 @@ export function EvidencePanel({
       const duplicate = result.duplicate_of_another_institution;
       setLastReader(result.extraction.simulated ? "demo" : "real");
       setWarning(
-        duplicate.found
-          ? `Careful — the exact same file was already used by another college (${duplicate.institution_id}). ${duplicate.note ?? ""}`
-          : (result.extraction.warnings.join(" ") || null),
+        [
+          duplicate.found
+            ? `Careful — the exact same file was already used by another college (${duplicate.institution_id}). ${duplicate.note ?? ""}`
+            : null,
+          result.classification?.note,
+          ...result.extraction.warnings,
+        ].filter(Boolean).join(" ") || null,
       );
       setMessage(
         result.extraction.fields_extracted > 0
@@ -519,6 +525,29 @@ export function EvidencePanel({
     }
   }
 
+  const query = evidenceQuery.trim().toLowerCase();
+  const fieldMatches = (field: DocumentRow["fields"][number]) => {
+    const value = typeof field.value === "string" ? field.value : JSON.stringify(field.value);
+    return `${field.field_name} ${value} ${field.source_span ?? ""}`.toLowerCase().includes(query);
+  };
+  const fieldNeedsReview = (field: DocumentRow["fields"][number]) =>
+    field.verification_status !== "verified" || field.confidence < 0.75;
+  const visibleDocuments = documents.filter((document) => {
+    const documentMatches = `${document.file_name} ${document.doc_type}`.toLowerCase().includes(query);
+    const hasMatchingField = document.fields.some((field) =>
+      (!query || fieldMatches(field)) && (!needsReviewOnly || fieldNeedsReview(field)),
+    );
+    return (!query || documentMatches || hasMatchingField)
+      && (!needsReviewOnly || hasMatchingField);
+  });
+  const visibleFields = (document: DocumentRow) => {
+    const documentMatches = `${document.file_name} ${document.doc_type}`.toLowerCase().includes(query);
+    return document.fields.filter((field) =>
+      (!query || documentMatches || fieldMatches(field))
+      && (!needsReviewOnly || fieldNeedsReview(field)),
+    );
+  };
+
   return (
     <section className="panel">
       <div className="panel-head">
@@ -663,8 +692,30 @@ export function EvidencePanel({
         <p className="muted">No documents have been uploaded yet.</p>
       )}
 
+      {documents.length > 0 && (
+        <div className="task-actions" aria-label="Find extracted evidence">
+          <label className="field" style={{ flex: "1 1 18rem" }}>
+            <span>Find a document or extracted detail</span>
+            <input
+              type="search"
+              value={evidenceQuery}
+              onChange={(event) => setEvidenceQuery(event.target.value)}
+              placeholder="Search names, dates, addresses, IDs…"
+            />
+          </label>
+          <div className="field" style={{ flex: "0 1 auto" }}>
+            <span>Review filter</span>
+            <label><input type="checkbox" checked={needsReviewOnly} onChange={(event) => setNeedsReviewOnly(event.target.checked)} /> Needs human review</label>
+          </div>
+          <p className="tiny muted">Showing {visibleDocuments.length} of {documents.length} documents</p>
+        </div>
+      )}
+      {!loading && documents.length > 0 && visibleDocuments.length === 0 && (
+        <p className="muted">No documents or extracted details match these filters.</p>
+      )}
+
       <div className="document-list">
-        {documents.map((document) => (
+        {visibleDocuments.map((document) => (
           <article className="document" key={document.id}>
             <div className="panel-head">
               <div>
@@ -704,7 +755,11 @@ export function EvidencePanel({
               <p className="muted tiny">No details were read from this file.</p>
             )}
 
-            {document.fields.map((field) => {
+            {document.fields.length > 0 && visibleFields(document).length === 0 && (
+              <p className="muted tiny">No extracted fields match these filters.</p>
+            )}
+
+            {visibleFields(document).map((field) => {
               const fieldObj = typeof field.value === "object" && field.value !== null ? (field.value as Record<string, unknown>) : null;
               const sourceQuote = fieldObj?.source_quote ? String(fieldObj.source_quote) : null;
               const aiReasoning = fieldObj?.ai_reasoning ? String(fieldObj.ai_reasoning) : null;
@@ -731,6 +786,12 @@ export function EvidencePanel({
                           Evidence Quote:{" "}
                         </strong>
                         “{sourceQuote}”
+                      </blockquote>
+                    )}
+
+                    {!sourceQuote && field.source_span && (
+                      <blockquote className="evidence-source-span">
+                        <strong>Text from page {field.source_page ?? "?"}:</strong> “{field.source_span}”
                       </blockquote>
                     )}
 

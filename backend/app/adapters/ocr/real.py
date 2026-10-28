@@ -40,6 +40,10 @@ _MIN_OCR_WIDTH = 1200
 # A text layer read is trustworthy but never certain (a PDF can carry the
 # wrong text layer), so it is not reported as 1.0.
 _TEXT_LAYER_CONFIDENCE = 0.9
+# A page that yields only a few machine characters is usually a scanned page
+# with an invisible/partial OCR layer. Render those pages as well, then keep
+# whichever reader actually recovered more text.
+_MIN_USABLE_TEXT_CHARS = 24
 
 _PDF_MAGIC = b"%PDF"
 _PNG_MAGIC = b"\x89PNG"
@@ -294,8 +298,8 @@ def _group_ocr_lines(
     return lines
 
 
-def _locate(lines: list[_Line], *needles: str) -> dict | None:
-    """The box of the first line containing any needle (alnum match).
+def _locate_line(lines: list[_Line], *needles: str) -> _Line | None:
+    """The first line containing any needle (alnum match).
 
     Tries the needles in order, so the stored value is preferred over the
     parser's label. Answers ``None`` when nothing matches — a box we cannot
@@ -309,8 +313,13 @@ def _locate(lines: list[_Line], *needles: str) -> dict | None:
             continue
         for line in lines:
             if key in _alnum(line.text):
-                return line.bbox
+                return line
     return None
+
+
+def _usable_text_chars(text: str) -> int:
+    """Count letters/digits, ignoring layout punctuation and whitespace."""
+    return sum(character.isalnum() for character in text)
 
 
 class RealOCRExtractor:
@@ -381,7 +390,8 @@ class RealOCRExtractor:
         self, content: bytes, result: ExtractionResult
     ) -> tuple[list[_Page], list[str]]:
         warnings: list[str] = []
-        pages: list[_Page] = []
+        text_pages: dict[int, _Page] = {}
+        scan_candidates: set[int] = set()
 
         try:
             from pypdf import PdfReader
@@ -410,11 +420,11 @@ class RealOCRExtractor:
                     y = tm[4] * cm[1] + tm[5] * cm[3] + cm[5]
                     _chunks.append((stripped, x, y, font_size * scale))
 
-                text = (pdf_page.extract_text(visitor_text=_visitor) or "").strip()
-                if text:
-                    box = pdf_page.mediabox
-                    pages.append(
-                        _Page(
+                try:
+                    text = (pdf_page.extract_text(visitor_text=_visitor) or "").strip()
+                    if text:
+                        box = pdf_page.mediabox
+                        text_pages[index] = _Page(
                             number=index,
                             text=text,
                             method="pdf_text",
@@ -429,6 +439,14 @@ class RealOCRExtractor:
                                 lly=float(box.bottom),
                             ),
                         )
+                        if _usable_text_chars(text) < _MIN_USABLE_TEXT_CHARS:
+                            scan_candidates.add(index)
+                    else:
+                        scan_candidates.add(index)
+                except Exception as exc:  # noqa: BLE001 - continue with other pages
+                    scan_candidates.add(index)
+                    warnings.append(
+                        f"Text on PDF page {index} could not be read ({type(exc).__name__}); trying page OCR."
                     )
         except Exception as exc:  # noqa: BLE001 - corrupt files must not 500
             warnings.append(
@@ -438,15 +456,36 @@ class RealOCRExtractor:
             )
             return [], warnings
 
-        if pages:
-            return pages, warnings
+        if not scan_candidates:
+            return list(text_pages.values()), warnings
 
-        # No text layer: this is a scan. Render every page and OCR it.
-        ocr_pages, ocr_warnings = self._read_pdf_as_scans(content, result)
-        return ocr_pages, warnings + ocr_warnings
+        # Render only pages with no/partial text, so mixed digital + scanned
+        # PDFs are fully indexed without rasterising every text page.
+        ocr_pages, ocr_warnings = self._read_pdf_as_scans(
+            content, result, page_numbers=scan_candidates
+        )
+        warnings.extend(ocr_warnings)
+        ocr_by_page = {page.number: page for page in ocr_pages}
+        pages: list[_Page] = []
+        for page_number in sorted(set(text_pages) | scan_candidates):
+            text_page = text_pages.get(page_number)
+            ocr_page = ocr_by_page.get(page_number)
+            if ocr_page is not None and (
+                text_page is None
+                or _usable_text_chars(ocr_page.text) > _usable_text_chars(text_page.text)
+            ):
+                pages.append(ocr_page)
+            elif text_page is not None:
+                pages.append(text_page)
+        if ocr_pages:
+            result.warnings.append(
+                "One or more PDF pages had no usable text layer and were read with OCR. "
+                "Scanned text can be less reliable; check every extracted detail."
+            )
+        return pages, warnings
 
     def _read_pdf_as_scans(
-        self, content: bytes, result: ExtractionResult
+        self, content: bytes, result: ExtractionResult, *, page_numbers: set[int]
     ) -> tuple[list[_Page], list[str]]:
         warnings: list[str] = []
         pages: list[_Page] = []
@@ -455,10 +494,16 @@ class RealOCRExtractor:
             import pypdfium2 as pdfium
 
             document = pdfium.PdfDocument(BytesIO(content))
-            rendered = []
-            for index in range(len(document)):
-                bitmap = document[index].render(scale=_RENDER_SCALE)
-                rendered.append(bitmap.to_pil())
+            page_count = len(document)
+            for page_number in sorted(page_numbers):
+                if page_number < 1 or page_number > page_count:
+                    warnings.append(f"PDF page {page_number} was outside the readable page range.")
+                    continue
+                bitmap = document[page_number - 1].render(scale=_RENDER_SCALE)
+                image = bitmap.to_pil()
+                page = self._ocr_image(image, page_number=page_number, result=result)
+                if page is not None:
+                    pages.append(page)
         except Exception as exc:  # noqa: BLE001 - corrupt files must not 500
             warnings.append(
                 "This PDF has no readable text and its pages could not be "
@@ -466,17 +511,6 @@ class RealOCRExtractor:
             )
             return [], warnings
 
-        for index, image in enumerate(rendered, start=1):
-            page = self._ocr_image(image, page_number=index, result=result)
-            if page is not None:
-                pages.append(page)
-
-        if pages:
-            result.warnings.append(
-                "This PDF is a scan (no text inside), so the pages were "
-                "read with OCR. Scanned text is less reliable — please "
-                "check every detail below."
-            )
         return pages, warnings
 
     def _read_image(
@@ -686,6 +720,18 @@ def _label_needles(method_note: str) -> list[str]:
     return match or [method_note]
 
 
+def _field_label_needles(name: str) -> list[str]:
+    """Known source labels for parsers that normalise their stored values."""
+    if name in {"valid_from", "valid_to"}:
+        return [
+            "valid from", "lease starts", "lease commences", "commencing",
+            "term from", "valid to", "valid until", "valid till",
+            "valid up to", "expiry date", "expiry", "expires", "term to",
+            "term until", "issued on",
+        ]
+    return []
+
+
 def _add(
     result: ExtractionResult,
     *,
@@ -698,13 +744,19 @@ def _add(
     # Where: the stored value on a line, else the parser's label line,
     # else no box at all — an unplaceable box would send the highlight to
     # the wrong part of the page, which is worse than no highlight.
-    bbox = _locate(page.lines, str(value), *_label_needles(method_note))
+    located_line = _locate_line(
+        page.lines,
+        str(value),
+        *_label_needles(method_note),
+        *_field_label_needles(name),
+    )
+    bbox = located_line.bbox if located_line else None
     result.fields.append(
         ExtractedFieldCandidate(
             field_name=name,
             value=value,
             source_page=page.number,
-            source_span=method_note,
+            source_span=(located_line.text[:512] if located_line else method_note),
             method=page.method,
             confidence=round(min(confidence, page.confidence), 2),
             bbox=bbox,
@@ -790,7 +842,7 @@ def _parse_lease_deed(pages: list[_Page], result: ExtractionResult) -> int:
             found += 1
 
         valid_to = _date_after(
-            r"(?:valid\s+(?:to|until|till|up\s+to)|expiry|expires|term\s+(?:to|until))",
+            r"(?:valid\s+(?:to|until|till|up\s+to)|expiry(?:\s+date)?|expires|term\s+(?:to|until))",
             text,
         )
         if valid_to and not any(f.field_name == "valid_to" for f in result.fields):
@@ -801,6 +853,23 @@ def _parse_lease_deed(pages: list[_Page], result: ExtractionResult) -> int:
                 page=page,
                 method_note="label 'valid to'",
                 confidence=0.9 if page.method == "pdf_text" else page.confidence,
+            )
+            found += 1
+
+        property_address = _text_after(
+            r"(?:property\s+address|premises\s+address|address\s+of\s+(?:the\s+)?premises|leased\s+premises)",
+            text,
+        )
+        if property_address and not any(
+            f.field_name == "property_address" for f in result.fields
+        ):
+            _add(
+                result,
+                name="property_address",
+                value=property_address,
+                page=page,
+                method_note="label 'property address'",
+                confidence=0.86 if page.method == "pdf_text" else page.confidence,
             )
             found += 1
     return found
@@ -1104,6 +1173,7 @@ def _parse_format_3_resolution(pages: list[_Page], result: ExtractionResult) -> 
 
 _PARSERS = {
     "lease_deed": _parse_lease_deed,
+    "lease_agreement": _parse_lease_deed,
     "ownership_record": _parse_ownership_record,
     "affidavit": _parse_affidavit,
     "faculty_list": _parse_faculty_list,

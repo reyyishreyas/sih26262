@@ -136,6 +136,7 @@ input:focus, textarea:focus, select:focus, button:focus-visible {
   outline-offset: 1px;
 }
 textarea { font-family: ui-monospace, Menlo, monospace; font-size: 0.86rem; }
+.evidence-source-span { margin: 0.35rem 0; padding: 0.35rem 0.6rem; border-left: 3px solid var(--line); background: var(--neutral-soft); font-size: 0.82rem; overflow-wrap: anywhere; }
 
 .field { display: grid; gap: 0.35rem; margin: 0.7rem 0; }
 .field > span { font-weight: 600; font-size: 0.95rem; }

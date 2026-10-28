@@ -1,6 +1,7 @@
 # docs/BUG_LOG.md
 
 | BUG-0082 | 2026-10-28 | S4 | migration trigger verification | First direct-SQL immutability check removed its fixture row before testing delete | Fixed | IMPL-0072 |
+| BUG-0083 | 2026-10-28 | S3 | OCR evidence retrieval | Normalised lease expiry evidence cited a parser label | Fixed | IMPL-0074 |
 | BUG-0080 | 2026-10-28 | S4 | lint | New Phase 9.4 API/model/migration import blocks were unsorted | Fixed | IMPL-0072 |
 | BUG-0081 | 2026-10-28 | S4 | test assertion | Fee verification validation test expected a generic error word | Fixed | IMPL-0072 |
 
@@ -25,6 +26,21 @@
 | BUG-0059 | 2026-10-28 | S3 | lint | Ruff rejected generated migration import order | Fixed | IMPL-0058 |
 | BUG-0062 | 2026-10-28 | S4 | test fixture | Reopening transition test expected generic transition authorization | Fixed | IMPL-0058 |
 | BUG-0061 | 2026-10-28 | S3 | authorization matrix | New reopening routes and Competent Authority role were absent from the matrix | Fixed | IMPL-0058 |
+
+### BUG-0083 — Normalised lease expiry evidence cited a parser label
+- Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.
+- Severity / area: S3 / OCR source-line retrieval.
+- Status: **Fixed**.
+- Expected: a parsed lease end date should cite the actual source line that contains its date and label.
+- Actual: extraction returned the correct ISO date, but its `source_span` fell back to the generic `valid to` parser note because the original page used the alias `Expiry date`.
+- Reproduction: `make test` → `tests/test_ai_copilot.py::test_evidence_grounded_ai_extraction_and_copilot_deficiency` failed its source span assertion.
+- Environment: local Python 3.13, pypdf text-layer extraction, fixed test clock.
+- Hypotheses tried: value normalization had replaced the source line; confirmed the value normalization did not carry a raw date needle into line location.
+- Root cause: line locator tried the stored ISO date and only the generic parser label, not all valid date-label aliases.
+- Solution applied: valid-from/valid-to field labels are now included as a secondary line-locator set; line matching remains evidence-based and does not infer a box.
+- Verification: `pytest -q tests/test_ai_copilot.py tests/test_document_extraction.py tests/test_field_provenance.py tests/test_ocr_dispatch.py` → **24 passed, 1 upstream warning**; full `make test` → **856 passed, 2 upstream warnings, 0 skipped**.
+- Regression test: existing AI copilot lease upload asserts the `Expiry date` source line.
+- Related: IMPL-0074.
 
 ### BUG-0082 — Direct-SQL immutability check rolled back its fixture too early
 - Date found / found by / branch / commit: 2026-10-28 / Codex / master / pending.

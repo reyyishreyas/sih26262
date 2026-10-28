@@ -47,7 +47,7 @@ def test_evidence_grounded_ai_extraction_and_copilot_deficiency(client, as_user)
     doc_data = upload_res.json()["document"]
     assert doc_data["doc_type"] == "lease_agreement"
 
-    # 2. Check that the extracted fields contain: value, source_quote, and ai_reasoning
+    # 2. The uploaded document is read locally by the PDF text-layer parser.
     fields = {f["field_name"]: f for f in doc_data["fields"]}
     assert "lessor_name" in fields
     assert "lessee_name" in fields
@@ -55,19 +55,12 @@ def test_evidence_grounded_ai_extraction_and_copilot_deficiency(client, as_user)
     assert "valid_to" in fields
 
     valid_to_field = fields["valid_to"]
-    val_json = valid_to_field["value"]
-    assert isinstance(val_json, dict)
-    assert "value" in val_json
-    assert "source_quote" in val_json
-    assert "ai_reasoning" in val_json
-    assert "31 December 2023" in val_json["source_quote"] or "Expiry date" in val_json["source_quote"]
+    assert valid_to_field["value"] == "2023-12-31"
+    assert "Expiry date" in valid_to_field["source_span"]
 
     lessee_field = fields["lessee_name"]
-    lessee_json = lessee_field["value"]
-    assert isinstance(lessee_json, dict)
-    assert "Mismatched College of Engineering" in lessee_json["value"]
-    assert "source_quote" in lessee_json
-    assert "ai_reasoning" in lessee_json
+    assert lessee_field["value"] == "Mismatched College of Engineering"
+    assert "Lessee" in lessee_field["source_span"]
 
     # 3. Deterministic AI Copilot Engine: check that draft Deficiencies were automatically created
     defs_res = client.get("/api/v1/applications/app-main-0001/deficiencies", headers=scrutiny)

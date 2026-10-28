@@ -61,6 +61,7 @@ def validate_lease_document(
     if "valid_to" in by_name:
         field_row = by_name["valid_to"]
         raw_val, source_quote = _get_field_val_and_quote(field_row.value)
+        source_quote = source_quote or field_row.source_span or ""
         parsed_date: date | None = None
         with suppress(ValueError, TypeError):
             parsed_date = date.fromisoformat(raw_val[:10])
@@ -114,6 +115,7 @@ def validate_lease_document(
     if "lessee_name" in by_name and institution_name:
         field_row = by_name["lessee_name"]
         raw_val, source_quote = _get_field_val_and_quote(field_row.value)
+        source_quote = source_quote or field_row.source_span or ""
         quote_clause = f" (quoted: \"{source_quote}\")" if source_quote else ""
 
         # Normalize comparison (case-insensitive and remove punctuation/extra whitespace)

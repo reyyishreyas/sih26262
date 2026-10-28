@@ -775,6 +775,15 @@ export interface DocCheckStaged {
 
 export interface UploadResult {
   document: DocumentRow;
+  classification?: {
+    status: string;
+    label: string | null;
+    candidates: string[];
+    agrees_with_declared: boolean | null;
+    needs_review: boolean;
+    note: string | null;
+    advisory_only: boolean;
+  };
   extraction: {
     simulated: boolean;
     warnings: string[];

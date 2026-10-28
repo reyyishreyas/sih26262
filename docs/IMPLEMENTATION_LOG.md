@@ -13,6 +13,9 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0074 | 2026-10-28 | Implementation | Hybrid PDF OCR, evidence retrieval and field search improvements | Tested | OCR/evidence UX; FR-38–FR-40, FR-48 | Codex |
+| DEC-0032 | 2026-10-28 | Decision | Uploaded-document extraction stays on configured local OCR path | Accepted | OCR safety; FR-39 | Codex |
+| BUG-0083 | 2026-10-28 | Bug | Normalised lease expiry evidence cited a parser label | Fixed | IMPL-0074 |
 | IMPL-0073 | 2026-10-28 | Implementation | Phase 9.5 console deadline change moves live alert timing | Tested | Phase 9.5; Demo step 10 | Codex |
 | DEC-0031 | 2026-10-28 | Decision | Operational policy edits are immutable snapshots requiring a different administrator; deadlines activate from DB versions | Accepted | Phase 9.4; FR-36/FR-50 | Codex |
 | IMPL-0072 | 2026-10-28 | Implementation | Phase 9.4 four-eyes policy configuration console | Tested | Phase 9.4; FR-36/FR-50 | Codex |
@@ -170,6 +173,26 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0074 — Hybrid PDF OCR, evidence retrieval and field search improvements
+- Date / agent / branch / commit: 2026-10-28 / Codex / master / pending.
+- Task and PRD IDs: OCR and evidence retrieval improvement; FR-38–FR-40, FR-48; local safety constraint in `AGENTS.md`.
+- What existed: searchable PDF pages were extracted, but the reader returned early when it found any text, so image-only pages inside a mixed PDF were omitted. Evidence panel had no search or review filter. Lease upload could be routed to the optional model extractor instead of the configured OCR adapter.
+- What changed: pypdf text is read page by page; missing/sparse pages alone are rendered and OCR’d, then merged in page order. OCR output is kept when it recovers more usable text. Lease agreement fields now use deterministic local parsing, including property address and common expiry labels. Extracted fields cite their matched source line; date aliases participate in line location. EvidencePanel searches document names/types and field values and can filter to low-confidence/unverified fields; upload OCR/classifier warnings are visible.
+- Files changed: `backend/app/adapters/ocr/real.py`, `backend/app/services/ocr_service.py`, `backend/app/services/validation_service.py`, `backend/tests/test_ai_copilot.py`, `backend/tests/test_document_extraction.py`, `backend/tests/test_ocr_dispatch.py`, `frontend/src/components/EvidencePanel.tsx`, `frontend/src/styles.css`, `frontend/src/types.ts`, `md/6_IMPLEMENTATION_PLAN.md`, `CONTEXT.md`.
+- Existing code reused: `RealOCRExtractor`, pypdf, pypdfium2/Tesseract OCR, existing `source_span`/bbox provenance, existing upload warning and `EvidencePanel` rendering.
+- API/schema/config/migrations: no API contract or model changes; no migration or dependency added.
+- Permission/audit effects: no permission or audit behavior changed. Uploaded files now consistently follow the configured local OCR adapter; document bytes are not opportunistically sent to the model extractor.
+- Verification: `make lint` → **All checks passed**; focused OCR/evidence tests → **24 passed, 1 upstream warning**; `make test` → **856 passed, 2 upstream warnings, 0 skipped in 148.20s**; `cd frontend && npm run build` → passed (63 modules; Vite production build); `git diff --check` → passed.
+- Limitations: OCR remains dependent on Tesseract availability; sparse-page threshold is a heuristic and only adds a review warning. OCR fields remain unverified until human review. This improves retrieval, not regulatory decisions.
+- Related bug/decision: BUG-0083; DEC-0032.
+- Next: manually review with synthetic hybrid and scanned PDFs in the browser; public master data and any external model use retain their existing approval gates.
+
+### DEC-0032 — Uploaded-document extraction stays on configured local OCR path
+- Date / author: 2026-10-28 / Codex.
+- Decision: regular upload extraction must use the configured OCR adapter for every document type. It must not opportunistically invoke the grounded external model extractor merely because an API key is configured.
+- Why: the repository forbids sending real institution documents to an external service without explicit approval, and a key's presence does not establish document provenance or consent. The adapter interface and optional vision path remain available for separately authorized workflows.
+- Status: Accepted for upload path; no regulatory interpretation or decision authority is introduced.
 
 ### IMPL-0073 — Phase 9.5 console deadline change moves live alert timing
 - Date / author / branch / commit: 2026-10-28 / Codex / master / pending.

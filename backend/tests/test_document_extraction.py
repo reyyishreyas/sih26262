@@ -66,6 +66,19 @@ def _scan_pdf(lines: list[str]) -> bytes:
     return buffer.getvalue()
 
 
+def _hybrid_pdf(text_page: bytes, scan_page: bytes) -> bytes:
+    """A two-page PDF with a searchable first page and an image-only second."""
+    from pypdf import PdfReader, PdfWriter
+
+    writer = PdfWriter()
+    for payload in (text_page, scan_page):
+        for page in PdfReader(BytesIO(payload)).pages:
+            writer.add_page(page)
+    output = BytesIO()
+    writer.write(output)
+    return output.getvalue()
+
+
 LEASE_LINES = [
     "REGISTERED LEASE DEED",
     "Lessor: Demo Land Holdings Private Limited",
@@ -107,6 +120,20 @@ def test_dates_are_normalised_to_iso_from_every_common_format():
         )
         found = [f.value for f in result.fields if f.field_name == "valid_to"]
         assert found == [expected], f"{line!r} produced {found}"
+
+
+def test_lease_parser_reads_property_address_and_common_expiry_label():
+    result = RealOCRExtractor().extract(
+        doc_type="lease_deed",
+        content=text_pdf([[
+            "Premises Address: 42 Synthetic Road, Demo City",
+            "Lease Expiry Date: 31 March 2028",
+        ]]),
+        file_name="lease.pdf",
+    )
+    values = {field.field_name: field.value for field in result.fields}
+    assert values["property_address"] == "42 Synthetic Road, Demo City"
+    assert values["valid_to"] == "2028-03-31"
 
 
 def test_an_impossible_date_is_dropped_rather_than_guessed():
@@ -171,6 +198,32 @@ def test_a_scanned_pdf_is_ocrd_page_by_page():
     assert values["valid_to"] == "2028-03-31"
     # The person is told the file was a scan, so they check extra carefully.
     assert any("read with OCR" in warning for warning in result.warnings)
+
+
+@requires_ocr
+def test_hybrid_pdf_reads_text_pages_and_ocr_only_the_scanned_pages():
+    searchable = text_pdf([[
+        "REGISTERED LEASE DEED",
+        "Lessee: Synthetic Digital Campus",
+        "Lessor: Demo Property Trust",
+    ]])
+    scanned = _scan_pdf([
+        "REGISTERED LEASE DEED",
+        "Valid To: 31 March 2028",
+    ])
+    result = RealOCRExtractor().extract(
+        doc_type="lease_deed",
+        content=_hybrid_pdf(searchable, scanned),
+        file_name="mixed-lease.pdf",
+    )
+    values = {field.field_name: field for field in result.fields}
+    assert values["lessee_name"].value == "Synthetic Digital Campus"
+    assert values["lessee_name"].source_page == 1
+    assert values["lessee_name"].engine == "pypdf"
+    assert values["valid_to"].value == "2028-03-31"
+    assert values["valid_to"].source_page == 2
+    assert values["valid_to"].engine == "tesseract"
+    assert len(result.page_texts) == 2
 
 
 def test_a_corrupt_pdf_is_a_warning_not_an_exception():
