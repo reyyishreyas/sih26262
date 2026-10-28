@@ -13,6 +13,7 @@
 ## Index (keep updated; one line per entry)
 | ID | Date | Type | Title | Status | Task / FR | Agent or author |
 |---|---|---|---|---|---|---|
+| IMPL-0084 | 2026-10-28 | Verification | Phase 11.3 Scenario C rehearsed: corrupt/unsupported/unreadable uploads fail honestly, no PASS, no contents in logs | Tested | Phase 11.3 | MiMo (OpenCode agent) |
 | IMPL-0083 | 2026-10-28 | Verification | Phase 11.2 Scenario B rehearsed: unauthenticated/other-institution/off-role denials and authorised pass, exactly as the RBAC matrix | Tested | Phase 11.2 | MiMo (OpenCode agent) |
 | IMPL-0082 | 2026-10-28 | Verification | Phase 11.1 Scenario A rehearsed end to end on the Compose stack | Tested | Phase 11.1 | MiMo (OpenCode agent) |
 | IMPL-0081 | 2026-10-28 | Documentation | Phase 10.5: CONTEXT build order and README status table updated through Phase 10 | Tested | Phase 10.5 | MiMo (OpenCode agent) |
@@ -185,6 +186,20 @@
 ```
 
 ## Entries (newest first)
+
+### IMPL-0084 — Phase 11.3 Scenario C rehearsed (processing failure)
+- Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
+- Task and PRD IDs: Phase 11.3 (plan line 137) — corrupt/unsupported/unreadable uploads on the Compose stack (fresh seed).
+- Observed:
+  1. **Empty file claiming `application/pdf`** → HTTP 415 "empty file" (upload refuses before any scan).
+  2. **`text/plain` upload** → HTTP 415 "content type 'text/plain' is not allowed".
+  3. **Truncated PDF** (`%PDF-1.4` header, no xref) → HTTP 201, document `processed` with **0 fields** — the honest degraded read. A compliance re-evaluation after it returns `LEASE_DATE_CONSISTENCY: NOT_EVALUATED` and `LEASE_VALID_COVERS_PERIOD: NOT_EVALUATED`, `LEASE_ISSUING_AUTHORITY: FAIL` (missing-outcome rule): an unreadable document can never produce a PASS.
+  4. **No file contents in logs**: `docker compose logs api | grep -c` for the truncated payload's distinctive bytes → **0**; audit events for the cycle are action records (`document.extraction_started/completed`, `document.uploaded`, `document.replaced`), matching the Phase 8 tests that assert contents are never written.
+  5. **OCR unavailable**: not forceable on this stack without breaking the container's Tesseract; the exact failure path (failure recorded, upload not stored, no crash) is pinned by `test_document_extraction.py::test_extraction_failure_is_recorded_without_storing_the_upload` — recorded as test-proved rather than fake-demonstrated.
+- State hygiene: `make reset` afterwards (the truncated upload had become app-main-0001's latest lease); final state clean seed, `/health` `app_rw` ok.
+- Code/config changes: none.
+- Related: IMPL-0083, IMPL-0082.
+- Next: Phase 11.4 — Scenario D (deadline/audit rehearsal).
 
 ### IMPL-0083 — Phase 11.2 Scenario B rehearsed (access control)
 - Date / agent / branch / commit: 2026-10-28 / MiMo (OpenCode agent) / master / pending (docs commit).
