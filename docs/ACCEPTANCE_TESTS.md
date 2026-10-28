@@ -3,7 +3,7 @@
 ```bash
 cd backend
 ../.venv/bin/python -m pytest -q
-# 858 passed (2026-10-28; see `make test` in CONTEXT.md for the current count)
+# 858 passed (2026-10-28; re-run `make test` for the current count)
 ```
 
 Pytest fixtures (`tests/conftest.py`) use a fixed clock
