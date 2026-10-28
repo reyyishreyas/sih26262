@@ -3,6 +3,9 @@
     <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
       <path d="M 0 0 L 10 5 L 0 10 z" fill="#64748b"/>
     </marker>
+    <marker id="arrGreen" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto-start-reverse">
+      <path d="M 0 0 L 10 5 L 0 10 z" fill="#059669"/>
+    </marker>
   </defs>
 
   <rect x="0" y="0" width="1180" height="810" fill="#ffffff"/>
@@ -10,7 +13,7 @@
   <text x="590" y="38" text-anchor="middle" font-size="22" font-weight="700" fill="#0f172a">AICTE Approval Workflow and Compliance Platform — System Architecture</text>
   <text x="590" y="60" text-anchor="middle" font-size="13" fill="#64748b">SIH 2026 · Problem Statement 26262 · rules and document flow modelled on the Approval Process Handbook 2024-27</text>
 
-  <!-- Presentation layer -->
+  <!-- ============ PRESENTATION ============ -->
   <rect x="70" y="88" width="1040" height="112" rx="10" fill="#f8fafc" stroke="#cbd5e1"/>
   <text x="90" y="110" font-size="11" font-weight="700" fill="#94a3b8" letter-spacing="1">PRESENTATION</text>
   <rect x="100" y="122" width="290" height="58" rx="8" fill="#e0f2fe" stroke="#7dd3fc"/>
@@ -27,10 +30,10 @@
   </g>
   <text x="110" y="196" font-size="12" fill="#64748b">role-based views; every list and number is scoped server-side</text>
 
-  <line x1="590" y1="200" x2="590" y2="224" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr)"/>
-  <text x="602" y="219" font-size="11" fill="#64748b">HTTPS · JWT</text>
+  <line x1="590" y1="200" x2="590" y2="222" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="602" y="217" font-size="11" fill="#64748b">HTTPS · JWT</text>
 
-  <!-- Security strip -->
+  <!-- ============ SECURITY ============ -->
   <rect x="70" y="228" width="1040" height="46" rx="10" fill="#fff7ed" stroke="#fdba74"/>
   <text x="90" y="248" font-size="11" font-weight="700" fill="#c2410c" letter-spacing="1">SECURITY</text>
   <g font-size="12" fill="#7c2d12" text-anchor="middle">
@@ -39,52 +42,53 @@
     <rect x="780" y="238" width="290" height="26" rx="13" fill="#ffffff" stroke="#fdba74"/><text x="925" y="255">hash-chained audit of accepted and rejected actions</text>
   </g>
 
-  <line x1="590" y1="274" x2="590" y2="298" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="590" y1="274" x2="590" y2="296" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr)"/>
 
-  <!-- Application band -->
+  <!-- ============ APPLICATION ============ -->
   <rect x="70" y="302" width="1040" height="262" rx="10" fill="#eef2ff" stroke="#a5b4fc"/>
   <text x="90" y="324" font-size="11" font-weight="700" fill="#4338ca" letter-spacing="1">APPLICATION — FastAPI (Python 3.10+)</text>
 
-  <rect x="100" y="346" width="185" height="84" rx="8" fill="#ffffff" stroke="#818cf8"/>
-  <text x="192" y="376" text-anchor="middle" font-size="13" font-weight="700" fill="#312e81">API routers</text>
-  <text x="192" y="396" text-anchor="middle" font-size="11" fill="#4338ca">auth · applications · documents</text>
-  <text x="192" y="412" text-anchor="middle" font-size="11" fill="#4338ca">alerts · audit · dashboards · admin</text>
+  <rect x="100" y="356" width="185" height="84" rx="8" fill="#ffffff" stroke="#818cf8"/>
+  <text x="192" y="386" text-anchor="middle" font-size="13" font-weight="700" fill="#312e81">API routers</text>
+  <text x="192" y="406" text-anchor="middle" font-size="11" fill="#4338ca">auth · applications · documents</text>
+  <text x="192" y="422" text-anchor="middle" font-size="11" fill="#4338ca">alerts · audit · dashboards · admin</text>
 
-  <line x1="285" y1="388" x2="330" y2="388" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr)"/>
+  <line x1="285" y1="398" x2="330" y2="398" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr)"/>
 
-  <rect x="334" y="332" width="470" height="216" rx="8" fill="#f5f7ff" stroke="#a5b4fc" stroke-dasharray="5 4"/>
+  <!-- services (dashed group) -->
+  <rect x="334" y="346" width="470" height="200" rx="8" fill="#f5f7ff" stroke="#a5b4fc" stroke-dasharray="5 4"/>
   <g font-size="12" text-anchor="middle">
-    <rect x="350" y="348" width="142" height="52" rx="6" fill="#ffffff" stroke="#818cf8"/>
-    <text x="421" y="369" font-weight="700" fill="#312e81">Workflow engine</text>
-    <text x="421" y="386" fill="#4338ca" font-size="11">stage routes · guards</text>
+    <rect x="350" y="362" width="142" height="52" rx="6" fill="#ffffff" stroke="#818cf8"/>
+    <text x="421" y="383" font-weight="700" fill="#312e81">Workflow engine</text>
+    <text x="421" y="400" fill="#4338ca" font-size="11">stage routes · guards</text>
 
-    <rect x="502" y="348" width="142" height="52" rx="6" fill="#ffffff" stroke="#818cf8"/>
-    <text x="573" y="369" font-weight="700" fill="#312e81">Rule engine</text>
-    <text x="573" y="386" fill="#4338ca" font-size="11">three-valued outcomes</text>
+    <rect x="502" y="362" width="142" height="52" rx="6" fill="#ffffff" stroke="#818cf8"/>
+    <text x="573" y="383" font-weight="700" fill="#312e81">Rule engine</text>
+    <text x="573" y="400" fill="#4338ca" font-size="11">three-valued outcomes</text>
 
-    <rect x="654" y="348" width="142" height="52" rx="6" fill="#ffffff" stroke="#818cf8"/>
-    <text x="725" y="369" font-weight="700" fill="#312e81">Evidence service</text>
-    <text x="725" y="386" fill="#4338ca" font-size="11">human verification</text>
+    <rect x="654" y="362" width="142" height="52" rx="6" fill="#ffffff" stroke="#818cf8"/>
+    <text x="725" y="383" font-weight="700" fill="#312e81">Evidence service</text>
+    <text x="725" y="400" fill="#4338ca" font-size="11">human verification</text>
 
-    <rect x="350" y="430" width="142" height="52" rx="6" fill="#ffffff" stroke="#818cf8"/>
-    <text x="421" y="451" font-weight="700" fill="#312e81">Deadlines + alerts</text>
-    <text x="421" y="468" fill="#4338ca" font-size="11">reminders · escalation</text>
+    <rect x="350" y="434" width="142" height="52" rx="6" fill="#ffffff" stroke="#818cf8"/>
+    <text x="421" y="455" font-weight="700" fill="#312e81">Deadlines + alerts</text>
+    <text x="421" y="472" fill="#4338ca" font-size="11">reminders · escalation</text>
 
-    <rect x="502" y="430" width="142" height="52" rx="6" fill="#ffffff" stroke="#818cf8"/>
-    <text x="573" y="451" font-weight="700" fill="#312e81">Reports + dashboards</text>
-    <text x="573" y="468" fill="#4338ca" font-size="11">PDF / CSV exports</text>
+    <rect x="502" y="434" width="142" height="52" rx="6" fill="#ffffff" stroke="#818cf8"/>
+    <text x="573" y="455" font-weight="700" fill="#312e81">Reports + dashboards</text>
+    <text x="573" y="472" fill="#4338ca" font-size="11">PDF / CSV exports</text>
 
-    <rect x="654" y="430" width="142" height="52" rx="6" fill="#fefce8" stroke="#ca8a04"/>
-    <text x="725" y="451" font-weight="700" fill="#713f12">Rehearsal engine</text>
-    <text x="725" y="468" fill="#a16207" font-size="11">crash-test, sandbox</text>
+    <rect x="654" y="434" width="142" height="52" rx="6" fill="#fefce8" stroke="#ca8a04"/>
+    <text x="725" y="455" font-weight="700" fill="#713f12">Rehearsal engine</text>
+    <text x="725" y="472" fill="#a16207" font-size="11">crash-test, sandbox</text>
 
-    <rect x="350" y="500" width="142" height="40" rx="6" fill="#ffffff" stroke="#818cf8"/>
-    <text x="421" y="516" font-weight="700" fill="#312e81" font-size="12">Audit service</text>
-    <text x="421" y="531" fill="#4338ca" font-size="11">SHA-256 chain</text>
+    <rect x="350" y="506" width="220" height="32" rx="6" fill="#ffffff" stroke="#818cf8"/>
+    <text x="460" y="518" font-weight="700" fill="#312e81" font-size="12">Audit service</text>
+    <text x="460" y="532" fill="#4338ca" font-size="10">SHA-256 chain</text>
 
-    <rect x="654" y="500" width="142" height="40" rx="6" fill="#ffffff" stroke="#818cf8"/>
-    <text x="725" y="516" font-weight="700" fill="#312e81" font-size="12">Scheduler worker</text>
-    <text x="725" y="531" fill="#4338ca" font-size="11">persistent sweeps</text>
+    <rect x="580" y="506" width="216" height="32" rx="6" fill="#ffffff" stroke="#818cf8"/>
+    <text x="688" y="518" font-weight="700" fill="#312e81" font-size="12">Scheduler worker</text>
+    <text x="688" y="532" fill="#4338ca" font-size="10">persistent sweeps</text>
   </g>
 
   <!-- Rules as data -->
@@ -93,54 +97,60 @@
   <text x="192" y="494" text-anchor="middle" font-size="11" fill="#047857">workflow_routes.json</text>
   <text x="192" y="510" text-anchor="middle" font-size="11" fill="#047857">compliance_rules.json</text>
   <text x="192" y="526" text-anchor="middle" font-size="11" fill="#047857">deadline_policy.json</text>
-  <line x1="285" y1="500" x2="346" y2="485" stroke="#059669" stroke-width="1.6" marker-end="url(#arr)"/>
-  <text x="190" y="556" text-anchor="middle" font-size="11" fill="#047857">versioned · no hardcoded policy</text>
+
+  <path d="M 285 470 L 310 470 L 310 336 L 573 336 L 573 352" fill="none" stroke="#059669" stroke-width="1.6" marker-end="url(#arrGreen)"/>
+  <text x="585" y="320" text-anchor="start" font-size="11" fill="#047857">the rule engine evaluates only approved, versioned rules</text>
 
   <!-- Adapters -->
-  <rect x="830" y="346" width="258" height="202" rx="8" fill="#faf5ff" stroke="#c084fc"/>
+  <rect x="830" y="346" width="258" height="200" rx="8" fill="#faf5ff" stroke="#c084fc"/>
   <text x="959" y="368" text-anchor="middle" font-size="13" font-weight="700" fill="#581c87">Adapters (mock by default)</text>
   <g font-size="11.5" fill="#6b21a8" text-anchor="middle">
-    <rect x="848" y="382" width="222" height="34" rx="6" fill="#ffffff" stroke="#c084fc"/>
-    <text x="959" y="398">OCR: pypdf text layer</text><text x="959" y="412">+ Tesseract for scans</text>
-    <rect x="848" y="428" width="222" height="34" rx="6" fill="#ffffff" stroke="#c084fc"/>
-    <text x="959" y="444">LLM: Gemini lease parser</text><text x="959" y="458">(optional key, else deterministic)</text>
-    <rect x="848" y="474" width="222" height="34" rx="6" fill="#ffffff" stroke="#c084fc"/>
-    <text x="959" y="490">Notifier: file-log mock</text><text x="959" y="504">(email/SMS in future scope)</text>
+    <rect x="848" y="380" width="222" height="38" rx="6" fill="#ffffff" stroke="#c084fc"/>
+    <text x="959" y="396">OCR: pypdf text layer</text><text x="959" y="410">+ Tesseract for scans</text>
+    <rect x="848" y="430" width="222" height="38" rx="6" fill="#ffffff" stroke="#c084fc"/>
+    <text x="959" y="446">LLM: Gemini lease parser</text><text x="959" y="460">(optional key, else deterministic)</text>
+    <rect x="848" y="480" width="222" height="38" rx="6" fill="#ffffff" stroke="#c084fc"/>
+    <text x="959" y="496">Notifier: file-log mock</text><text x="959" y="510">(email/SMS in future scope)</text>
   </g>
-  <text x="959" y="536" text-anchor="middle" font-size="11" fill="#7e22ce">extraction proposes — it never decides</text>
+  <text x="959" y="538" text-anchor="middle" font-size="11" fill="#7e22ce">extraction proposes — it never decides</text>
 
-  <line x1="590" y1="564" x2="590" y2="588" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr)"/>
+  <!-- band transitions -->
+  <line x1="250" y1="566" x2="250" y2="590" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="262" y="583" font-size="11" fill="#64748b">operational data — app_rw</text>
+  <line x1="940" y1="566" x2="940" y2="590" stroke="#a16207" stroke-width="1.6" marker-end="url(#arr)"/>
+  <text x="928" y="583" text-anchor="end" font-size="11" fill="#a16207">rehearsal reads + results — sim roles</text>
 
-  <!-- Data band -->
+  <!-- ============ DATA ============ -->
   <rect x="70" y="592" width="1040" height="152" rx="10" fill="#f0fdf4" stroke="#86efac"/>
   <text x="90" y="614" font-size="11" font-weight="700" fill="#15803d" letter-spacing="1">DATA — PostgreSQL 16 (SQLite for quick start and tests) · least-privilege roles</text>
 
-  <g font-size="12" text-anchor="middle">
-    <rect x="100" y="628" width="250" height="42" rx="6" fill="#ffffff" stroke="#4ade80"/>
-    <text x="225" y="646" font-weight="700" fill="#14532d" font-size="12">sih_migrator · app_rw</text>
-    <text x="225" y="662" fill="#166534" font-size="11">schema owner · API + worker</text>
-    <rect x="100" y="682" width="250" height="42" rx="6" fill="#ffffff" stroke="#4ade80"/>
-    <text x="225" y="700" font-weight="700" fill="#14532d" font-size="12">sim_prod_ro · sim_results_rw</text>
-    <text x="225" y="716" fill="#166534" font-size="11">rehearsal reads · rehearsal writes</text>
+  <g text-anchor="middle">
+    <rect x="100" y="654" width="180" height="52" rx="8" fill="#ffffff" stroke="#4ade80"/>
+    <text x="190" y="674" font-weight="700" fill="#14532d" font-size="12">sih_migrator · app_rw</text>
+    <text x="190" y="690" fill="#166534" font-size="10.5">schema owner · API + worker</text>
 
-    <rect x="700" y="628" width="230" height="96" rx="8" fill="#ffffff" stroke="#4ade80"/>
-    <text x="815" y="652" font-weight="700" fill="#14532d" font-size="12.5">public schema</text>
-    <text x="815" y="670" fill="#166534" font-size="11">operational case data +</text>
-    <text x="815" y="686" fill="#166534" font-size="11">tamper-evident audit chain</text>
-    <text x="815" y="702" fill="#166534" font-size="11">app_rw has no sim access</text>
+    <line x1="282" y1="680" x2="326" y2="680" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr)"/>
 
-    <rect x="950" y="628" width="138" height="96" rx="8" fill="#fefce8" stroke="#ca8a04"/>
-    <text x="1019" y="652" font-weight="700" fill="#713f12" font-size="12.5">sim schema</text>
-    <text x="1019" y="670" fill="#a16207" font-size="11">rehearsal sandbox</text>
-    <text x="1019" y="686" fill="#a16207" font-size="11">real case data</text>
-    <text x="1019" y="702" fill="#a16207" font-size="11">never written to</text>
+    <rect x="330" y="630" width="300" height="100" rx="8" fill="#ffffff" stroke="#4ade80"/>
+    <text x="480" y="656" font-weight="700" fill="#14532d" font-size="12.5">public schema — operational data</text>
+    <text x="480" y="678" fill="#166534" font-size="11">cases, findings, undertakings, alerts</text>
+    <text x="480" y="696" fill="#166534" font-size="11">tamper-evident SHA-256 audit chain</text>
+    <text x="480" y="714" fill="#166534" font-size="11">no rehearsal access for app_rw</text>
+
+    <rect x="660" y="654" width="180" height="52" rx="8" fill="#ffffff" stroke="#4ade80"/>
+    <text x="750" y="674" font-weight="700" fill="#14532d" font-size="12">sim_prod_ro · sim_results_rw</text>
+    <text x="750" y="690" fill="#166534" font-size="10.5">rehearsal roles only</text>
+
+    <line x1="842" y1="680" x2="886" y2="680" stroke="#64748b" stroke-width="1.6" marker-end="url(#arr)"/>
+
+    <rect x="890" y="630" width="220" height="100" rx="8" fill="#fefce8" stroke="#ca8a04"/>
+    <text x="1000" y="656" font-weight="700" fill="#713f12" font-size="12.5">sim schema — rehearsal</text>
+    <text x="1000" y="678" fill="#a16207" font-size="11">isolated crash-test sandbox</text>
+    <text x="1000" y="696" fill="#a16207" font-size="11">reads the public baseline,</text>
+    <text x="1000" y="714" fill="#a16207" font-size="11">writes only its own results</text>
   </g>
 
-  <line x1="350" y1="649" x2="696" y2="668" stroke="#64748b" stroke-width="1.4" marker-end="url(#arr)"/>
-  <line x1="600" y1="560" x2="610" y2="624" stroke="#64748b" stroke-width="1.4"/>
-  <line x1="725" y1="566" x2="985" y2="626" stroke="#a16207" stroke-width="1.4" stroke-dasharray="4 3"/>
-
-  <!-- Human oversight footer -->
+  <!-- ============ HUMAN OVERSIGHT ============ -->
   <rect x="70" y="756" width="1040" height="40" rx="8" fill="#f1f5f9" stroke="#cbd5e1"/>
   <text x="590" y="773" text-anchor="middle" font-size="12.5" font-weight="700" fill="#0f172a">Human oversight — AI extracts and explains evidence; officers verify it, and only authorized officials take real decisions.</text>
   <text x="590" y="789" text-anchor="middle" font-size="11" fill="#64748b">Stage routes, undertakings, deadlines and the document flow follow the official Approval Process Handbook 2024-27 (AICTE).</text>
